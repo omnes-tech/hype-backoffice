@@ -9,50 +9,135 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './screens/__root'
-import { Route as IndexRouteImport } from './screens/index'
+import { Route as publicLayoutRouteImport } from './screens/(public)/_layout'
+import { Route as privateIndexRouteImport } from './screens/(private)/index'
+import { Route as publicSignUpRouteImport } from './screens/(public)/sign-up'
+import { Route as publicSignInRouteImport } from './screens/(public)/sign-in'
+import { Route as publicForgotPasswordRouteImport } from './screens/(public)/forgot-password'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
+const publicLayoutRoute = publicLayoutRouteImport.update({
+  id: '/(public)',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const privateIndexRoute = privateIndexRouteImport.update({
+  id: '/(private)/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const publicSignUpRoute = publicSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => publicLayoutRoute,
+} as any)
+const publicSignInRoute = publicSignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => publicLayoutRoute,
+} as any)
+const publicForgotPasswordRoute = publicForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => publicLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/forgot-password': typeof publicForgotPasswordRoute
+  '/sign-in': typeof publicSignInRoute
+  '/sign-up': typeof publicSignUpRoute
+  '/': typeof privateIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/forgot-password': typeof publicForgotPasswordRoute
+  '/sign-in': typeof publicSignInRoute
+  '/sign-up': typeof publicSignUpRoute
+  '/': typeof privateIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/(public)': typeof publicLayoutRouteWithChildren
+  '/(public)/forgot-password': typeof publicForgotPasswordRoute
+  '/(public)/sign-in': typeof publicSignInRoute
+  '/(public)/sign-up': typeof publicSignUpRoute
+  '/(private)/': typeof privateIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/forgot-password' | '/sign-in' | '/sign-up' | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/forgot-password' | '/sign-in' | '/sign-up' | '/'
+  id:
+    | '__root__'
+    | '/(public)'
+    | '/(public)/forgot-password'
+    | '/(public)/sign-in'
+    | '/(public)/sign-up'
+    | '/(private)/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  publicLayoutRoute: typeof publicLayoutRouteWithChildren
+  privateIndexRoute: typeof privateIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/(public)': {
+      id: '/(public)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof publicLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(private)/': {
+      id: '/(private)/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof privateIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/(public)/sign-up': {
+      id: '/(public)/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof publicSignUpRouteImport
+      parentRoute: typeof publicLayoutRoute
+    }
+    '/(public)/sign-in': {
+      id: '/(public)/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof publicSignInRouteImport
+      parentRoute: typeof publicLayoutRoute
+    }
+    '/(public)/forgot-password': {
+      id: '/(public)/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof publicForgotPasswordRouteImport
+      parentRoute: typeof publicLayoutRoute
     }
   }
 }
 
+interface publicLayoutRouteChildren {
+  publicForgotPasswordRoute: typeof publicForgotPasswordRoute
+  publicSignInRoute: typeof publicSignInRoute
+  publicSignUpRoute: typeof publicSignUpRoute
+}
+
+const publicLayoutRouteChildren: publicLayoutRouteChildren = {
+  publicForgotPasswordRoute: publicForgotPasswordRoute,
+  publicSignInRoute: publicSignInRoute,
+  publicSignUpRoute: publicSignUpRoute,
+}
+
+const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
+  publicLayoutRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  publicLayoutRoute: publicLayoutRouteWithChildren,
+  privateIndexRoute: privateIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
