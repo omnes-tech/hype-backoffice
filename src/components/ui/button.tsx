@@ -15,11 +15,16 @@ const variantStyles = {
 export function Button({
   children,
   variant = "default",
+  className,
   ...props
 }: ButtonProps) {
   return (
     <button
-      className={clsx("w-full h-11 rounded-3xl", variantStyles[variant])}
+      className={clsx(
+        "w-full h-11 rounded-3xl flex items-center justify-center gap-2 px-6",
+        variantStyles[variant],
+        className
+      )}
       {...props}
     >
       {children}
