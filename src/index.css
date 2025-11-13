@@ -54,9 +54,9 @@
   --color-danger-100: #fee2e2;
   --color-danger-50: #fef2f2;
 
-  --color-warning-400: ##facc15;
-  --color-warning-200: ##fef08a;
-  --color-warning-50: ##fefce8;
+  --color-warning-400: #facc15;
+  --color-warning-200: #fef08a;
+  --color-warning-50: #fefce8;
 }
 
 @layer base {

@@ -10,18 +10,19 @@
 
 import { Route as rootRouteImport } from './screens/__root'
 import { Route as publicLayoutRouteImport } from './screens/(public)/_layout'
-import { Route as privateIndexRouteImport } from './screens/(private)/index'
+import { Route as privateLayoutRouteImport } from './screens/(private)/_layout'
 import { Route as publicSignUpRouteImport } from './screens/(public)/sign-up'
 import { Route as publicSignInRouteImport } from './screens/(public)/sign-in'
 import { Route as publicForgotPasswordRouteImport } from './screens/(public)/forgot-password'
+import { Route as privateOnboardingIndexRouteImport } from './screens/(private)/onboarding/index'
+import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/index'
 
 const publicLayoutRoute = publicLayoutRouteImport.update({
   id: '/(public)',
   getParentRoute: () => rootRouteImport,
 } as any)
-const privateIndexRoute = privateIndexRouteImport.update({
-  id: '/(private)/',
-  path: '/',
+const privateLayoutRoute = privateLayoutRouteImport.update({
+  id: '/(private)',
   getParentRoute: () => rootRouteImport,
 } as any)
 const publicSignUpRoute = publicSignUpRouteImport.update({
@@ -39,44 +40,60 @@ const publicForgotPasswordRoute = publicForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => publicLayoutRoute,
 } as any)
+const privateOnboardingIndexRoute = privateOnboardingIndexRouteImport.update({
+  id: '/onboarding/',
+  path: '/onboarding/',
+  getParentRoute: () => privateLayoutRoute,
+} as any)
+const privateappIndexRoute = privateappIndexRouteImport.update({
+  id: '/(app)/',
+  path: '/',
+  getParentRoute: () => privateLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
-  '/': typeof privateIndexRoute
+  '/': typeof privateappIndexRoute
+  '/onboarding': typeof privateOnboardingIndexRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
-  '/': typeof privateIndexRoute
+  '/': typeof privateappIndexRoute
+  '/onboarding': typeof privateOnboardingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/(private)': typeof privateLayoutRouteWithChildren
   '/(public)': typeof publicLayoutRouteWithChildren
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
-  '/(private)/': typeof privateIndexRoute
+  '/(private)/(app)/': typeof privateappIndexRoute
+  '/(private)/onboarding/': typeof privateOnboardingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/forgot-password' | '/sign-in' | '/sign-up' | '/'
+  fullPaths: '/forgot-password' | '/sign-in' | '/sign-up' | '/' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/forgot-password' | '/sign-in' | '/sign-up' | '/'
+  to: '/forgot-password' | '/sign-in' | '/sign-up' | '/' | '/onboarding'
   id:
     | '__root__'
+    | '/(private)'
     | '/(public)'
     | '/(public)/forgot-password'
     | '/(public)/sign-in'
     | '/(public)/sign-up'
-    | '/(private)/'
+    | '/(private)/(app)/'
+    | '/(private)/onboarding/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  privateLayoutRoute: typeof privateLayoutRouteWithChildren
   publicLayoutRoute: typeof publicLayoutRouteWithChildren
-  privateIndexRoute: typeof privateIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -88,11 +105,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof publicLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(private)/': {
-      id: '/(private)/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof privateIndexRouteImport
+    '/(private)': {
+      id: '/(private)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof privateLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(public)/sign-up': {
@@ -116,8 +133,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof publicForgotPasswordRouteImport
       parentRoute: typeof publicLayoutRoute
     }
+    '/(private)/onboarding/': {
+      id: '/(private)/onboarding/'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof privateOnboardingIndexRouteImport
+      parentRoute: typeof privateLayoutRoute
+    }
+    '/(private)/(app)/': {
+      id: '/(private)/(app)/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof privateappIndexRouteImport
+      parentRoute: typeof privateLayoutRoute
+    }
   }
 }
+
+interface privateLayoutRouteChildren {
+  privateappIndexRoute: typeof privateappIndexRoute
+  privateOnboardingIndexRoute: typeof privateOnboardingIndexRoute
+}
+
+const privateLayoutRouteChildren: privateLayoutRouteChildren = {
+  privateappIndexRoute: privateappIndexRoute,
+  privateOnboardingIndexRoute: privateOnboardingIndexRoute,
+}
+
+const privateLayoutRouteWithChildren = privateLayoutRoute._addFileChildren(
+  privateLayoutRouteChildren,
+)
 
 interface publicLayoutRouteChildren {
   publicForgotPasswordRoute: typeof publicForgotPasswordRoute
@@ -136,8 +181,8 @@ const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  privateLayoutRoute: privateLayoutRouteWithChildren,
   publicLayoutRoute: publicLayoutRouteWithChildren,
-  privateIndexRoute: privateIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
