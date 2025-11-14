@@ -41,15 +41,14 @@ function RouteComponent() {
 
   const getCurrentStep = () => {
     const pathname = location.pathname;
-    if (pathname === "/onboarding" || pathname === "/onboarding/") return 1;
-    if (pathname.includes("/create-workspace")) return 2;
-    if (pathname.includes("/welcome")) return 3;
-    return 1;
+    if (pathname === "/onboarding") return 1;
+    if (pathname === "/onboarding/verify-phone") return 2;
+    if (pathname === "/onboarding/create-workspace") return 3;
   };
 
   const currentStep = getCurrentStep();
   const totalSteps = 3;
-  const progressPercentage = (currentStep / totalSteps) * 100;
+  const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
 
   return (
     <div className="w-full min-h-screen bg-neutral-50 flex flex-col">
@@ -78,17 +77,19 @@ function RouteComponent() {
       </header>
 
       <div className="w-full flex-1 flex flex-col items-center justify-center">
-        <main className="flex-1 flex items-center justify-center">
+        <main className="w-full flex-1 flex items-center justify-center">
           <Outlet />
         </main>
 
-        <footer className="w-full max-w-md pb-8 shrink-0">
-          <Step
-            progressPercentage={progressPercentage}
-            currentStep={currentStep}
-            totalSteps={totalSteps}
-          />
-        </footer>
+        {currentStep && currentStep <= totalSteps && (
+          <footer className="w-full max-w-md pb-8 shrink-0">
+            <Step
+              progressPercentage={progressPercentage}
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+            />
+          </footer>
+        )}
       </div>
     </div>
   );

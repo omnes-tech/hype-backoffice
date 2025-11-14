@@ -1,6 +1,10 @@
 import { getApiUrl, getAuthToken } from "@/lib/utils/api";
 import type { User } from "../types";
 
+interface UpdatePhoneData {
+  phone: string;
+}
+
 interface VerifyPhoneData {
   phone: string;
   code: string;
@@ -27,7 +31,7 @@ export async function getCurrentUser(): Promise<User> {
   return response.data;
 }
 
-export async function updatePhone(phone: string): Promise<void> {
+export async function updatePhone(data: UpdatePhoneData): Promise<void> {
   const request = await fetch(getApiUrl("/me/phone"), {
     method: "POST",
     headers: {
@@ -36,7 +40,7 @@ export async function updatePhone(phone: string): Promise<void> {
       "Client-Type": "backoffice",
       Authorization: `Bearer ${getAuthToken()}`,
     },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify(data),
   });
 
   if (!request.ok) {

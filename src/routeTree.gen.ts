@@ -17,6 +17,9 @@ import { Route as publicForgotPasswordRouteImport } from './screens/(public)/for
 import { Route as privateOnboardingLayoutRouteImport } from './screens/(private)/onboarding/_layout'
 import { Route as privateOnboardingIndexRouteImport } from './screens/(private)/onboarding/index'
 import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/index'
+import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private)/onboarding/welcome'
+import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
+import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
 
 const publicLayoutRoute = publicLayoutRouteImport.update({
   id: '/(public)',
@@ -56,12 +59,33 @@ const privateappIndexRoute = privateappIndexRouteImport.update({
   path: '/',
   getParentRoute: () => privateLayoutRoute,
 } as any)
+const privateOnboardingWelcomeRoute =
+  privateOnboardingWelcomeRouteImport.update({
+    id: '/welcome',
+    path: '/welcome',
+    getParentRoute: () => privateOnboardingLayoutRoute,
+  } as any)
+const privateOnboardingVerifyPhoneRoute =
+  privateOnboardingVerifyPhoneRouteImport.update({
+    id: '/verify-phone',
+    path: '/verify-phone',
+    getParentRoute: () => privateOnboardingLayoutRoute,
+  } as any)
+const privateOnboardingCreateWorkspaceRoute =
+  privateOnboardingCreateWorkspaceRouteImport.update({
+    id: '/create-workspace',
+    path: '/create-workspace',
+    getParentRoute: () => privateOnboardingLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
+  '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
+  '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
+  '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding/': typeof privateOnboardingIndexRoute
 }
@@ -69,6 +93,9 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
+  '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
+  '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
+  '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding': typeof privateOnboardingIndexRoute
 }
@@ -80,6 +107,9 @@ export interface FileRoutesById {
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
+  '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
+  '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
+  '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/(private)/(app)/': typeof privateappIndexRoute
   '/(private)/onboarding/': typeof privateOnboardingIndexRoute
 }
@@ -90,10 +120,21 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/sign-in'
     | '/sign-up'
+    | '/onboarding/create-workspace'
+    | '/onboarding/verify-phone'
+    | '/onboarding/welcome'
     | '/'
     | '/onboarding/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/forgot-password' | '/sign-in' | '/sign-up' | '/' | '/onboarding'
+  to:
+    | '/forgot-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/onboarding/create-workspace'
+    | '/onboarding/verify-phone'
+    | '/onboarding/welcome'
+    | '/'
+    | '/onboarding'
   id:
     | '__root__'
     | '/(private)'
@@ -102,6 +143,9 @@ export interface FileRouteTypes {
     | '/(public)/forgot-password'
     | '/(public)/sign-in'
     | '/(public)/sign-up'
+    | '/(private)/onboarding/create-workspace'
+    | '/(private)/onboarding/verify-phone'
+    | '/(private)/onboarding/welcome'
     | '/(private)/(app)/'
     | '/(private)/onboarding/'
   fileRoutesById: FileRoutesById
@@ -169,15 +213,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateappIndexRouteImport
       parentRoute: typeof privateLayoutRoute
     }
+    '/(private)/onboarding/welcome': {
+      id: '/(private)/onboarding/welcome'
+      path: '/welcome'
+      fullPath: '/onboarding/welcome'
+      preLoaderRoute: typeof privateOnboardingWelcomeRouteImport
+      parentRoute: typeof privateOnboardingLayoutRoute
+    }
+    '/(private)/onboarding/verify-phone': {
+      id: '/(private)/onboarding/verify-phone'
+      path: '/verify-phone'
+      fullPath: '/onboarding/verify-phone'
+      preLoaderRoute: typeof privateOnboardingVerifyPhoneRouteImport
+      parentRoute: typeof privateOnboardingLayoutRoute
+    }
+    '/(private)/onboarding/create-workspace': {
+      id: '/(private)/onboarding/create-workspace'
+      path: '/create-workspace'
+      fullPath: '/onboarding/create-workspace'
+      preLoaderRoute: typeof privateOnboardingCreateWorkspaceRouteImport
+      parentRoute: typeof privateOnboardingLayoutRoute
+    }
   }
 }
 
 interface privateOnboardingLayoutRouteChildren {
+  privateOnboardingCreateWorkspaceRoute: typeof privateOnboardingCreateWorkspaceRoute
+  privateOnboardingVerifyPhoneRoute: typeof privateOnboardingVerifyPhoneRoute
+  privateOnboardingWelcomeRoute: typeof privateOnboardingWelcomeRoute
   privateOnboardingIndexRoute: typeof privateOnboardingIndexRoute
 }
 
 const privateOnboardingLayoutRouteChildren: privateOnboardingLayoutRouteChildren =
   {
+    privateOnboardingCreateWorkspaceRoute:
+      privateOnboardingCreateWorkspaceRoute,
+    privateOnboardingVerifyPhoneRoute: privateOnboardingVerifyPhoneRoute,
+    privateOnboardingWelcomeRoute: privateOnboardingWelcomeRoute,
     privateOnboardingIndexRoute: privateOnboardingIndexRoute,
   }
 
