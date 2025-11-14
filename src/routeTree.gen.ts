@@ -15,11 +15,13 @@ import { Route as publicSignUpRouteImport } from './screens/(public)/sign-up'
 import { Route as publicSignInRouteImport } from './screens/(public)/sign-in'
 import { Route as publicForgotPasswordRouteImport } from './screens/(public)/forgot-password'
 import { Route as privateOnboardingLayoutRouteImport } from './screens/(private)/onboarding/_layout'
+import { Route as privateappLayoutRouteImport } from './screens/(private)/(app)/_layout'
 import { Route as privateOnboardingIndexRouteImport } from './screens/(private)/onboarding/index'
 import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/index'
 import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private)/onboarding/welcome'
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
+import { Route as privateappCampaignsRouteImport } from './screens/(private)/(app)/campaigns'
 
 const publicLayoutRoute = publicLayoutRouteImport.update({
   id: '/(public)',
@@ -49,15 +51,19 @@ const privateOnboardingLayoutRoute = privateOnboardingLayoutRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => privateLayoutRoute,
 } as any)
+const privateappLayoutRoute = privateappLayoutRouteImport.update({
+  id: '/(app)',
+  getParentRoute: () => privateLayoutRoute,
+} as any)
 const privateOnboardingIndexRoute = privateOnboardingIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => privateOnboardingLayoutRoute,
 } as any)
 const privateappIndexRoute = privateappIndexRouteImport.update({
-  id: '/(app)/',
+  id: '/',
   path: '/',
-  getParentRoute: () => privateLayoutRoute,
+  getParentRoute: () => privateappLayoutRoute,
 } as any)
 const privateOnboardingWelcomeRoute =
   privateOnboardingWelcomeRouteImport.update({
@@ -77,12 +83,18 @@ const privateOnboardingCreateWorkspaceRoute =
     path: '/create-workspace',
     getParentRoute: () => privateOnboardingLayoutRoute,
   } as any)
+const privateappCampaignsRoute = privateappCampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
+  getParentRoute: () => privateappLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
+  '/campaigns': typeof privateappCampaignsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -93,6 +105,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
+  '/campaigns': typeof privateappCampaignsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -103,10 +116,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(private)': typeof privateLayoutRouteWithChildren
   '/(public)': typeof publicLayoutRouteWithChildren
+  '/(private)/(app)': typeof privateappLayoutRouteWithChildren
   '/(private)/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
+  '/(private)/(app)/campaigns': typeof privateappCampaignsRoute
   '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -120,6 +135,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/sign-in'
     | '/sign-up'
+    | '/campaigns'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
@@ -130,6 +146,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/sign-in'
     | '/sign-up'
+    | '/campaigns'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
@@ -139,10 +156,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/(private)'
     | '/(public)'
+    | '/(private)/(app)'
     | '/(private)/onboarding'
     | '/(public)/forgot-password'
     | '/(public)/sign-in'
     | '/(public)/sign-up'
+    | '/(private)/(app)/campaigns'
     | '/(private)/onboarding/create-workspace'
     | '/(private)/onboarding/verify-phone'
     | '/(private)/onboarding/welcome'
@@ -199,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateOnboardingLayoutRouteImport
       parentRoute: typeof privateLayoutRoute
     }
+    '/(private)/(app)': {
+      id: '/(private)/(app)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof privateappLayoutRouteImport
+      parentRoute: typeof privateLayoutRoute
+    }
     '/(private)/onboarding/': {
       id: '/(private)/onboarding/'
       path: '/'
@@ -211,7 +237,7 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof privateappIndexRouteImport
-      parentRoute: typeof privateLayoutRoute
+      parentRoute: typeof privateappLayoutRoute
     }
     '/(private)/onboarding/welcome': {
       id: '/(private)/onboarding/welcome'
@@ -234,8 +260,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateOnboardingCreateWorkspaceRouteImport
       parentRoute: typeof privateOnboardingLayoutRoute
     }
+    '/(private)/(app)/campaigns': {
+      id: '/(private)/(app)/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof privateappCampaignsRouteImport
+      parentRoute: typeof privateappLayoutRoute
+    }
   }
 }
+
+interface privateappLayoutRouteChildren {
+  privateappCampaignsRoute: typeof privateappCampaignsRoute
+  privateappIndexRoute: typeof privateappIndexRoute
+}
+
+const privateappLayoutRouteChildren: privateappLayoutRouteChildren = {
+  privateappCampaignsRoute: privateappCampaignsRoute,
+  privateappIndexRoute: privateappIndexRoute,
+}
+
+const privateappLayoutRouteWithChildren =
+  privateappLayoutRoute._addFileChildren(privateappLayoutRouteChildren)
 
 interface privateOnboardingLayoutRouteChildren {
   privateOnboardingCreateWorkspaceRoute: typeof privateOnboardingCreateWorkspaceRoute
@@ -259,13 +305,13 @@ const privateOnboardingLayoutRouteWithChildren =
   )
 
 interface privateLayoutRouteChildren {
+  privateappLayoutRoute: typeof privateappLayoutRouteWithChildren
   privateOnboardingLayoutRoute: typeof privateOnboardingLayoutRouteWithChildren
-  privateappIndexRoute: typeof privateappIndexRoute
 }
 
 const privateLayoutRouteChildren: privateLayoutRouteChildren = {
+  privateappLayoutRoute: privateappLayoutRouteWithChildren,
   privateOnboardingLayoutRoute: privateOnboardingLayoutRouteWithChildren,
-  privateappIndexRoute: privateappIndexRoute,
 }
 
 const privateLayoutRouteWithChildren = privateLayoutRoute._addFileChildren(
