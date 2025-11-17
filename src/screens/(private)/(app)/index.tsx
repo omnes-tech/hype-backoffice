@@ -5,5 +5,5 @@ export const Route = createFileRoute("/(private)/(app)/")({
 });
 
 function RouteComponent() {
-  return <div>Dashboard</div>;
+  return <></>;
 }
