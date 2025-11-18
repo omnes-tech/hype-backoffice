@@ -27,3 +27,10 @@ export function formatPhoneNumber(phoneValue: string): string {
 export const cleanPhoneNumber = (phoneValue: string): string => {
   return phoneValue.replace(/\D/g, "");
 };
+
+export const truncateText = (text: string, maxLength: number = 20): string => {
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
+};

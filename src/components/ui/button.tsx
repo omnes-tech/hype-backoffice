@@ -7,8 +7,9 @@ interface ButtonProps extends ComponentProps<"button"> {
 }
 
 const variantStyles = {
-  default: "bg-primary-600",
-  outline: "bg-transparent border border-neutral-200",
+  default: "bg-primary-600 hover:bg-primary-600/80",
+  outline:
+    "bg-transparent border border-neutral-200 hover:border-neutral-200/80",
   ghost: "bg-transparent",
 };
 
@@ -21,7 +22,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        "w-full h-11 rounded-3xl flex items-center justify-center gap-2 px-6",
+        "w-full h-11 rounded-3xl flex items-center justify-center gap-2 px-6 transition-colors duration-150",
         variantStyles[variant],
         className
       )}
