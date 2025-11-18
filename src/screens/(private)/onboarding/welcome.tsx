@@ -15,7 +15,7 @@ function RouteComponent() {
   useEffect(() => {
     setTimeout(() => {
       navigate({ to: "/" });
-    }, 4000);
+    }, 3000);
   }, []);
 
   return (

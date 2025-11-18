@@ -25,7 +25,7 @@ export function Input({
       <div className="w-full h-11 rounded-3xl bg-neutral-100 flex items-center justify-between focus-within:bg-neutral-200/70 transition-colors duration-150">
         <input
           type={type}
-          className="w-full h-full rounded-3xl outline-none placeholder:text-neutral-400 text-neutral-700 px-4"
+          className="w-full h-full rounded-3xl outline-none placeholder:text-neutral-400 text-neutral-950 px-4"
           {...props}
         />
 

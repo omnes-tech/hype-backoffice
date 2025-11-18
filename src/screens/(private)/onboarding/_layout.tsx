@@ -76,7 +76,7 @@ function RouteComponent() {
         </div>
       </header>
 
-      <div className="w-full flex-1 flex flex-col items-center justify-center">
+      <div className="w-full flex-1 flex flex-col items-center justify-center gap-14 pt-14">
         <main className="w-full flex-1 flex items-center justify-center">
           <Outlet />
         </main>

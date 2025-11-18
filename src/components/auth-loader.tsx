@@ -1,5 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { LoadingSpinner } from "./ui/loading-spinner";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface AuthLoaderProps {
   children: React.ReactNode;
