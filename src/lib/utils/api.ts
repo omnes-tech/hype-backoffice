@@ -1,5 +1,7 @@
 export const getApiUrl = (path: string): string => {
-  const baseUrl = import.meta.env.VITE_API_URL;
+  const baseUrl =
+    import.meta.env.VITE_API_URL ||
+    "https://api-v2.hypeapp.com.br/v1/backoffice";
 
   if (!baseUrl) {
     throw new Error("Unable to get base url.");
