@@ -13,7 +13,13 @@ export function Modal({ title, onClose, children }: ModalProps) {
         <div className="w-full flex items-center justify-between mb-6">
           <h1 className="text-2xl font-medium text-neutral-950">{title}</h1>
 
-          <Icon name="X" size={24} color="#525252" onClick={onClose} />
+          <Icon
+            name="X"
+            size={24}
+            color="#525252"
+            onClick={onClose}
+            className="cursor-pointer"
+          />
         </div>
 
         {children}
