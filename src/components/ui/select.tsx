@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
 
-interface DropdownMenuProps extends Omit<ComponentProps<"div">, "onChange"> {
+interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   label?: string;
   placeholder?: string;
   options: Array<{ value: string; label: string }>;
@@ -13,7 +13,7 @@ interface DropdownMenuProps extends Omit<ComponentProps<"div">, "onChange"> {
   disabled?: boolean;
 }
 
-export function DropdownMenu({
+export function Select({
   label,
   placeholder = "Selecione uma opção",
   options,
@@ -22,7 +22,7 @@ export function DropdownMenu({
   error,
   disabled = false,
   ...props
-}: DropdownMenuProps) {
+}: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -53,14 +53,14 @@ export function DropdownMenu({
   };
 
   return (
-    <div className="flex flex-col gap-1" ref={dropdownRef} {...props}>
+    <div className="w-full flex flex-col gap-1" ref={dropdownRef} {...props}>
       {label && (
         <label htmlFor={props.id} className="text-neutral-950 font-medium">
           {label}
         </label>
       )}
 
-      <div className="flex flex-col">
+      <div className="w-full flex flex-col">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -75,6 +75,7 @@ export function DropdownMenu({
         >
           <span
             className={clsx(
+              "whitespace-nowrap",
               selectedOption ? "text-neutral-950" : "text-neutral-400"
             )}
           >

@@ -11,9 +11,7 @@ export interface User {
 export interface Workspace {
   id: number;
   name: string;
-  photo: string | null;
-  created_at: string;
-  updated_at: string;
+  photo: string;
 }
 
 export interface Niche {

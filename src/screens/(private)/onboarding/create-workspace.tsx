@@ -14,7 +14,7 @@ import { ImageUpload } from "@/components/image-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/text-area";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { Select } from "@/components/ui/select";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/(private)/onboarding/create-workspace")({
@@ -133,7 +133,7 @@ function RouteComponent() {
           name="niche"
           control={control}
           render={({ field }) => (
-            <DropdownMenu
+            <Select
               id="niche"
               label="Nicho"
               placeholder="Selecione o nicho da sua marca"

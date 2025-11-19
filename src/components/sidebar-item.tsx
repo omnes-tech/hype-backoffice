@@ -4,15 +4,13 @@ import { icons } from "lucide-react";
 
 import { Icon } from "@/components/ui/icon";
 
-export function SidebarItem({
-  href,
-  icon,
-  label,
-}: {
+interface SidebarItemProps {
   href: string;
   icon: keyof typeof icons;
   label: string;
-}) {
+}
+
+export function SidebarItem({ href, icon, label }: SidebarItemProps) {
   const location = useLocation();
   const isActive =
     location.pathname === href || location.pathname.startsWith(`${href}/`);
