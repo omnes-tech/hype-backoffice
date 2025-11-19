@@ -36,7 +36,6 @@ export function Header({ title, ...props }: HeaderProps) {
                 name: "Coca-Cola",
                 photo: "https://github.com/shadcn.png",
               },
-              { id: 3, name: "Pepsi", photo: "https://github.com/shadcn.png" },
             ]}
           />
         </div>

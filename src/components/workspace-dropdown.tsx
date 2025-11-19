@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
 
 import type { Workspace } from "@/shared/types";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 import { Avatar } from "@/components/ui/avatar";
 
@@ -21,18 +22,8 @@ export function WorkspaceDropdown({
   ...props
 }: WorkspaceDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [internalValue, setInternalValue] = useState<Workspace | undefined>(
-    value
-  );
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setInternalValue(value);
-  }, [value]);
-
-  const selectedOption = internalValue
-    ? options.find((option) => option.id === internalValue.id)
-    : undefined;
+  const { selectedWorkspace, selectWorkspace } = useWorkspace(options, value);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -53,9 +44,9 @@ export function WorkspaceDropdown({
     };
   }, [isOpen]);
 
-  const handleSelect = (optionValue: Workspace) => {
-    setInternalValue(optionValue);
-    onChange?.(optionValue);
+  const handleSelect = (workspace: Workspace) => {
+    selectWorkspace(workspace);
+    onChange?.(workspace);
     setIsOpen(false);
   };
 
@@ -74,12 +65,12 @@ export function WorkspaceDropdown({
         <div className="flex items-center gap-2">
           <Avatar
             size="xs"
-            src={selectedOption?.photo || ""}
-            alt={selectedOption?.name || ""}
+            src={selectedWorkspace?.photo}
+            alt={selectedWorkspace?.name || ""}
           />
 
           <span className="whitespace-nowrap text-neutral-950">
-            {selectedOption?.name}
+            {selectedWorkspace?.name}
           </span>
         </div>
 
@@ -106,7 +97,7 @@ export function WorkspaceDropdown({
               onClick={() => handleSelect(option)}
               className={clsx(
                 "w-full px-4 py-2 hover:bg-neutral-100 transition-colors duration-150",
-                internalValue?.id === option.id && "bg-neutral-100"
+                selectedWorkspace?.id === option.id && "bg-neutral-100"
               )}
             >
               <div className="flex items-center gap-2">

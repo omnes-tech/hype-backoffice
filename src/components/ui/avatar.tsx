@@ -2,8 +2,8 @@ import type { ComponentProps } from "react";
 
 import { clsx } from "clsx";
 
-interface AvatarProps extends ComponentProps<"img"> {
-  src: string;
+interface AvatarProps extends Omit<ComponentProps<"img">, "src"> {
+  src?: string;
   alt: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
 }
@@ -24,12 +24,20 @@ export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
         sizeStyles[size]
       )}
     >
-      <img
-        src={src}
-        alt={alt}
-        {...props}
-        className="w-full h-full object-cover"
-      />
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          {...props}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-neutral-100">
+          <span className="text-neutral-950 text-xs font-medium">
+            {alt.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
