@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Step } from "@/components/step";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 import hypeappLogo from "@/assets/images/hypeapp-logo.png";
 
@@ -83,11 +83,16 @@ function RouteComponent() {
 
         {currentStep && currentStep <= totalSteps && (
           <footer className="w-full max-w-md pb-8 shrink-0">
-            <Step
-              progressPercentage={progressPercentage}
-              currentStep={currentStep}
-              totalSteps={totalSteps}
-            />
+            <div className="w-full flex items-center flex-col gap-1">
+              <ProgressBar
+                progressPercentage={progressPercentage}
+                color="bg-success-600"
+              />
+
+              <span className="text-xs text-neutral-600">
+                Passo {currentStep} de {totalSteps}
+              </span>
+            </div>
           </footer>
         )}
       </div>
