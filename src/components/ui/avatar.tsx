@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 interface AvatarProps extends Omit<ComponentProps<"img">, "src"> {
   src?: string;
   alt: string;
-  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl";
 }
 
 const sizeStyles = {
@@ -14,6 +14,9 @@ const sizeStyles = {
   md: "w-10 h-10",
   lg: "w-12 h-12",
   xl: "w-14 h-14",
+  "2xl": "w-16 h-16",
+  "3xl": "w-18 h-18",
+  "4xl": "w-20 h-20",
 };
 
 export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
