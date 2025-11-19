@@ -23,6 +23,7 @@ export function Button({
     <button
       className={clsx(
         "w-full h-11 rounded-3xl flex items-center justify-center gap-2 px-6 transition-colors duration-150 cursor-pointer",
+        "disabled:opacity-70 disabled:cursor-not-allowed",
         variantStyles[variant],
         className
       )}

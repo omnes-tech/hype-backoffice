@@ -5,11 +5,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { Avatar } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/text-area";
-import { Select } from "@/components/ui/select";
-import { Icon } from "@/components/ui/icon";
+import { CreateCampaignStepOne } from "@/components/forms/create-campaign-step-one";
+import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-two";
+import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
+import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
@@ -17,6 +17,15 @@ export const Route = createFileRoute("/(private)/(app)/campaigns")({
 
 function RouteComponent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+
+  const totalSteps = 4;
+  const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setCurrentStep(1);
+  };
 
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -42,74 +51,69 @@ function RouteComponent() {
       </div>
 
       {isModalOpen && (
-        <Modal title="Criar campanha" onClose={() => setIsModalOpen(false)}>
-          <div className="flex flex-col gap-1">
-            <ProgressBar progressPercentage={50} color="bg-tertiary-600" />
+        <Modal title="Criar campanha" onClose={handleCloseModal}>
+          <div className="flex flex-col gap-1 mb-10">
+            <ProgressBar
+              progressPercentage={progressPercentage}
+              color="bg-tertiary-600"
+            />
 
             <div className="flex items-center justify-between">
               <span className="text-xs text-neutral-700">
-                Informações básicas
+                {currentStep === 1 && "Informações básicas"}
+                {currentStep === 2 && "Perfil dos Influenciadores"}
+                {currentStep === 3 && "Briefing e Objetivos"}
+                {currentStep === 4 && "Detalhes da campanha"}
               </span>
 
-              <span className="text-xs text-neutral-700">Etapa 1 de 4</span>
+              <span className="text-xs text-neutral-700">
+                Etapa {currentStep} de {totalSteps}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center flex-col gap-1 my-10">
-            <Avatar
-              size="4xl"
-              src="https://github.com/shadcn.png"
-              alt="Stepy Tecnologia LTDA"
+          {currentStep === 1 && (
+            <CreateCampaignStepOne
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
             />
+          )}
 
-            <p className="text-neutral-950 font-medium text-lg">
-              Stepy Tecnologia LTDA
-            </p>
-          </div>
-
-          <form className="flex flex-col gap-4">
-            <Input
-              label="Título da campanha"
-              placeholder="Escolha um nome claro e descritivo para sua campanha"
+          {currentStep === 2 && (
+            <CreateCampaignStepTwo
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
             />
+          )}
 
-            <Textarea
-              label="Sobre a campanha"
-              placeholder="Descreva resumidamente sobre o que é essa campanha, seus principais objetivos e o que você espera alcançar com ela."
+          {currentStep === 3 && (
+            <CreateCampaignStepThree
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
             />
+          )}
 
-            <Select
-              label="Subnichos da Campanha"
-              placeholder="Selecione os subnichos que representam o foco da campanha"
-              options={[
-                { label: "Vendas", value: "sales" },
-                { label: "Branding", value: "branding" },
-                { label: "Leads", value: "leads" },
-              ]}
+          {currentStep === 4 && (
+            <CreateCampaignStepFour
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onSubmitCampaign={() => {
+                toast.success("Campanha enviada com sucesso!");
+                setIsModalOpen(false);
+                setCurrentStep(1);
+              }}
             />
-          </form>
-
-          <div className="flex items-center justify-between mt-10">
-            <div className="w-fit">
-              <Button variant="outline">
-                <div className="flex items-center justify-center gap-2">
-                  <Icon name="ArrowLeft" size={16} color="#404040" />
-
-                  <p className="text-neutral-700 font-semibold">Voltar</p>
-                </div>
-              </Button>
-            </div>
-
-            <div className="w-fit">
-              <Button>
-                <div className="flex items-center justify-center gap-2">
-                  <p className="text-neutral-50 font-semibold">Avançar</p>
-
-                  <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-                </div>
-              </Button>
-            </div>
-          </div>
+          )}
         </Modal>
       )}
     </div>

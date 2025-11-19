@@ -7,16 +7,17 @@ import TextareaAutosize, {
 
 interface TextareaProps extends ComponentProps<"textarea"> {
   label: string;
+  labelColor?: string;
   error?: string;
   style?: TextareaAutosizeProps["style"];
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, style, ...props }, ref) => {
+  ({ label, labelColor = "text-neutral-950", error, style, ...props }, ref) => {
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={props.id} className="text-neutral-950 font-medium">
+          <label htmlFor={props.id} className={clsx(labelColor, "font-medium")}>
             {label}
           </label>
         )}
