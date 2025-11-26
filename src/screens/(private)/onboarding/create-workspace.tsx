@@ -109,15 +109,17 @@ function RouteComponent() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 mt-10">
-        <ImageUpload
-          register={register("photo")}
-          preview={preview}
-          setPreview={setPreview}
-          onRemove={() => setValue("photo", new FileList())}
-          disabled={isCreatingWorkspace}
-          error={errors.photo?.message}
-        />
+      <div className="flex flex-col gap-4">
+        <div className="my-6">
+          <ImageUpload
+            register={register("photo")}
+            preview={preview}
+            setPreview={setPreview}
+            onRemove={() => setValue("photo", new FileList())}
+            disabled={isCreatingWorkspace}
+            error={errors.photo?.message}
+          />
+        </div>
 
         <Input
           id="name"

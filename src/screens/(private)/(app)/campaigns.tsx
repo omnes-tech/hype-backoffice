@@ -19,7 +19,7 @@ function RouteComponent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  const totalSteps = 4;
+  const totalSteps = 7;
   const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
 
   const handleCloseModal = () => {

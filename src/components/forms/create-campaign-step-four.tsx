@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/text-area";
 
 interface CreateCampaignStepFourProps {
@@ -15,26 +14,9 @@ export function CreateCampaignStepFour({
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-4">
-        <Select
-          label="Tipo de remuneração"
-          placeholder="Escolha como os influenciadores serão pagos"
-          options={[
-            { label: "Por postagem", value: "post" },
-            { label: "Por like", value: "like" },
-            { label: "Por comentário", value: "comment" },
-            { label: "Por compartilhamento", value: "share" },
-            { label: "Por interação", value: "interaction" },
-            { label: "Por engajamento", value: "engagement" },
-            { label: "Por venda", value: "sale" },
-          ]}
-        />
-
         <Textarea
-          label="Benefícios Inclusos na Campanha"
-          placeholder="Liste em tópicos os benefícios oferecidos na campanha.
-
-  . Cupom de desconto de R$250,00 para gastar em nossa loja online.
-  . Kit exclusivo com produtos da marca."
+          label="Objetivo geral da campanha"
+          placeholder="Descreva detalhadamente o que você espera alcançar com essa campanha."
         />
 
         <Textarea

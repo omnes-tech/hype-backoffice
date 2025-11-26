@@ -39,9 +39,17 @@ export function CreateCampaignStepOne({ onNext }: CreateCampaignStepOneProps) {
           label="Subnichos da Campanha"
           placeholder="Selecione os subnichos que representam o foco da campanha"
           options={[
-            { label: "Vendas", value: "sales" },
-            { label: "Branding", value: "branding" },
-            { label: "Leads", value: "leads" },
+            { label: "Agro", value: "agriculture" },
+            { label: "Arquitetura/Construção", value: "architecture" },
+            { label: "Arte", value: "art" },
+            { label: "Atleta", value: "athlete" },
+            { label: "Ator/Atriz", value: "actor" },
+            { label: "Audiovisual", value: "audiovisual" },
+            { label: "Automobilismo", value: "automobilism" },
+            { label: "Bebidas", value: "beverages" },
+            { label: "Beleza", value: "beauty" },
+            { label: "Brinquedos", value: "toys" },
+            { label: "Cabelo", value: "hair" },
           ]}
         />
       </div>

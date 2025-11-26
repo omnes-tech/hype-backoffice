@@ -9,7 +9,7 @@ interface ModalProps {
 export function Modal({ title, onClose, children }: ModalProps) {
   return (
     <div className="w-full h-full bg-black/80 fixed inset-0 z-50 flex items-center justify-center">
-      <div className="w-full max-w-4xl bg-neutral-50 p-8 rounded-2xl">
+      <div className="w-full max-w-4xl bg-neutral-50 p-8 rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="w-full flex items-center justify-between mb-6">
           <h1 className="text-2xl font-medium text-neutral-950">{title}</h1>
 

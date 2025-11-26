@@ -19,38 +19,17 @@ export function CreateCampaignStepThree({
           label="Tipo de remuneração"
           placeholder="Escolha como os influenciadores serão pagos"
           options={[
-            { label: "Por postagem", value: "post" },
-            { label: "Por like", value: "like" },
-            { label: "Por comentário", value: "comment" },
-            { label: "Por compartilhamento", value: "share" },
-            { label: "Por interação", value: "interaction" },
-            { label: "Por engajamento", value: "engagement" },
-            { label: "Por venda", value: "sale" },
+            { label: "Valor fixo", value: "fixed" },
+            { label: "Preço do influenciador", value: "price" },
+            { label: "Permuta", value: "swap" },
+            { label: "CPA (Custo Por Ação)", value: "cpa" },
+            { label: "CPM (Custo Por Mil)", value: "cpm" },
           ]}
         />
 
         <Textarea
           label="Benefícios Inclusos na Campanha"
           placeholder="Liste em tópicos os benefícios oferecidos na campanha.
-
-  . Cupom de desconto de R$250,00 para gastar em nossa loja online.
-  . Kit exclusivo com produtos da marca."
-        />
-
-        <Textarea
-          label="O que fazer"
-          labelColor="text-success-600"
-          placeholder="Oriente o influenciador sobre o que deve ser feito.
-
-  . Mencionar a marca no início do vídeo.
-  . Usar hashtag oficial #CampanhaBrand.
-  . Mostrar o produto sendo utilizado."
-        />
-
-        <Textarea
-          label="O que NÃO fazer"
-          labelColor="text-danger-600"
-          placeholder="Oriente o influenciador sobre o que NÃO deve ser feito.
 
   . Cupom de desconto de R$250,00 para gastar em nossa loja online.
   . Kit exclusivo com produtos da marca."

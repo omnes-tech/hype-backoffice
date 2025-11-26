@@ -54,11 +54,11 @@ export function ImageUpload({
     <div className="flex flex-col items-center gap-1">
       {preview ? (
         <div className="flex justify-center">
-          <div className="relative w-40 h-40 rounded-xl">
+          <div className="relative w-32 h-32 rounded-full">
             <img
               src={preview}
               alt="Preview"
-              className="w-full h-full object-cover rounded-xl"
+              className="w-full h-full object-cover rounded-full"
             />
 
             <div
@@ -73,7 +73,7 @@ export function ImageUpload({
         <div
           onClick={() => fileInputRef.current?.click()}
           className={clsx(
-            "relative w-40 h-40 rounded-xl cursor-pointer bg-neutral-100",
+            "relative w-32 h-32 rounded-full flex items-center justify-center cursor-pointer bg-neutral-100",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >

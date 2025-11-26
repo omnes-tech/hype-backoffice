@@ -17,32 +17,28 @@ export function CreateCampaignStepTwo({
       <div className="flex flex-col gap-4">
         <Input
           label="Quantos influenciadores deseja na campanha?"
-          placeholder="01"
+          placeholder="1"
         />
 
         <Input label="Quantidade mínima de seguidores" placeholder="1.000" />
 
-        <Input label="Estado" placeholder="Ex.: São Paulo" />
+        <Input
+          label="Estado"
+          placeholder="Selecione o/os estado(s) desejado(s)"
+        />
 
-        <Input label="Cidade" placeholder="Ex.: São Paulo" />
-
-        <Select
-          label="Gênero"
-          placeholder="Selecione o gênero"
-          options={[
-            { label: "Masculino", value: "male" },
-            { label: "Feminino", value: "female" },
-            { label: "Outros", value: "outros" },
-          ]}
+        <Input
+          label="Cidade"
+          placeholder="Selecione a/as cidade(s) desejada(s)"
         />
 
         <Select
           label="Gênero"
-          placeholder="Selecione o gênero"
+          placeholder="Selecione o/os gênero(s)"
           options={[
-            { label: "Instagram", value: "instragram" },
-            { label: "Tiktok", value: "tiktok" },
-            { label: "Youtube", value: "youtube" },
+            { label: "Masculino", value: "male" },
+            { label: "Feminino", value: "female" },
+            { label: "Outros", value: "outros" },
           ]}
         />
       </div>

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, type ComponentProps } from "react";
 
-import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
+
+import { Icon } from "@/components/ui/icon";
 
 interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   label?: string;
@@ -66,7 +67,7 @@ export function Select({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={clsx(
-            "w-full h-11 bg-neutral-100 flex items-center justify-between px-4",
+            "w-full h-11 bg-neutral-100 flex items-center justify-between px-4 outline-none focus-within:bg-neutral-200/70",
             isOpen
               ? "rounded-t-3xl border-b border-dashed border-neutral-200"
               : "rounded-3xl",
@@ -82,9 +83,12 @@ export function Select({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
 
-          <ChevronDown
+          <Icon
+            name="ChevronDown"
+            color="#0a0a0a"
+            size={16}
             className={clsx(
-              "size-4 text-neutral-950 transition-transform duration-150",
+              "transition-transform duration-150",
               isOpen && "rotate-180"
             )}
           />
