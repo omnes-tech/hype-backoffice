@@ -10,6 +10,9 @@ import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-t
 import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
 import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
 import { CampaignCard } from "@/components/campaign-card";
+import { InputSearch } from "@/components/ui/input-search";
+import { Icon } from "@/components/ui/icon";
+import { Dropdown } from "@/components/ui/dropdown";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
@@ -88,17 +91,56 @@ function RouteComponent() {
   return (
     <>
       {campaigns.length > 0 ? (
-        <div className="grid xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-          {campaigns.map((campaign) => (
-            <CampaignCard
-              key={campaign.id}
-              title={campaign.title}
-              phase={campaign.phase}
-              progressPercentage={campaign.progressPercentage}
-              banner={campaign.banner}
-              influencersCount={campaign.influencersCount}
-            />
-          ))}
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <div className="w-full max-w-xs">
+              <InputSearch
+                placeholder="Pesquisar campanha"
+                icon={<Icon name="Search" color="#0a0a0a" size={16} />}
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="min-w-56">
+                <Dropdown
+                  options={[
+                    { label: "Todas as campanhas", value: "all_campaigns" },
+                    { label: "Campanhas ativas", value: "active_campaigns" },
+                    {
+                      label: "Campanhas finalizadas",
+                      value: "finished_campaigns",
+                    },
+                  ]}
+                  value="all_campaigns"
+                />
+              </div>
+
+              <div className="w-fit">
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <div className="flex items-center gap-2">
+                    <Icon name="Plus" color="#FAFAFA" size={16} />
+
+                    <p className="text-neutral-50 font-semibold">
+                      Criar campanha
+                    </p>
+                  </div>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+            {campaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                title={campaign.title}
+                phase={campaign.phase}
+                progressPercentage={campaign.progressPercentage}
+                banner={campaign.banner}
+                influencersCount={campaign.influencersCount}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
