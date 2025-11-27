@@ -27,11 +27,13 @@ function RouteComponent() {
         <PanelResizeHandle className="w-px bg-neutral-700 hover:bg-neutral-600 transition-colors duration-150" />
 
         <Panel defaultSize={85} minSize={80}>
-          <Header title={title} />
+          <div className="w-full h-full flex flex-col">
+            <Header title={title} />
 
-          <main className="w-full h-full p-6">
-            <Outlet />
-          </main>
+            <main className="w-full flex-1 overflow-y-auto p-6">
+              <Outlet />
+            </main>
+          </div>
         </Panel>
       </PanelGroup>
     </div>

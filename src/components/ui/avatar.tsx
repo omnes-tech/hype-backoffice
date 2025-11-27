@@ -23,7 +23,7 @@ export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
   return (
     <div
       className={clsx(
-        "rounded-full bg-neutral-100 overflow-hidden border-2 border-primary-600",
+        "rounded-full bg-neutral-200 overflow-hidden border-2 border-neutral-200",
         sizeStyles[size]
       )}
     >
@@ -35,7 +35,7 @@ export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
           className="w-full h-full object-cover"
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-neutral-100">
+        <div className="w-full h-full flex items-center justify-center bg-neutral-200">
           <span className="text-neutral-950 text-xs font-medium">
             {alt.charAt(0).toUpperCase()}
           </span>
