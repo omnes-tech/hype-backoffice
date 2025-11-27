@@ -101,7 +101,7 @@ function RouteComponent() {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="min-w-56">
+              <div className="w-auto">
                 <Dropdown
                   options={[
                     { label: "Todas as campanhas", value: "all_campaigns" },
@@ -115,17 +115,15 @@ function RouteComponent() {
                 />
               </div>
 
-              <div className="w-fit">
-                <Button onClick={() => setIsModalOpen(true)}>
-                  <div className="flex items-center gap-2">
-                    <Icon name="Plus" color="#FAFAFA" size={16} />
+              <Button onClick={() => setIsModalOpen(true)}>
+                <div className="flex items-center gap-2">
+                  <Icon name="Plus" color="#FAFAFA" size={16} />
 
-                    <p className="text-neutral-50 font-semibold">
-                      Criar campanha
-                    </p>
-                  </div>
-                </Button>
-              </div>
+                  <p className="text-neutral-50 font-semibold">
+                    Criar campanha
+                  </p>
+                </div>
+              </Button>
             </div>
           </div>
 

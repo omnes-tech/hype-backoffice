@@ -64,24 +64,26 @@ export function Dropdown({
           !disabled && "hover:bg-neutral-100 transition-colors duration-150"
         )}
       >
-        <span
-          className={clsx(
-            "whitespace-nowrap",
-            selectedOption ? "text-neutral-700" : "text-neutral-400"
-          )}
-        >
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={clsx(
+              "whitespace-nowrap",
+              selectedOption ? "text-neutral-700" : "text-neutral-400"
+            )}
+          >
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
 
-        <Icon
-          name="ChevronDown"
-          color="#0a0a0a"
-          size={16}
-          className={clsx(
-            "transition-transform duration-150",
-            isOpen && "rotate-180"
-          )}
-        />
+          <Icon
+            name="ChevronDown"
+            color="#0a0a0a"
+            size={16}
+            className={clsx(
+              "transition-transform duration-150",
+              isOpen && "rotate-180"
+            )}
+          />
+        </div>
       </button>
 
       {isOpen && options.length > 0 && (
