@@ -1,15 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Textarea } from "@/components/ui/text-area";
+import type { CampaignFormData } from "@/shared/types";
 
 interface CreateCampaignStepFourProps {
+  formData: CampaignFormData;
+  updateFormData: (field: keyof CampaignFormData, value: string) => void;
   onBack: () => void;
-  onSubmitCampaign: () => void;
+  onNext: () => void;
 }
 
 export function CreateCampaignStepFour({
+  formData,
+  updateFormData,
   onBack,
-  onSubmitCampaign,
+  onNext,
 }: CreateCampaignStepFourProps) {
   return (
     <form className="flex flex-col gap-10">
@@ -17,6 +22,8 @@ export function CreateCampaignStepFour({
         <Textarea
           label="Objetivo geral da campanha"
           placeholder="Descreva detalhadamente o que você espera alcançar com essa campanha."
+          value={formData.generalObjective}
+          onChange={(e) => updateFormData("generalObjective", e.target.value)}
         />
 
         <Textarea
@@ -27,6 +34,8 @@ export function CreateCampaignStepFour({
   . Mencionar a marca no início do vídeo.
   . Usar hashtag oficial #CampanhaBrand.
   . Mostrar o produto sendo utilizado."
+          value={formData.whatToDo}
+          onChange={(e) => updateFormData("whatToDo", e.target.value)}
         />
 
         <Textarea
@@ -36,6 +45,8 @@ export function CreateCampaignStepFour({
 
   . Cupom de desconto de R$250,00 para gastar em nossa loja online.
   . Kit exclusivo com produtos da marca."
+          value={formData.whatNotToDo}
+          onChange={(e) => updateFormData("whatNotToDo", e.target.value)}
         />
       </div>
 
@@ -51,9 +62,9 @@ export function CreateCampaignStepFour({
         </div>
 
         <div className="w-fit">
-          <Button onClick={onSubmitCampaign}>
+          <Button onClick={onNext}>
             <div className="flex items-center justify-center gap-2">
-              <p className="text-neutral-50 font-semibold">Enviar campanha</p>
+              <p className="text-neutral-50 font-semibold">Próximo</p>
 
               <Icon name="ArrowRight" size={16} color="#FAFAFA" />
             </div>

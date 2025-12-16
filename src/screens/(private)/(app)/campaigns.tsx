@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -9,11 +9,15 @@ import { CreateCampaignStepOne } from "@/components/forms/create-campaign-step-o
 import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-two";
 import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
 import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
+import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
+import { CreateCampaignStepSix } from "@/components/forms/create-campaign-step-six";
+import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
 import { CampaignCard } from "@/components/campaign-card";
 import { InputSearch } from "@/components/ui/input-search";
 import { Icon } from "@/components/ui/icon";
 import { Dropdown } from "@/components/ui/dropdown";
 import { toast } from "sonner";
+import type { CampaignFormData } from "@/shared/types";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
@@ -77,8 +81,42 @@ const campaigns = [
 ];
 
 function RouteComponent() {
+  const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  
+  if (location.pathname !== "/campaigns") {
+    return <Outlet />;
+  }
+  const [formData, setFormData] = useState<CampaignFormData>({
+    title: "",
+    description: "",
+    subniches: "",
+    influencersCount: "",
+    minFollowers: "",
+    state: "",
+    city: "",
+    gender: "",
+    paymentType: "",
+    benefits: "",
+    generalObjective: "",
+    whatToDo: "",
+    whatNotToDo: "",
+    banner: "",
+    imageRightsPeriod: "",
+    brandFiles: "",
+    phasesCount: "1",
+    phases: [
+      {
+        id: "1",
+        objective: "",
+        postDate: "",
+        postTime: "",
+        formats: [],
+        files: "",
+      },
+    ],
+  });
 
   const totalSteps = 7;
   const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
@@ -86,6 +124,39 @@ function RouteComponent() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setCurrentStep(1);
+    setFormData({
+      title: "",
+      description: "",
+      subniches: "",
+      influencersCount: "",
+      minFollowers: "",
+      state: "",
+      city: "",
+      gender: "",
+      paymentType: "",
+      benefits: "",
+      generalObjective: "",
+      whatToDo: "",
+      whatNotToDo: "",
+      banner: "",
+      imageRightsPeriod: "",
+      brandFiles: "",
+      phasesCount: "1",
+      phases: [
+        {
+          id: "1",
+          objective: "",
+          postDate: "",
+          postTime: "",
+          formats: [],
+          files: "",
+        },
+      ],
+    });
+  };
+
+  const updateFormData = (field: keyof CampaignFormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -131,6 +202,7 @@ function RouteComponent() {
             {campaigns.map((campaign) => (
               <CampaignCard
                 key={campaign.id}
+                id={campaign.id}
                 title={campaign.title}
                 phase={campaign.phase}
                 progressPercentage={campaign.progressPercentage}
@@ -179,6 +251,9 @@ function RouteComponent() {
                 {currentStep === 2 && "Perfil dos Influenciadores"}
                 {currentStep === 3 && "Briefing e Objetivos"}
                 {currentStep === 4 && "Detalhes da campanha"}
+                {currentStep === 5 && "Arquivos e configurações"}
+                {currentStep === 6 && "Fases da campanha"}
+                {currentStep === 7 && "Revisão e criação da campanha"}
               </span>
 
               <span className="text-xs text-neutral-700">
@@ -189,6 +264,8 @@ function RouteComponent() {
 
           {currentStep === 1 && (
             <CreateCampaignStepOne
+              formData={formData}
+              updateFormData={updateFormData}
               onNext={() => {
                 setCurrentStep(currentStep + 1);
               }}
@@ -197,6 +274,8 @@ function RouteComponent() {
 
           {currentStep === 2 && (
             <CreateCampaignStepTwo
+              formData={formData}
+              updateFormData={updateFormData}
               onBack={() => {
                 setCurrentStep(currentStep - 1);
               }}
@@ -208,6 +287,8 @@ function RouteComponent() {
 
           {currentStep === 3 && (
             <CreateCampaignStepThree
+              formData={formData}
+              updateFormData={updateFormData}
               onBack={() => {
                 setCurrentStep(currentStep - 1);
               }}
@@ -219,13 +300,85 @@ function RouteComponent() {
 
           {currentStep === 4 && (
             <CreateCampaignStepFour
+              formData={formData}
+              updateFormData={updateFormData}
               onBack={() => {
                 setCurrentStep(currentStep - 1);
               }}
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
+            />
+          )}
+
+          {currentStep === 5 && (
+            <CreateCampaignStepFive
+              formData={formData}
+              updateFormData={updateFormData}
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
+            />
+          )}
+
+          {currentStep === 6 && (
+            <CreateCampaignStepSix
+              formData={formData}
+              updateFormData={updateFormData}
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onNext={() => {
+                setCurrentStep(currentStep + 1);
+              }}
+            />
+          )}
+
+          {currentStep === 7 && (
+            <CreateCampaignStepSeven
+              formData={formData}
+              onBack={() => {
+                setCurrentStep(currentStep - 1);
+              }}
+              onEdit={(step) => {
+                setCurrentStep(step);
+              }}
               onSubmitCampaign={() => {
-                toast.success("Campanha enviada com sucesso!");
+                toast.success("Campanha criada com sucesso!");
                 setIsModalOpen(false);
                 setCurrentStep(1);
+                setFormData({
+                  title: "",
+                  description: "",
+                  subniches: "",
+                  influencersCount: "",
+                  minFollowers: "",
+                  state: "",
+                  city: "",
+                  gender: "",
+                  paymentType: "",
+                  benefits: "",
+                  generalObjective: "",
+                  whatToDo: "",
+                  whatNotToDo: "",
+                  banner: "",
+                  imageRightsPeriod: "",
+                  brandFiles: "",
+                  phasesCount: "1",
+                  phases: [
+                    {
+                      id: "1",
+                      objective: "",
+                      postDate: "",
+                      postTime: "",
+                      formats: [],
+                      files: "",
+                    },
+                  ],
+                });
               }}
             />
           )}

@@ -22,6 +22,7 @@ import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
 import { Route as privateappCampaignsRouteImport } from './screens/(private)/(app)/campaigns'
+import { Route as privateappCampaignsCampaignIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId'
 
 const publicLayoutRoute = publicLayoutRouteImport.update({
   id: '/(public)',
@@ -88,29 +89,37 @@ const privateappCampaignsRoute = privateappCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => privateappLayoutRoute,
 } as any)
+const privateappCampaignsCampaignIdRoute =
+  privateappCampaignsCampaignIdRouteImport.update({
+    id: '/$campaignId',
+    path: '/$campaignId',
+    getParentRoute: () => privateappCampaignsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
-  '/campaigns': typeof privateappCampaignsRoute
+  '/campaigns': typeof privateappCampaignsRouteWithChildren
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding/': typeof privateOnboardingIndexRoute
+  '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof publicForgotPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
-  '/campaigns': typeof privateappCampaignsRoute
+  '/campaigns': typeof privateappCampaignsRouteWithChildren
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding': typeof privateOnboardingIndexRoute
+  '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -121,12 +130,13 @@ export interface FileRoutesById {
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
-  '/(private)/(app)/campaigns': typeof privateappCampaignsRoute
+  '/(private)/(app)/campaigns': typeof privateappCampaignsRouteWithChildren
   '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/(private)/(app)/': typeof privateappIndexRoute
   '/(private)/onboarding/': typeof privateOnboardingIndexRoute
+  '/(private)/(app)/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/onboarding/welcome'
     | '/'
     | '/onboarding/'
+    | '/campaigns/$campaignId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/onboarding/welcome'
     | '/'
     | '/onboarding'
+    | '/campaigns/$campaignId'
   id:
     | '__root__'
     | '/(private)'
@@ -167,6 +179,7 @@ export interface FileRouteTypes {
     | '/(private)/onboarding/welcome'
     | '/(private)/(app)/'
     | '/(private)/onboarding/'
+    | '/(private)/(app)/campaigns/$campaignId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -267,16 +280,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateappCampaignsRouteImport
       parentRoute: typeof privateappLayoutRoute
     }
+    '/(private)/(app)/campaigns/$campaignId': {
+      id: '/(private)/(app)/campaigns/$campaignId'
+      path: '/$campaignId'
+      fullPath: '/campaigns/$campaignId'
+      preLoaderRoute: typeof privateappCampaignsCampaignIdRouteImport
+      parentRoute: typeof privateappCampaignsRoute
+    }
   }
 }
 
+interface privateappCampaignsRouteChildren {
+  privateappCampaignsCampaignIdRoute: typeof privateappCampaignsCampaignIdRoute
+}
+
+const privateappCampaignsRouteChildren: privateappCampaignsRouteChildren = {
+  privateappCampaignsCampaignIdRoute: privateappCampaignsCampaignIdRoute,
+}
+
+const privateappCampaignsRouteWithChildren =
+  privateappCampaignsRoute._addFileChildren(privateappCampaignsRouteChildren)
+
 interface privateappLayoutRouteChildren {
-  privateappCampaignsRoute: typeof privateappCampaignsRoute
+  privateappCampaignsRoute: typeof privateappCampaignsRouteWithChildren
   privateappIndexRoute: typeof privateappIndexRoute
 }
 
 const privateappLayoutRouteChildren: privateappLayoutRouteChildren = {
-  privateappCampaignsRoute: privateappCampaignsRoute,
+  privateappCampaignsRoute: privateappCampaignsRouteWithChildren,
   privateappIndexRoute: privateappIndexRoute,
 }
 

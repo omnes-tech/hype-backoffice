@@ -78,3 +78,40 @@ export interface Meta {
   to: number;
   total: number;
 }
+
+export interface SocialFormat {
+  id: string;
+  socialNetwork: string;
+  contentType: string;
+  quantity: string;
+}
+
+export interface CampaignPhase {
+  id: string;
+  objective: string;
+  postDate: string;
+  postTime: string;
+  formats: SocialFormat[];
+  files: string;
+}
+
+export interface CampaignFormData {
+  title: string;
+  description: string;
+  subniches: string;
+  influencersCount: string;
+  minFollowers: string;
+  state: string;
+  city: string;
+  gender: string;
+  paymentType: string;
+  benefits: string;
+  generalObjective: string;
+  whatToDo: string;
+  whatNotToDo: string;
+  banner: string;
+  imageRightsPeriod: string;
+  brandFiles: string;
+  phasesCount: string;
+  phases: CampaignPhase[];
+}

@@ -2,13 +2,18 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/text-area";
+import type { CampaignFormData } from "@/shared/types";
 
 interface CreateCampaignStepThreeProps {
+  formData: CampaignFormData;
+  updateFormData: (field: keyof CampaignFormData, value: string) => void;
   onBack: () => void;
   onNext: () => void;
 }
 
 export function CreateCampaignStepThree({
+  formData,
+  updateFormData,
   onBack,
   onNext,
 }: CreateCampaignStepThreeProps) {
@@ -18,6 +23,8 @@ export function CreateCampaignStepThree({
         <Select
           label="Tipo de remuneração"
           placeholder="Escolha como os influenciadores serão pagos"
+          value={formData.paymentType}
+          onChange={(value) => updateFormData("paymentType", value)}
           options={[
             { label: "Valor fixo", value: "fixed" },
             { label: "Preço do influenciador", value: "price" },
@@ -33,6 +40,8 @@ export function CreateCampaignStepThree({
 
   . Cupom de desconto de R$250,00 para gastar em nossa loja online.
   . Kit exclusivo com produtos da marca."
+          value={formData.benefits}
+          onChange={(e) => updateFormData("benefits", e.target.value)}
         />
       </div>
 

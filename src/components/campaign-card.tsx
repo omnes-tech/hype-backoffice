@@ -1,7 +1,10 @@
+import { useNavigate } from "@tanstack/react-router";
+
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
 interface CampaignCardProps {
+  id: number;
   title: string;
   phase: string;
   progressPercentage: number;
@@ -10,14 +13,28 @@ interface CampaignCardProps {
 }
 
 export function CampaignCard({
+  id,
   title,
   phase,
   progressPercentage,
   banner,
   influencersCount,
 }: CampaignCardProps) {
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate({
+      to: "/campaigns/$campaignId",
+      params: { campaignId: id.toString() },
+    });
+  };
+
   return (
-    <div className="w-full h-auto rounded-3xl border border-neutral-200 overflow-hidden">
+    <div
+      className="w-full h-auto rounded-3xl border border-neutral-200 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
+      onClick={handleClick}
+    >
       <div className="w-full h-48 relative">
         <img src={banner} alt={title} className="w-full h-full object-cover" />
 

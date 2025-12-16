@@ -2,13 +2,18 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import type { CampaignFormData } from "@/shared/types";
 
 interface CreateCampaignStepTwoProps {
+  formData: CampaignFormData;
+  updateFormData: (field: keyof CampaignFormData, value: string) => void;
   onBack: () => void;
   onNext: () => void;
 }
 
 export function CreateCampaignStepTwo({
+  formData,
+  updateFormData,
   onBack,
   onNext,
 }: CreateCampaignStepTwoProps) {
@@ -18,23 +23,36 @@ export function CreateCampaignStepTwo({
         <Input
           label="Quantos influenciadores deseja na campanha?"
           placeholder="1"
+          value={formData.influencersCount}
+          onChange={(e) => updateFormData("influencersCount", e.target.value)}
         />
 
-        <Input label="Quantidade mínima de seguidores" placeholder="1.000" />
+        <Input 
+          label="Quantidade mínima de seguidores" 
+          placeholder="1.000"
+          value={formData.minFollowers}
+          onChange={(e) => updateFormData("minFollowers", e.target.value)}
+        />
 
         <Input
           label="Estado"
           placeholder="Selecione o/os estado(s) desejado(s)"
+          value={formData.state}
+          onChange={(e) => updateFormData("state", e.target.value)}
         />
 
         <Input
           label="Cidade"
           placeholder="Selecione a/as cidade(s) desejada(s)"
+          value={formData.city}
+          onChange={(e) => updateFormData("city", e.target.value)}
         />
 
         <Select
           label="Gênero"
           placeholder="Selecione o/os gênero(s)"
+          value={formData.gender}
+          onChange={(value) => updateFormData("gender", value)}
           options={[
             { label: "Masculino", value: "male" },
             { label: "Feminino", value: "female" },
