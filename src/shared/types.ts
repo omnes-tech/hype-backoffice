@@ -115,3 +115,92 @@ export interface CampaignFormData {
   phasesCount: string;
   phases: CampaignPhase[];
 }
+
+export interface Influencer {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  followers: number;
+  engagement: number;
+  niche: string;
+  status?: "selected" | "invited" | "active" | "published" | "curation" | "rejected";
+  phase?: string;
+}
+
+export interface CampaignContent {
+  id: string;
+  influencerId: string;
+  influencerName: string;
+  influencerAvatar: string;
+  socialNetwork: string;
+  contentType: string;
+  previewUrl: string;
+  postUrl: string;
+  status: "pending" | "approved" | "rejected" | "published";
+  submittedAt: string;
+  publishedAt?: string;
+  feedback?: string;
+}
+
+export interface ContentMetrics {
+  contentId: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  engagement: number;
+  reach: number;
+}
+
+export interface InfluencerList {
+  id: string;
+  name: string;
+  createdAt: string;
+  influencerIds: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  message: string;
+  timestamp: string;
+  isFromInfluencer: boolean;
+}
+
+export interface AIEvaluation {
+  score: number;
+  feedback: string;
+  compliance: {
+    mentionsBrand: boolean;
+    usesHashtag: boolean;
+    showsProduct: boolean;
+    followsGuidelines: boolean;
+  };
+  suggestions: string[];
+}
+
+export interface InfluencerEvaluation {
+  influencerId: string;
+  rating: number;
+  feedback: string;
+  performance: "excellent" | "good" | "average" | "poor";
+  wouldWorkAgain: boolean;
+}
+
+export interface IdentifiedPost {
+  id: string;
+  influencerId: string;
+  influencerName: string;
+  influencerAvatar: string;
+  socialNetwork: string;
+  contentType: string;
+  postUrl: string;
+  previewUrl: string;
+  phaseId: string;
+  phaseHashtag: string;
+  publishedAt: string;
+  metrics?: ContentMetrics;
+}

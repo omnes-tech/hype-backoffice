@@ -1,10 +1,23 @@
+import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import type { CampaignFormData } from "@/shared/types";
+import { Tabs } from "@/components/ui/tabs";
+import type {
+  CampaignFormData,
+  Influencer,
+  CampaignContent,
+  ContentMetrics,
+} from "@/shared/types";
+
+import { DashboardTab } from "@/components/campaign-tabs/dashboard-tab";
+import { ManagementTab } from "@/components/campaign-tabs/management-tab";
+import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-selection-tab";
+import { CurationTab } from "@/components/campaign-tabs/curation-tab";
+import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-tab";
+import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
@@ -75,486 +88,247 @@ const mockCampaignData: CampaignFormData = {
   ],
 };
 
-const getSubnicheLabel = (value: string) => {
-  const subniches: { [key: string]: string } = {
-    agriculture: "Agro",
-    architecture: "Arquitetura/Construção",
-    art: "Arte",
-    athlete: "Atleta",
-    actor: "Ator/Atriz",
-    audiovisual: "Audiovisual",
-    automobilism: "Automobilismo",
-    beverages: "Bebidas",
-    beauty: "Beleza",
-    toys: "Brinquedos",
-    hair: "Cabelo",
-  };
-  return subniches[value] || value;
+// Mock influencers data
+const mockInfluencers: Influencer[] = [
+  {
+    id: "1",
+    name: "Maria Silva",
+    username: "mariabeauty",
+    avatar: "https://i.pravatar.cc/150?img=1",
+    followers: 125000,
+    engagement: 8.5,
+    niche: "Beleza",
+    status: "selected",
+  },
+  {
+    id: "2",
+    name: "João Santos",
+    username: "joaofashion",
+    avatar: "https://i.pravatar.cc/150?img=2",
+    followers: 89000,
+    engagement: 7.2,
+    niche: "Moda",
+    status: "invited",
+  },
+  {
+    id: "3",
+    name: "Ana Costa",
+    username: "analifestyle",
+    avatar: "https://i.pravatar.cc/150?img=3",
+    followers: 210000,
+    engagement: 9.1,
+    niche: "Lifestyle",
+    status: "active",
+  },
+  {
+    id: "4",
+    name: "Pedro Lima",
+    username: "pedrostyle",
+    avatar: "https://i.pravatar.cc/150?img=4",
+    followers: 156000,
+    engagement: 6.8,
+    niche: "Moda",
+    status: "published",
+  },
+  {
+    id: "5",
+    name: "Carla Oliveira",
+    username: "carlabeauty",
+    avatar: "https://i.pravatar.cc/150?img=5",
+    followers: 98000,
+    engagement: 8.9,
+    niche: "Beleza",
+    status: "curation",
+  },
+];
+
+// Mock contents data
+const mockContents: CampaignContent[] = [
+  {
+    id: "1",
+    influencerId: "3",
+    influencerName: "Ana Costa",
+    influencerAvatar: "https://i.pravatar.cc/150?img=3",
+    socialNetwork: "instagram",
+    contentType: "reels",
+    previewUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400",
+    postUrl: "https://instagram.com/p/example1",
+    status: "pending",
+    submittedAt: "2025-01-10T10:00:00Z",
+  },
+  {
+    id: "2",
+    influencerId: "4",
+    influencerName: "Pedro Lima",
+    influencerAvatar: "https://i.pravatar.cc/150?img=4",
+    socialNetwork: "instagram",
+    contentType: "post",
+    previewUrl: "https://images.unsplash.com/photo-1611162616305-c69b3c7b8d74?w=400",
+    postUrl: "https://instagram.com/p/example2",
+    status: "published",
+    submittedAt: "2025-01-08T14:00:00Z",
+    publishedAt: "2025-01-09T18:00:00Z",
+  },
+  {
+    id: "3",
+    influencerId: "3",
+    influencerName: "Ana Costa",
+    influencerAvatar: "https://i.pravatar.cc/150?img=3",
+    socialNetwork: "instagram",
+    contentType: "stories",
+    previewUrl: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400",
+    postUrl: "https://instagram.com/stories/example3",
+    status: "published",
+    submittedAt: "2025-01-07T09:00:00Z",
+    publishedAt: "2025-01-07T12:00:00Z",
+  },
+];
+
+// Mock metrics data
+const mockMetrics: { [contentId: string]: ContentMetrics } = {
+  "2": {
+    contentId: "2",
+    views: 45200,
+    likes: 3200,
+    comments: 145,
+    shares: 89,
+    engagement: 7.6,
+    reach: 38900,
+  },
+  "3": {
+    contentId: "3",
+    views: 28900,
+    likes: 2100,
+    comments: 78,
+    shares: 45,
+    engagement: 7.7,
+    reach: 24500,
+  },
 };
 
-const getGenderLabel = (value: string) => {
-  const genders: { [key: string]: string } = {
-    male: "Masculino",
-    female: "Feminino",
-    outros: "Outros",
-    all: "Todos",
-  };
-  return genders[value] || value;
-};
-
-const getPaymentTypeLabel = (value: string) => {
-  const types: { [key: string]: string } = {
-    fixed: "Valor fixo",
-    price: "Preço do influenciador",
-    swap: "Permuta",
-    cpa: "CPA (Custo Por Ação)",
-    cpm: "CPM (Custo Por Mil)",
-  };
-  return types[value] || value;
-};
-
-const getObjectiveLabel = (value: string) => {
-  const objectives: { [key: string]: string } = {
-    awareness: "Awareness",
-    engagement: "Engajamento",
-    conversion: "Conversão",
-    reach: "Alcance",
-    education: "Educação",
-  };
-  return objectives[value] || value;
-};
-
-const getSocialNetworkLabel = (value: string) => {
-  const networks: { [key: string]: string } = {
-    instagram: "Instagram",
-    youtube: "Youtube",
-    tiktok: "TikTok",
-    facebook: "Facebook",
-    twitter: "Twitter",
-  };
-  return networks[value] || value;
-};
-
-const getContentTypeLabel = (value: string) => {
-  const types: { [key: string]: string } = {
-    stories: "Stories",
-    post: "Post",
-    reels: "Reels",
-    igtv: "IGTV",
-    live: "Live",
-    video: "Vídeo",
-    shorts: "Shorts",
-    tweet: "Tweet",
-    thread: "Thread",
-  };
-  return types[value] || value;
-};
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("pt-BR");
-};
+const tabs = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "management", label: "Gerenciamento" },
+  { id: "selection", label: "Seleção de influenciadores" },
+  { id: "curation", label: "Curadoria" },
+  { id: "approval", label: "Aprovações de conteúdo" },
+  { id: "metrics", label: "Métricas e conteúdos" },
+];
 
 function RouteComponent() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("dashboard");
   const campaign = mockCampaignData;
   const progressPercentage = 45;
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Header com botão voltar */}
-      <div className="flex items-center justify-between w-full gap-4">
-        <Button
-          variant="outline"
-          onClick={() => navigate({ to: "/campaigns" })}
-          style={{ width: "8rem" }}
-          className="h-10 px-4"
-        >
-          <div className="flex items-center gap-2">
-            <Icon name="ArrowLeft" size={16} color="#404040" />
-            <span className="text-neutral-700 font-medium">Voltar</span>
-          </div>
-        </Button>
-        <h1 className="text-2xl font-semibold text-neutral-950">
-          {campaign.title}
-        </h1>
-      </div>
+  const metrics = {
+    reach: 45200,
+    engagement: 8.5,
+    publishedContent: 2,
+    activeInfluencers: 3,
+  };
 
-      {/* Banner */}
-      {campaign.banner && (
-        <div className="w-full h-64 rounded-3xl overflow-hidden border border-neutral-200">
-          <img
-            src={campaign.banner}
-            alt={campaign.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-
-      {/* Progress Section */}
-      <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            Progresso da campanha
-          </h2>
-          <Badge
-            text={`${campaign.influencersCount} influenciadores`}
-            backgroundColor="bg-primary-50"
-            textColor="text-primary-900"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-neutral-600">Fase 2 de 2</span>
-            <span className="text-sm text-neutral-600">
-              {progressPercentage}%
-            </span>
-          </div>
-          <ProgressBar
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "dashboard":
+        return (
+          <DashboardTab
+            campaign={campaign}
+            metrics={metrics}
             progressPercentage={progressPercentage}
-            color="bg-tertiary-500"
           />
-        </div>
-      </div>
+        );
+      case "management":
+        return (
+          <ManagementTab
+            influencers={mockInfluencers}
+            campaignPhases={campaign.phases || []}
+          />
+        );
+      case "selection":
+        return (
+          <InfluencerSelectionTab
+            influencers={mockInfluencers}
+            campaignPhases={campaign.phases?.map((phase, index) => ({
+              id: phase.id,
+              label: `Fase ${index + 1}`,
+            })) || []}
+          />
+        );
+      case "curation":
+        return <CurationTab influencers={mockInfluencers} />;
+      case "approval":
+        return <ContentApprovalTab contents={mockContents} />;
+      case "metrics":
+        return (
+          <MetricsTab
+            contents={mockContents}
+            metrics={mockMetrics}
+            campaignPhases={campaign.phases || []}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Info */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Informações básicas */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Informações básicas
-            </h3>
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Sobre a campanha
-                </p>
-                <p className="text-base text-neutral-950">
-                  {campaign.description}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Subnichos da campanha
-                </p>
-                <p className="text-base text-neutral-950">
-                  {campaign.subniches
-                    ? getSubnicheLabel(campaign.subniches)
-                    : "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Perfil dos influenciadores */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Perfil dos influenciadores
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Quantos influenciadores deseja na campanha?
-                </p>
-                <p className="text-base text-neutral-950 font-medium">
-                  {campaign.influencersCount || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Quantidade mínima de seguidores
-                </p>
-                <p className="text-base text-neutral-950 font-medium">
-                  {campaign.minFollowers || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">Estado</p>
-                <p className="text-base text-neutral-950">
-                  {campaign.state || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">Cidade</p>
-                <p className="text-base text-neutral-950">
-                  {campaign.city || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">Gênero</p>
-                <p className="text-base text-neutral-950">
-                  {campaign.gender ? getGenderLabel(campaign.gender) : "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Remuneração e benefícios */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Remuneração e benefícios
-            </h3>
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Tipo de remuneração
-                </p>
-                <p className="text-base text-neutral-950 font-medium">
-                  {campaign.paymentType
-                    ? getPaymentTypeLabel(campaign.paymentType)
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Benefícios inclusos na campanha
-                </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {campaign.benefits || "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Objetivo e orientações */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Objetivo e orientações
-            </h3>
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Objetivo geral da campanha
-                </p>
-                <p className="text-base text-neutral-950">
-                  {campaign.generalObjective || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-success-600 font-medium mb-1">
-                  O que fazer
-                </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {campaign.whatToDo || "-"}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-danger-600 font-medium mb-1">
-                  O que NÃO fazer
-                </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {campaign.whatNotToDo || "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Arquivos e configurações */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Arquivos e configurações
-            </h3>
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Período de direitos de imagem (em meses)
-                </p>
-                <p className="text-base text-neutral-950">
-                  {campaign.imageRightsPeriod
-                    ? `${campaign.imageRightsPeriod} ${
-                        campaign.imageRightsPeriod === "1" ? "mês" : "meses"
-                      }`
-                    : "-"}
-                </p>
-              </div>
-              {campaign.brandFiles && (
-                <div>
-                  <p className="text-sm text-neutral-600 mb-1">
-                    Arquivos da marca
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Icon name="Download" color="#A3A3A3" size={20} />
-                    <span className="text-base text-neutral-950">
-                      {campaign.brandFiles}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Fases da campanha */}
-          {campaign.phases && campaign.phases.length > 0 && (
-            <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-              <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-                Fases da campanha
-              </h3>
-              <div className="flex flex-col gap-6">
-                {campaign.phases.map((phase, index) => (
-                  <div
-                    key={phase.id}
-                    className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200"
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <Badge
-                        text={`Fase ${index + 1}`}
-                        backgroundColor="bg-tertiary-600"
-                        textColor="text-neutral-50"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div>
-                        <p className="text-sm text-neutral-600 mb-1">
-                          Objetivo da fase
-                        </p>
-                        <p className="text-base text-neutral-950">
-                          {phase.objective
-                            ? getObjectiveLabel(phase.objective)
-                            : "-"}
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-1">
-                            Data prevista de postagem
-                          </p>
-                          <p className="text-base text-neutral-950">
-                            {phase.postDate ? formatDate(phase.postDate) : "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-1">
-                            Horário da postagem
-                          </p>
-                          <p className="text-base text-neutral-950">
-                            {phase.postTime ? `${phase.postTime} horas` : "-"}
-                          </p>
-                        </div>
-                      </div>
-                      {phase.formats && phase.formats.length > 0 && (
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-2">
-                            Formatos e redes sociais
-                          </p>
-                          <div className="flex flex-col gap-2">
-                            {phase.formats.map((format) => (
-                              <div
-                                key={format.id}
-                                className="flex items-center gap-2 text-sm text-neutral-950"
-                              >
-                                <span className="font-medium">
-                                  {format.socialNetwork
-                                    ? getSocialNetworkLabel(
-                                        format.socialNetwork
-                                      )
-                                    : "-"}
-                                </span>
-                                <span className="text-neutral-400">•</span>
-                                <span>
-                                  {format.contentType
-                                    ? getContentTypeLabel(format.contentType)
-                                    : "-"}
-                                </span>
-                                <span className="text-neutral-400">•</span>
-                                <span>
-                                  Quantidade: {format.quantity || "-"}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {phase.files && (
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-1">
-                            Arquivos da fase
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <Icon name="Download" color="#A3A3A3" size={20} />
-                            <span className="text-base text-neutral-950">
-                              {phase.files}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Ações rápidas
-            </h3>
-            <div className="flex flex-col gap-3">
-              <Button className="w-full">
+  return (
+    <div className="flex flex-col h-full bg-neutral-100">
+      {/* Header fixo */}
+      <div className="bg-white border-b border-neutral-200 sticky top-0 z-10 shadow-sm">
+        <div className="p-6 pb-0">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col justify-start gap-4">
+              <Button
+                variant="outline"
+                onClick={() => navigate({ to: "/campaigns" })}
+                style={{ width: "40%", height: "36px" }}
+              >
                 <div className="flex items-center gap-2">
-                  <Icon name="Users" color="#FAFAFA" size={16} />
-                  <span className="text-neutral-50 font-medium">
-                    Ver influenciadores
-                  </span>
+                  <Icon name="ArrowLeft" size={16} color="#404040" />
+                  <span className="text-neutral-700 font-medium">Voltar</span>
                 </div>
               </Button>
-              <Button variant="outline" className="w-full">
+              <div>
+                <h1 className="text-2xl font-semibold text-neutral-950">
+                  {campaign.title}
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge
+                    text="Ativa"
+                    backgroundColor="bg-success-50"
+                    textColor="text-success-900"
+                  />
+                  <span className="text-sm text-neutral-600">
+                    {campaign.influencersCount} influenciadores • {progressPercentage}%
+                    concluído
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline">
                 <div className="flex items-center gap-2">
                   <Icon name="Pencil" color="#404040" size={16} />
-                  <span className="text-neutral-700 font-medium">
-                    Editar campanha
-                  </span>
+                  <span>Editar</span>
                 </div>
               </Button>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline">
                 <div className="flex items-center gap-2">
                   <Icon name="Share2" color="#404040" size={16} />
-                  <span className="text-neutral-700 font-medium">
-                    Compartilhar
-                  </span>
+                  <span>Compartilhar</span>
                 </div>
               </Button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-              Estatísticas
-            </h3>
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Influenciadores ativos
-                </p>
-                <p className="text-2xl font-semibold text-neutral-950">
-                  {campaign.influencersCount}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">
-                  Posts publicados
-                </p>
-                <p className="text-2xl font-semibold text-neutral-950">12</p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">Alcance total</p>
-                <p className="text-2xl font-semibold text-neutral-950">45.2K</p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
-                <p className="text-2xl font-semibold text-neutral-950">8.5%</p>
-              </div>
             </div>
           </div>
         </div>
+
+        {/* Tabs */}
+        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
+
+      {/* Conteúdo das tabs */}
+      <div className="flex-1 overflow-y-auto p-6 px-0">{renderTabContent()}</div>
     </div>
   );
 }
