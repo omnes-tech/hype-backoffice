@@ -17,7 +17,7 @@ interface InfluencerSelectionTabProps {
 
 export function InfluencerSelectionTab({
   influencers,
-  campaignPhases = [],
+  campaignPhases: _campaignPhases = [],
 }: InfluencerSelectionTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");

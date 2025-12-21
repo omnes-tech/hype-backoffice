@@ -23,7 +23,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
   // Mock de avaliação da IA
-  const getAIEvaluation = (contentId: string): AIEvaluation => {
+  const getAIEvaluation = (_contentId: string): AIEvaluation => {
     return {
       score: 85,
       feedback:
