@@ -98,6 +98,7 @@ export function InfluencerSelectionTab({
             </div>
             <Button
               variant="outline"
+              style={{ width: 'fit' }}
               onClick={() => setModalType("selectList")}
             >
               <div className="flex items-center gap-2">

@@ -183,85 +183,86 @@ export function ManagementTab({
       </div>
 
       {/* Modal do influenciador */}
-      {selectedInfluencer && (
+      {isModalOpen && selectedInfluencer && (
         <Modal
           title={`${selectedInfluencer.name} - Detalhes`}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedInfluencer(null);
+          }}
         >
-          {isModalOpen && (
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center gap-4">
-                <Avatar
-                  src={selectedInfluencer.avatar}
-                  alt={selectedInfluencer.name}
-                  size="2xl"
-                />
-                <div>
-                  <h3 className="text-xl font-semibold text-neutral-950">
-                    {selectedInfluencer.name}
-                  </h3>
-                  <p className="text-neutral-600">@{selectedInfluencer.username}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-neutral-600 mb-1">Seguidores</p>
-                  <p className="text-lg font-semibold text-neutral-950">
-                    {selectedInfluencer.followers.toLocaleString("pt-BR")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
-                  <p className="text-lg font-semibold text-neutral-950">
-                    {selectedInfluencer.engagement}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-600 mb-1">Nicho</p>
-                  <p className="text-lg font-semibold text-neutral-950">
-                    {selectedInfluencer.niche}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-600 mb-1">Status</p>
-                  <Badge
-                    text={
-                      selectedInfluencer.status === "selected"
-                        ? "Selecionado"
-                        : selectedInfluencer.status === "invited"
-                        ? "Convidado"
-                        : selectedInfluencer.status === "active"
-                        ? "Ativo"
-                        : "Publicado"
-                    }
-                    backgroundColor="bg-primary-50"
-                    textColor="text-primary-900"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setIsChatModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="MessageCircle" color="#404040" size={16} />
-                    <span>Abrir chat</span>
-                  </div>
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Icon name="User" color="#404040" size={16} />
-                    <span>Ver perfil completo</span>
-                  </div>
-                </Button>
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center gap-4">
+              <Avatar
+                src={selectedInfluencer.avatar}
+                alt={selectedInfluencer.name}
+                size="2xl"
+              />
+              <div>
+                <h3 className="text-xl font-semibold text-neutral-950">
+                  {selectedInfluencer.name}
+                </h3>
+                <p className="text-neutral-600">@{selectedInfluencer.username}</p>
               </div>
             </div>
-          )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-neutral-600 mb-1">Seguidores</p>
+                <p className="text-lg font-semibold text-neutral-950">
+                  {selectedInfluencer.followers.toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
+                <p className="text-lg font-semibold text-neutral-950">
+                  {selectedInfluencer.engagement}%
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-600 mb-1">Nicho</p>
+                <p className="text-lg font-semibold text-neutral-950">
+                  {selectedInfluencer.niche}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-600 mb-1">Status</p>
+                <Badge
+                  text={
+                    selectedInfluencer.status === "selected"
+                      ? "Selecionado"
+                      : selectedInfluencer.status === "invited"
+                      ? "Convidado"
+                      : selectedInfluencer.status === "active"
+                      ? "Ativo"
+                      : "Publicado"
+                  }
+                  backgroundColor="bg-primary-50"
+                  textColor="text-primary-900"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setIsChatModalOpen(true);
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon name="MessageCircle" color="#404040" size={16} />
+                  <span>Abrir chat</span>
+                </div>
+              </Button>
+              <Button variant="outline" className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Icon name="User" color="#404040" size={16} />
+                  <span>Ver perfil completo</span>
+                </div>
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
 
