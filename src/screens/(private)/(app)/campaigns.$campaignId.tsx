@@ -258,7 +258,12 @@ function RouteComponent() {
       case "curation":
         return <CurationTab influencers={mockInfluencers} />;
       case "approval":
-        return <ContentApprovalTab contents={mockContents} />;
+        return (
+          <ContentApprovalTab
+            contents={mockContents}
+            campaignPhases={campaign.phases || []}
+          />
+        );
       case "metrics":
         return (
           <MetricsTab

@@ -54,23 +54,20 @@ export function Select({
   };
 
   return (
-    <div className="w-full flex flex-col gap-1" ref={dropdownRef} {...props}>
+    <div className="w-full flex flex-col gap-1 relative" ref={dropdownRef} {...props}>
       {label && (
         <label htmlFor={props.id} className="text-neutral-950 font-medium">
           {label}
         </label>
       )}
 
-      <div className="w-full flex flex-col">
+      <div className="w-full relative">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={clsx(
-            "w-full h-11 bg-neutral-100 flex items-center justify-between px-4 outline-none focus-within:bg-neutral-200/70",
-            isOpen
-              ? "rounded-t-3xl border-b border-dashed border-neutral-200"
-              : "rounded-3xl",
+            "w-full h-11 bg-neutral-100 flex items-center justify-between px-4 outline-none focus-within:bg-neutral-200/70 rounded-3xl",
             disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           )}
         >
@@ -97,7 +94,7 @@ export function Select({
         {isOpen && (
           <div
             className={clsx(
-              "w-full rounded-b-3xl bg-neutral-100 overflow-hidden"
+              "absolute z-50 w-full mt-1 rounded-3xl bg-neutral-100 border border-neutral-200 shadow-lg overflow-hidden max-h-60 overflow-y-auto"
             )}
           >
             {options.map((option) => (

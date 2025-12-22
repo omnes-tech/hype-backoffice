@@ -6,14 +6,20 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { CampaignContent, AIEvaluation } from "@/shared/types";
+import { Select } from "@/components/ui/select";
+import type { CampaignContent, AIEvaluation, CampaignPhase } from "@/shared/types";
+
+interface ExtendedCampaignContent extends CampaignContent {
+  phaseId?: string;
+}
 
 interface ContentApprovalTabProps {
   contents: CampaignContent[];
+  campaignPhases?: CampaignPhase[];
 }
 
-export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
-  const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
+export function ContentApprovalTab({ contents, campaignPhases = [] }: ContentApprovalTabProps) {
+  const [selectedContent, setSelectedContent] = useState<ExtendedCampaignContent | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [rejectionFeedback, setRejectionFeedback] = useState("");
@@ -21,6 +27,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
+  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
 
   // Mock de avaliação da IA
   const getAIEvaluation = (_contentId: string): AIEvaluation => {
@@ -41,7 +48,32 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
     };
   };
 
-  const pendingContents = contents.filter((content) => content.status === "pending");
+  // Extend contents with phase information
+  const extendedContents: ExtendedCampaignContent[] = contents.map((content, index) => ({
+    ...content,
+    phaseId: campaignPhases.length > 0 ? campaignPhases[index % campaignPhases.length].id : undefined,
+  }));
+
+  const pendingContents = extendedContents.filter((content) => content.status === "pending");
+
+  const filteredPendingContents =
+    selectedPhaseFilter === "all"
+      ? pendingContents
+      : pendingContents.filter((content) => content.phaseId === selectedPhaseFilter);
+
+  const phaseOptions = [
+    { value: "all", label: "Todas as fases" },
+    ...campaignPhases.map((phase, index) => ({
+      value: phase.id,
+      label: `Fase ${index + 1}`,
+    })),
+  ];
+
+  const getPhaseLabel = (phaseId?: string) => {
+    if (!phaseId) return "Sem fase";
+    const phaseIndex = campaignPhases.findIndex((p) => p.id === phaseId);
+    return phaseIndex >= 0 ? `Fase ${phaseIndex + 1}` : "Sem fase";
+  };
 
   const handleSelectContent = (contentId: string) => {
     setSelectedContents((prev) => {
@@ -56,10 +88,10 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
   };
 
   const handleSelectAll = () => {
-    if (selectedContents.size === pendingContents.length) {
+    if (selectedContents.size === filteredPendingContents.length) {
       setSelectedContents(new Set());
     } else {
-      setSelectedContents(new Set(pendingContents.map((content) => content.id)));
+      setSelectedContents(new Set(filteredPendingContents.map((content) => content.id)));
     }
   };
 
@@ -120,7 +152,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
                 Conteúdos pendentes de aprovação
               </h3>
               <Badge
-                text={`${pendingContents.length} conteúdos`}
+                text={`${filteredPendingContents.length} conteúdos`}
                 backgroundColor="bg-warning-50"
                 textColor="text-warning-900"
               />
@@ -130,6 +162,18 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
                   backgroundColor="bg-tertiary-50"
                   textColor="text-tertiary-900"
                 />
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              {campaignPhases.length > 0 && (
+                <div className="w-48">
+                  <Select
+                    placeholder="Filtrar por fase"
+                    options={phaseOptions}
+                    value={selectedPhaseFilter}
+                    onChange={setSelectedPhaseFilter}
+                  />
+                </div>
               )}
             </div>
             {selectedContents.size > 0 && (
@@ -162,7 +206,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
             )}
           </div>
 
-          {pendingContents.length === 0 ? (
+          {filteredPendingContents.length === 0 ? (
             <div className="text-center py-12">
               <Icon name="FileCheck" color="#A3A3A3" size={48} />
               <p className="text-neutral-600 mt-4">
@@ -173,7 +217,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
             <>
               <div className="flex items-center gap-2 mb-4">
                 <Checkbox
-                  checked={selectedContents.size === pendingContents.length}
+                  checked={selectedContents.size === filteredPendingContents.length && filteredPendingContents.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
                 <label className="text-sm font-medium text-neutral-950">
@@ -181,7 +225,7 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
                 </label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingContents.map((content) => {
+                {filteredPendingContents.map((content) => {
                   const aiEvaluation = getAIEvaluation(content.id);
                   return (
                     <div
@@ -258,15 +302,24 @@ export function ContentApprovalTab({ contents }: ContentApprovalTabProps) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 mb-3">
-                        <Icon
-                          name={getSocialNetworkIcon(content.socialNetwork)}
-                          color="#404040"
-                          size={16}
-                        />
-                        <span className="text-sm text-neutral-600">
-                          {content.socialNetwork} • {content.contentType}
-                        </span>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Icon
+                            name={getSocialNetworkIcon(content.socialNetwork)}
+                            color="#404040"
+                            size={16}
+                          />
+                          <span className="text-sm text-neutral-600">
+                            {content.socialNetwork} • {content.contentType}
+                          </span>
+                        </div>
+                        {content.phaseId && (
+                          <Badge
+                            text={getPhaseLabel(content.phaseId)}
+                            backgroundColor="bg-tertiary-600"
+                            textColor="text-neutral-50"
+                          />
+                        )}
                       </div>
 
                       <div className="flex gap-2">

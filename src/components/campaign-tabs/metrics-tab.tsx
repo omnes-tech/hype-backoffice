@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import type {
@@ -26,6 +27,8 @@ export function MetricsTab({
   const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
+  const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
+  const [influencerSearchTerm, setInfluencerSearchTerm] = useState("");
 
   // Mock de publicações identificadas
   const identifiedPosts: IdentifiedPost[] = [
@@ -122,6 +125,14 @@ export function MetricsTab({
     ).values()
   );
 
+  const filteredInfluencers = uniqueInfluencers.filter((influencerContent) => {
+    if (!influencerSearchTerm) return true;
+    const searchLower = influencerSearchTerm.toLowerCase();
+    // Extract username from influencer name if available (assuming format might include @)
+    const nameLower = influencerContent.influencerName.toLowerCase();
+    return nameLower.includes(searchLower);
+  });
+
   const handleContentClick = (content: CampaignContent) => {
     setSelectedContent(content);
     setIsModalOpen(true);
@@ -146,7 +157,7 @@ export function MetricsTab({
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-neutral-950">
-                  Publicações identificadas
+                  {hasViewedNewPosts ? "Publicações identificadas" : "Novas Publicações identificadas"}
                 </h3>
                 <Badge
                   text={`${filteredIdentifiedPosts.length} publicação(ões)`}
@@ -177,7 +188,10 @@ export function MetricsTab({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div 
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                onMouseEnter={() => !hasViewedNewPosts && setHasViewedNewPosts(true)}
+              >
                 {filteredIdentifiedPosts.map((post) => (
                   <div
                     key={post.id}
@@ -256,19 +270,30 @@ export function MetricsTab({
             <h3 className="text-lg font-semibold text-neutral-950">
               Métricas por influenciador
             </h3>
-            {campaignPhases.length > 0 && (
-              <div className="w-48">
-                <Select
-                  placeholder="Filtrar por fase"
-                  options={phaseOptions}
-                  value={selectedPhaseFilter}
-                  onChange={setSelectedPhaseFilter}
+            <div className="flex items-center gap-4">
+              <div className="w-64">
+                <Input
+                  label="Buscar influenciador"
+                  placeholder="Nome ou @username"
+                  value={influencerSearchTerm}
+                  onChange={(e) => setInfluencerSearchTerm(e.target.value)}
+                  icon={<Icon name="Search" color="#A3A3A3" size={20} />}
                 />
               </div>
-            )}
+              {campaignPhases.length > 0 && (
+                <div className="w-48">
+                  <Select
+                    placeholder="Filtrar por fase"
+                    options={phaseOptions}
+                    value={selectedPhaseFilter}
+                    onChange={setSelectedPhaseFilter}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-4">
-            {uniqueInfluencers.map((influencerContent) => {
+            {filteredInfluencers.map((influencerContent) => {
               const influencerMetrics = getInfluencerTotalMetrics(
                 influencerContent.influencerId
               );

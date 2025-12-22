@@ -221,27 +221,154 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
         <h3 className="text-lg font-semibold text-neutral-950 mb-4">
           Resumo da campanha
         </h3>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
+          {/* Banner */}
+          {campaign.banner && (
+            <div>
+              <p className="text-sm text-neutral-600 mb-2">Banner</p>
+              <div className="rounded-2xl overflow-hidden border border-neutral-200">
+                <img
+                  src={campaign.banner}
+                  alt="Banner da campanha"
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Informações básicas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-neutral-600 mb-1">Nicho</p>
+              <Badge
+                text={campaign.subniches}
+                backgroundColor="bg-tertiary-50"
+                textColor="text-tertiary-900"
+              />
+            </div>
+            <div>
+              <p className="text-sm text-neutral-600 mb-1">Tipo de remuneração</p>
+              <p className="text-base text-neutral-950">
+                {campaign.paymentType === "fixed"
+                  ? "Valor fixo"
+                  : campaign.paymentType === "price"
+                  ? "Preço do influenciador"
+                  : campaign.paymentType === "swap"
+                  ? "Permuta"
+                  : campaign.paymentType === "cpa"
+                  ? "CPA (Custo Por Ação)"
+                  : campaign.paymentType === "cpm"
+                  ? "CPM (Custo Por Mil)"
+                  : campaign.paymentType}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-600 mb-1">Período de direitos de imagem</p>
+              <p className="text-base text-neutral-950">
+                {campaign.imageRightsPeriod} {campaign.imageRightsPeriod === "1" ? "mês" : "meses"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-600 mb-1">Quantidade de influenciadores</p>
+              <p className="text-base text-neutral-950">{campaign.influencersCount}</p>
+            </div>
+          </div>
+
+          {/* Segmentação */}
+          <div>
+            <p className="text-sm text-neutral-600 mb-2 font-medium">Segmentação</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-neutral-50 rounded-2xl p-4">
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Seguidores mínimos</p>
+                <p className="text-sm font-semibold text-neutral-950">
+                  {parseInt(campaign.minFollowers).toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Localização</p>
+                <p className="text-sm font-semibold text-neutral-950">
+                  {campaign.city && campaign.state
+                    ? `${campaign.city}, ${campaign.state}`
+                    : campaign.state || campaign.city || "Não especificado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Gênero</p>
+                <p className="text-sm font-semibold text-neutral-950">
+                  {campaign.gender === "male"
+                    ? "Masculino"
+                    : campaign.gender === "female"
+                    ? "Feminino"
+                    : campaign.gender === "all"
+                    ? "Todos"
+                    : campaign.gender}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Datas das fases */}
+          {campaign.phases && campaign.phases.length > 0 && (
+            <div>
+              <p className="text-sm text-neutral-600 mb-2 font-medium">Datas das fases</p>
+              <div className="flex flex-col gap-2">
+                {campaign.phases.map((phase, index) => (
+                  <div
+                    key={phase.id}
+                    className="bg-neutral-50 rounded-xl p-3 border border-neutral-200"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge
+                        text={`Fase ${index + 1}`}
+                        backgroundColor="bg-tertiary-600"
+                        textColor="text-neutral-50"
+                      />
+                      {phase.postDate && (
+                        <span className="text-sm text-neutral-950">
+                          {new Date(phase.postDate).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                          {phase.postTime && ` às ${phase.postTime}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Descrição */}
           <div>
             <p className="text-sm text-neutral-600 mb-1">Descrição</p>
             <p className="text-base text-neutral-950">{campaign.description}</p>
           </div>
+
+          {/* Objetivo geral */}
           <div>
             <p className="text-sm text-neutral-600 mb-1">Objetivo geral</p>
             <p className="text-base text-neutral-950">{campaign.generalObjective}</p>
           </div>
+
+          {/* O que fazer */}
           <div>
             <p className="text-sm text-success-600 font-medium mb-1">O que fazer</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
               {campaign.whatToDo}
             </div>
           </div>
+
+          {/* O que não fazer */}
           <div>
             <p className="text-sm text-error-600 font-medium mb-1">O que não fazer</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
               {campaign.whatNotToDo}
             </div>
           </div>
+
+          {/* Benefícios */}
           <div>
             <p className="text-sm text-neutral-600 mb-1">Benefícios</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
