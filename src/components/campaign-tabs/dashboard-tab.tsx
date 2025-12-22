@@ -226,11 +226,11 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           {campaign.banner && (
             <div>
               <p className="text-sm text-neutral-600 mb-2">Banner</p>
-              <div className="rounded-2xl overflow-hidden border border-neutral-200">
+              <div className="rounded-2xl overflow-hidden border border-neutral-200 w-full">
                 <img
                   src={campaign.banner}
                   alt="Banner da campanha"
-                  className="w-full h-auto object-cover"
+                  className="w-full h-80 object-cover"
                 />
               </div>
             </div>
