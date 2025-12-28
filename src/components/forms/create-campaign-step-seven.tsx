@@ -8,6 +8,7 @@ interface CreateCampaignStepSevenProps {
   onBack: () => void;
   onEdit: (step: number) => void;
   onSubmitCampaign: () => void;
+  isLoading?: boolean;
 }
 
 const getSubnicheLabel = (value: string) => {
@@ -96,6 +97,7 @@ export function CreateCampaignStepSeven({
   onBack,
   onEdit,
   onSubmitCampaign,
+  isLoading = false,
 }: CreateCampaignStepSevenProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -506,12 +508,12 @@ export function CreateCampaignStepSeven({
         </div>
 
         <div className="w-fit">
-          <Button onClick={onSubmitCampaign} type="button">
+          <Button onClick={onSubmitCampaign} type="button" disabled={isLoading}>
             <div className="flex items-center justify-center gap-2">
               <p className="text-neutral-50 font-semibold">
-                Confirmar e selecionar influenciadores
+                {isLoading ? "Criando campanha..." : "Confirmar e selecionar influenciadores"}
               </p>
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
+              {!isLoading && <Icon name="ArrowRight" size={16} color="#FAFAFA" />}
             </div>
           </Button>
         </div>

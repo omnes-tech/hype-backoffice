@@ -1,5 +1,5 @@
 export const getApiUrl = (path: string): string => {
-  const baseUrl = "https://api-v2.hypeapp.com.br/v1/backoffice";
+  const baseUrl = "http://localhost:3000/api/backoffice";
 
   if (!baseUrl) {
     throw new Error("Unable to get base url.");

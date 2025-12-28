@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
@@ -8,7 +10,12 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Influencer, InfluencerList } from "@/shared/types";
+import type { Influencer } from "@/shared/types";
+import { useCampaignRecommendations } from "@/hooks/use-catalog";
+import { useInfluencersCatalog } from "@/hooks/use-catalog";
+import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
+import { useInviteInfluencer } from "@/hooks/use-campaign-influencers";
+import { moveToCuration } from "@/shared/services/influencer";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -27,9 +34,10 @@ interface InfluencerSelectionTabProps {
 }
 
 export function InfluencerSelectionTab({
-  influencers,
+  influencers: _influencers,
   campaignPhases: _campaignPhases = [],
 }: InfluencerSelectionTabProps) {
+  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
   const [filterSocialNetwork, setFilterSocialNetwork] = useState("");
@@ -40,8 +48,6 @@ export function InfluencerSelectionTab({
   const [filterLocationCountry, setFilterLocationCountry] = useState("");
   const [filterLocationState, setFilterLocationState] = useState("");
   const [filterLocationCity, setFilterLocationCity] = useState("");
-  const [isMuralActive, setIsMuralActive] = useState(false);
-  const [muralEndDate, setMuralEndDate] = useState("");
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
   const [modalType, setModalType] = useState<
@@ -49,78 +55,132 @@ export function InfluencerSelectionTab({
   >(null);
   const [inviteMessage, setInviteMessage] = useState("");
   const [curationNotes, setCurationNotes] = useState("");
-  const [selectedList, setSelectedList] = useState<string>("");
+  const [tempMuralEndDate, setTempMuralEndDate] = useState("");
 
-  // Mock de listas salvas
-  const savedLists: InfluencerList[] = [
-    {
-      id: "1",
-      name: "Influenciadores Top Beleza",
-      createdAt: "2025-01-01",
-      influencerIds: ["1", "5"],
-    },
-    {
-      id: "2",
-      name: "Micro-influenciadores Moda",
-      createdAt: "2025-01-05",
-      influencerIds: ["2", "4"],
-    },
-  ];
-
-  // Extend influencers with mock data for missing fields
-  const extendedInfluencers: ExtendedInfluencer[] = influencers.map((inf, index) => ({
-    ...inf,
-    socialNetwork: ["instagram", "tiktok", "youtube", "instagram", "tiktok"][index % 5],
-    ageRange: ["18-24", "25-34", "18-24", "25-34", "35-44"][index % 5],
-    location: {
-      country: "Brasil",
-      state: ["São Paulo", "Rio de Janeiro", "Minas Gerais", "São Paulo", "Rio de Janeiro"][index % 5],
-      city: ["São Paulo", "Rio de Janeiro", "Belo Horizonte", "Campinas", "Niterói"][index % 5],
-    },
-    recommendationReason: index < 3 ? [
-      "Alto engajamento e alinhamento com o nicho da campanha",
-      "Perfil ideal para o público-alvo e boa performance histórica",
-      "Localização compatível e seguidores dentro da faixa desejada"
-    ][index] : undefined,
-  }));
-
-  // Separate recommendations from catalog
-  const recommendedInfluencers = extendedInfluencers.slice(0, 3);
-  const catalogInfluencers = extendedInfluencers.slice(3);
-
-  const filteredRecommended = recommendedInfluencers.filter((inf) => {
-    const matchesSearch =
-      inf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inf.username.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNiche = !filterNiche || inf.niche === filterNiche;
-    return matchesSearch && matchesNiche;
+  // Hooks para dados reais
+  const { data: muralStatus } = useMuralStatus(campaignId);
+  const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
+  const { data: recommendations = [], isLoading: isLoadingRecommendations } = useCampaignRecommendations(campaignId);
+  const { data: catalogData = [], isLoading: isLoadingCatalog } = useInfluencersCatalog({
+    social_network: filterSocialNetwork || undefined,
+    age_range: filterAgeRange || undefined,
+    gender: filterGender || undefined,
+    followers_min: filterFollowersMin ? parseInt(filterFollowersMin) : undefined,
+    followers_max: filterFollowersMax ? parseInt(filterFollowersMax) : undefined,
+    niche: filterNiche || undefined,
+    country: filterLocationCountry || undefined,
+    state: filterLocationState || undefined,
+    city: filterLocationCity || undefined,
   });
+  const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
 
-  const filteredCatalog = catalogInfluencers.filter((inf) => {
-    const matchesSearch =
-      inf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inf.username.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNiche = !filterNiche || inf.niche === filterNiche;
-    const matchesSocialNetwork = !filterSocialNetwork || inf.socialNetwork === filterSocialNetwork;
-    const matchesAgeRange = !filterAgeRange || inf.ageRange === filterAgeRange;
-    const matchesGender = !filterGender || (filterGender === "all" ? true : inf.niche === filterGender);
-    const matchesFollowersMin = !filterFollowersMin || inf.followers >= parseInt(filterFollowersMin);
-    const matchesFollowersMax = !filterFollowersMax || inf.followers <= parseInt(filterFollowersMax);
-    const matchesLocationCountry = !filterLocationCountry || inf.location?.country === filterLocationCountry;
-    const matchesLocationState = !filterLocationState || inf.location?.state === filterLocationState;
-    const matchesLocationCity = !filterLocationCity || inf.location?.city === filterLocationCity;
-    
-    return matchesSearch && matchesNiche && matchesSocialNetwork && matchesAgeRange && 
-           matchesGender && matchesFollowersMin && matchesFollowersMax && 
-           matchesLocationCountry && matchesLocationState && matchesLocationCity;
-  });
+  const isMuralActive = muralStatus?.active || false;
+  const muralEndDate = muralStatus?.end_date || "";
 
-  const niches = Array.from(new Set(extendedInfluencers.map((inf) => inf.niche))).filter((n): n is string => Boolean(n));
-  const socialNetworks = Array.from(new Set(extendedInfluencers.map((inf) => inf.socialNetwork).filter(Boolean))).filter((n): n is string => Boolean(n));
-  const ageRanges = Array.from(new Set(extendedInfluencers.map((inf) => inf.ageRange).filter(Boolean))).filter((a): a is string => Boolean(a));
-  const countries = Array.from(new Set(extendedInfluencers.map((inf) => inf.location?.country).filter(Boolean))).filter((c): c is string => Boolean(c));
-  const states = Array.from(new Set(extendedInfluencers.map((inf) => inf.location?.state).filter(Boolean))).filter((s): s is string => Boolean(s));
-  const cities = Array.from(new Set(extendedInfluencers.map((inf) => inf.location?.city).filter(Boolean))).filter((c): c is string => Boolean(c));
+  // Transformar recomendações para formato ExtendedInfluencer
+  const recommendedInfluencers: ExtendedInfluencer[] = useMemo(() => {
+    return recommendations.map((rec: any) => ({
+      id: rec.influencer.id,
+      name: rec.influencer.name,
+      username: rec.influencer.username || "",
+      avatar: rec.influencer.avatar || "",
+      followers: rec.influencer.followers || 0,
+      engagement: rec.influencer.engagement || 0,
+      niche: rec.influencer.niche || "",
+      socialNetwork: rec.influencer.social_network,
+      recommendationReason: rec.reason,
+    }));
+  }, [recommendations]);
+
+  // Transformar catálogo para formato ExtendedInfluencer
+  const catalogInfluencers: ExtendedInfluencer[] = useMemo(() => {
+    return catalogData.map((inf: any) => ({
+      id: inf.id,
+      name: inf.name,
+      username: inf.username || "",
+      avatar: inf.avatar || "",
+      followers: inf.followers || 0,
+      engagement: inf.engagement || 0,
+      niche: inf.niche || "",
+      socialNetwork: inf.social_network,
+      ageRange: inf.age_range,
+      location: inf.location,
+    }));
+  }, [catalogData]);
+
+  // Filtros são aplicados no backend via useInfluencersCatalog
+  // Apenas filtro de busca local para recomendações
+  const filteredRecommended = useMemo(() => {
+    if (!searchTerm) return recommendedInfluencers;
+    const searchLower = searchTerm.toLowerCase();
+    return recommendedInfluencers.filter((inf) => {
+      return (
+        inf.name.toLowerCase().includes(searchLower) ||
+        inf.username.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [recommendedInfluencers, searchTerm]);
+
+  // Catálogo já vem filtrado do backend, apenas busca local
+  const filteredCatalog = useMemo(() => {
+    if (!searchTerm) return catalogInfluencers;
+    const searchLower = searchTerm.toLowerCase();
+    return catalogInfluencers.filter((inf) => {
+      return (
+        inf.name.toLowerCase().includes(searchLower) ||
+        inf.username.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [catalogInfluencers, searchTerm]);
+
+  // Extrair opções de filtros dos dados do catálogo
+  const niches = useMemo(() => {
+    const allNiches = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.niche) allNiches.add(inf.niche);
+    });
+    return Array.from(allNiches);
+  }, [catalogInfluencers]);
+
+  const socialNetworks = useMemo(() => {
+    const allNetworks = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.socialNetwork) allNetworks.add(inf.socialNetwork);
+    });
+    return Array.from(allNetworks);
+  }, [catalogInfluencers]);
+
+  const ageRanges = useMemo(() => {
+    const allRanges = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.ageRange) allRanges.add(inf.ageRange);
+    });
+    return Array.from(allRanges);
+  }, [catalogInfluencers]);
+
+  const countries = useMemo(() => {
+    const allCountries = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.location?.country) allCountries.add(inf.location.country);
+    });
+    return Array.from(allCountries);
+  }, [catalogInfluencers]);
+
+  const states = useMemo(() => {
+    const allStates = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.location?.state) allStates.add(inf.location.state);
+    });
+    return Array.from(allStates);
+  }, [catalogInfluencers]);
+
+  const cities = useMemo(() => {
+    const allCities = new Set<string>();
+    catalogInfluencers.forEach((inf) => {
+      if (inf.location?.city) allCities.add(inf.location.city);
+    });
+    return Array.from(allCities);
+  }, [catalogInfluencers]);
 
   const handleMuralToggle = (checked: boolean) => {
     if (checked) {
@@ -128,19 +188,32 @@ export function InfluencerSelectionTab({
     } else {
       // Only allow deactivation if end date has passed
       if (muralEndDate && new Date(muralEndDate) > new Date()) {
-        // Don't allow deactivation before end date
+        toast.error("Não é possível desativar o mural antes da data limite");
         return;
       }
-      setIsMuralActive(false);
-      setMuralEndDate("");
+      // Deactivation handled by backend
     }
   };
 
   const handleActivateMural = () => {
-    if (muralEndDate) {
-      setIsMuralActive(true);
-      setShowMuralDateModal(false);
+    if (!tempMuralEndDate) {
+      toast.error("Por favor, selecione uma data limite");
+      return;
     }
+
+    activateMural(
+      { end_date: tempMuralEndDate },
+      {
+        onSuccess: () => {
+          toast.success("Mural ativado com sucesso!");
+          setShowMuralDateModal(false);
+          setTempMuralEndDate("");
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao ativar mural");
+        },
+      }
+    );
   };
 
   const getSocialNetworkIcon = (network?: string) => {
@@ -177,10 +250,37 @@ export function InfluencerSelectionTab({
     setCurationNotes("");
   };
 
-  const handleConfirm = () => {
-    // Aqui seria feita a chamada à API
-    console.log("Action:", modalType, "Influencer:", selectedInfluencer);
-    handleCloseModal();
+  const handleConfirm = async () => {
+    if (!selectedInfluencer) return;
+
+    if (modalType === "invite") {
+      inviteInfluencer(
+        {
+          influencer_id: selectedInfluencer.id,
+          message: inviteMessage || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Influenciador convidado com sucesso!");
+            handleCloseModal();
+          },
+          onError: (error: any) => {
+            toast.error(error?.message || "Erro ao convidar influenciador");
+          },
+        }
+      );
+    } else if (modalType === "curation") {
+      try {
+        await moveToCuration(campaignId, selectedInfluencer.id, curationNotes || undefined);
+        toast.success("Influenciador adicionado para curadoria!");
+        handleCloseModal();
+      } catch (error: any) {
+        toast.error(error?.message || "Erro ao adicionar influenciador para curadoria");
+      }
+    } else {
+      // Outras ações (discover) podem ser implementadas aqui
+      handleCloseModal();
+    }
   };
 
   return (
@@ -258,8 +358,13 @@ export function InfluencerSelectionTab({
               textColor="text-primary-900"
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredRecommended.map((influencer) => (
+          {isLoadingRecommendations ? (
+            <div className="text-center py-8">
+              <p className="text-neutral-600">Carregando recomendações...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredRecommended.map((influencer) => (
               <div
                 key={influencer.id}
                 className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
@@ -333,9 +438,10 @@ export function InfluencerSelectionTab({
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
-          {filteredRecommended.length === 0 && (
+              ))}
+            </div>
+          )}
+          {!isLoadingRecommendations && filteredRecommended.length === 0 && (
             <div className="text-center py-12">
               <p className="text-neutral-600">Nenhum influenciador encontrado</p>
             </div>
@@ -441,8 +547,13 @@ export function InfluencerSelectionTab({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCatalog.map((influencer) => (
+          {isLoadingCatalog ? (
+            <div className="text-center py-8">
+              <p className="text-neutral-600">Carregando catálogo...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredCatalog.map((influencer) => (
               <div
                 key={influencer.id}
                 className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
@@ -510,9 +621,10 @@ export function InfluencerSelectionTab({
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
-          {filteredCatalog.length === 0 && (
+              ))}
+            </div>
+          )}
+          {!isLoadingCatalog && filteredCatalog.length === 0 && (
             <div className="text-center py-12">
               <p className="text-neutral-600">Nenhum influenciador encontrado no catálogo</p>
             </div>
@@ -535,15 +647,15 @@ export function InfluencerSelectionTab({
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <Avatar
-                src={selectedInfluencer.avatar}
-                alt={selectedInfluencer.name}
+                src={selectedInfluencer?.avatar || ""}
+                alt={selectedInfluencer?.name || ""}
                 size="lg"
               />
               <div>
                 <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedInfluencer.name}
+                  {selectedInfluencer?.name}
                 </h3>
-                <p className="text-neutral-600">@{selectedInfluencer.username}</p>
+                <p className="text-neutral-600">@{selectedInfluencer?.username}</p>
               </div>
             </div>
 
@@ -583,8 +695,8 @@ export function InfluencerSelectionTab({
                 <Button variant="outline" onClick={handleCloseModal} className="flex-1">
                   Cancelar
                 </Button>
-                <Button onClick={handleConfirm} className="flex-1">
-                  Confirmar
+                <Button onClick={handleConfirm} className="flex-1" disabled={isInviting}>
+                  {isInviting ? "Enviando..." : modalType === "invite" ? "Enviar convite" : "Confirmar"}
                 </Button>
               </div>
             )}
@@ -600,39 +712,11 @@ export function InfluencerSelectionTab({
               Escolha uma lista salva para importar influenciadores
             </p>
             <div className="flex flex-col gap-2">
-              {savedLists.map((list) => (
-                <div
-                  key={list.id}
-                  onClick={() => {
-                    setSelectedList(list.id);
-                    // Aqui seria feita a importação dos influenciadores da lista
-                    console.log("Importing list:", list);
-                    handleCloseModal();
-                  }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-colors ${
-                    selectedList === list.id
-                      ? "border-primary-600 bg-primary-50"
-                      : "border-neutral-200 bg-neutral-50 hover:bg-neutral-100"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-neutral-950">{list.name}</p>
-                      <p className="text-sm text-neutral-600">
-                        {list.influencerIds.length} influenciadores • Criada em{" "}
-                        {new Date(list.createdAt).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                    <Icon name="ChevronRight" color="#404040" size={20} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            {savedLists.length === 0 && (
+              {/* TODO: Implementar listas salvas quando endpoint estiver disponível */}
               <div className="text-center py-8">
-                <p className="text-neutral-600">Nenhuma lista salva encontrada</p>
+                <p className="text-neutral-600">Funcionalidade de listas salvas em desenvolvimento</p>
               </div>
-            )}
+            </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={handleCloseModal} className="flex-1">
                 Cancelar
@@ -648,7 +732,7 @@ export function InfluencerSelectionTab({
           title="Definir data limite do mural"
           onClose={() => {
             setShowMuralDateModal(false);
-            setMuralEndDate("");
+            setTempMuralEndDate("");
           }}
         >
           <div className="flex flex-col gap-6">
@@ -658,15 +742,15 @@ export function InfluencerSelectionTab({
             <Input
               label="Data limite"
               type="date"
-              value={muralEndDate}
-              onChange={(e) => setMuralEndDate(e.target.value)}
+              value={tempMuralEndDate}
+              onChange={(e) => setTempMuralEndDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
             />
-            {muralEndDate && (
+            {tempMuralEndDate && (
               <div className="bg-primary-50 rounded-2xl p-4">
                 <p className="text-sm text-primary-900">
                   O mural ficará ativo até{" "}
-                  <strong>{new Date(muralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
+                  <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
                 </p>
               </div>
             )}
@@ -675,18 +759,19 @@ export function InfluencerSelectionTab({
                 variant="outline"
                 onClick={() => {
                   setShowMuralDateModal(false);
-                  setMuralEndDate("");
+                  setTempMuralEndDate("");
                 }}
+                disabled={isActivatingMural}
                 className="flex-1"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleActivateMural}
-                disabled={!muralEndDate}
+                disabled={!tempMuralEndDate || isActivatingMural}
                 className="flex-1"
               >
-                Ativar mural
+                {isActivatingMural ? "Ativando..." : "Ativar mural"}
               </Button>
             </div>
           </div>

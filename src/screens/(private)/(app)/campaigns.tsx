@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 
@@ -18,73 +18,73 @@ import { Icon } from "@/components/ui/icon";
 import { Dropdown } from "@/components/ui/dropdown";
 import { toast } from "sonner";
 import type { CampaignFormData } from "@/shared/types";
+import { useCampaigns, useCreateCampaign } from "@/hooks/use-campaigns";
+import type { CreateCampaignData } from "@/shared/services/campaign";
+import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
 });
 
-const campaigns = [
-  {
-    id: 1,
-    title: "Verão 2024: Moda Praia",
-    phase: "Fase 1",
-    progressPercentage: 25,
-    influencersCount: 23,
-    banner:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-  {
-    id: 2,
-    title: "Tecnologia e Inovação",
-    phase: "Fase 2",
-    progressPercentage: 50,
-    influencersCount: 100,
-    banner:
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-  {
-    id: 3,
-    title: "Gastronomia Premium",
-    phase: "Fase 3",
-    progressPercentage: 75,
-    influencersCount: 6,
-    banner:
-      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-  {
-    id: 4,
-    title: "Fitness e Bem-estar",
-    phase: "Fase 2",
-    progressPercentage: 45,
-    influencersCount: 8,
-    banner:
-      "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-  {
-    id: 5,
-    title: "Viagens e Turismo",
-    phase: "Fase 1",
-    progressPercentage: 30,
-    influencersCount: 10,
-    banner:
-      "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-  {
-    id: 6,
-    title: "Beleza e Cosméticos",
-    phase: "Fase 4",
-    progressPercentage: 90,
-    influencersCount: 2,
-    banner:
-      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
-  },
-];
-
 function RouteComponent() {
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all_campaigns");
+
+  const { data: campaignsData = [], isLoading, error } = useCampaigns();
+  const createCampaignMutation = useCreateCampaign();
+
+  const campaigns = useMemo(() => {
+    return campaignsData.map((campaign: any) => {
+      // Calcular progresso baseado no status (pode ser melhorado com métricas reais)
+      let progressPercentage = 0;
+      let phase = "Não iniciada";
+      
+      if (campaign.status === "active") {
+        progressPercentage = 50;
+        phase = "Em andamento";
+      } else if (campaign.status === "finished") {
+        progressPercentage = 100;
+        phase = "Finalizada";
+      } else if (campaign.status === "draft") {
+        progressPercentage = 10;
+        phase = "Rascunho";
+      }
+
+      return {
+        id: campaign.id || "",
+        title: campaign.title,
+        phase,
+        progressPercentage,
+        banner: campaign.banner || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0",
+        influencersCount: campaign.max_influencers || 0,
+      };
+    });
+  }, [campaignsData]);
+
+  // Filtrar campanhas
+  const filteredCampaigns = useMemo(() => {
+    let filtered = campaigns;
+
+    // Filtrar por termo de busca
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((campaign: any) =>
+        campaign.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtrar por status
+    if (filterStatus === "active_campaigns") {
+      filtered = filtered.filter((campaign: any) => campaign.progressPercentage > 0 && campaign.progressPercentage < 100);
+    } else if (filterStatus === "finished_campaigns") {
+      filtered = filtered.filter((campaign: any) => campaign.progressPercentage === 100);
+    }
+
+    return filtered;
+  }, [campaigns, searchTerm, filterStatus]);
+
   if (location.pathname !== "/campaigns") {
     return <Outlet />;
   }
@@ -159,15 +159,190 @@ function RouteComponent() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Mapeamento de subniches para IDs (pode precisar ser ajustado com dados reais da API)
+  const getSubnicheId = (subnicheValue: string): number => {
+    const subnicheMap: { [key: string]: number } = {
+      agriculture: 1,
+      architecture: 2,
+      art: 3,
+      athlete: 4,
+      actor: 5,
+      audiovisual: 6,
+      automobilism: 7,
+      beverages: 8,
+      beauty: 9,
+      toys: 10,
+      hair: 11,
+    };
+    return subnicheMap[subnicheValue] || 1;
+  };
+
+  // Transformar dados do formulário para o formato da API
+  const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
+    const subnicheId = getSubnicheId(formData.subniches);
+    const subnicheName = formData.subniches || "beauty";
+
+    return {
+      title: formData.title,
+      description: formData.description,
+      objective: formData.generalObjective || "awareness",
+      secondary_niches: [{ id: subnicheId, name: subnicheName }],
+      max_influencers: parseInt(formData.influencersCount) || 0,
+      payment_method: formData.paymentType || "fixed",
+      payment_method_details: {
+        // TODO: Extrair detalhes do pagamento se necessário
+        description: formData.benefits || "",
+      },
+      benefits: formData.benefits || "",
+      rules_does: formData.whatToDo || "",
+      rules_does_not: formData.whatNotToDo || "",
+      segment_min_followers: formData.minFollowers ? parseInt(formData.minFollowers) : undefined,
+      segment_state: formData.state || undefined,
+      segment_city: formData.city || undefined,
+      segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
+      image_rights_period: formData.imageRightsPeriod ? parseInt(formData.imageRightsPeriod) : 0,
+      banner: formData.banner || undefined,
+    };
+  };
+
+  // Transformar fases do formulário para o formato da API
+  const transformPhasesToApiData = (phases: CampaignFormData["phases"]): CreatePhaseData[] => {
+    return phases
+      .filter((phase) => phase.objective && phase.postDate && phase.postTime)
+      .map((phase) => {
+        // Agrupar formatos por rede social
+        const formatsByNetwork: { [key: string]: { type: string; options: Array<{ type: string; quantity: number }> } } = {};
+
+        phase.formats.forEach((format) => {
+          const network = format.socialNetwork || "instagram";
+          if (!formatsByNetwork[network]) {
+            formatsByNetwork[network] = {
+              type: network,
+              options: [],
+            };
+          }
+          formatsByNetwork[network].options.push({
+            type: format.contentType || "post",
+            quantity: parseInt(format.quantity) || 1,
+          });
+        });
+
+        return {
+          objective: phase.objective,
+          post_date: phase.postDate,
+          post_time: phase.postTime,
+          formats: Object.values(formatsByNetwork),
+          files: phase.files ? [phase.files] : undefined,
+        };
+      });
+  };
+
+  // Handler para submissão do formulário
+  const handleSubmitCampaign = async () => {
+    try {
+      // Validar dados obrigatórios
+      if (!formData.title || !formData.description) {
+        toast.error("Por favor, preencha todos os campos obrigatórios");
+        return;
+      }
+
+      // Transformar dados do formulário
+      const campaignData = transformFormDataToApiData(formData);
+
+      // Criar campanha
+      const createdCampaign = await createCampaignMutation.mutateAsync(campaignData);
+
+      // Criar fases se houver
+      if (formData.phases && formData.phases.length > 0) {
+        const phasesData = transformPhasesToApiData(formData.phases);
+
+        for (const phaseData of phasesData) {
+          await createCampaignPhase(createdCampaign.id, phaseData);
+        }
+      }
+
+      toast.success("Campanha criada com sucesso!");
+      setIsModalOpen(false);
+      setCurrentStep(1);
+      setFormData({
+        title: "",
+        description: "",
+        subniches: "",
+        influencersCount: "",
+        minFollowers: "",
+        state: "",
+        city: "",
+        gender: "",
+        paymentType: "",
+        benefits: "",
+        generalObjective: "",
+        whatToDo: "",
+        whatNotToDo: "",
+        banner: "",
+        imageRightsPeriod: "",
+        brandFiles: "",
+        phasesCount: "1",
+        phases: [
+          {
+            id: "1",
+            objective: "",
+            postDate: "",
+            postTime: "",
+            formats: [],
+            files: "",
+          },
+        ],
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar campanha:", error);
+      toast.error(
+        error?.message || "Erro ao criar campanha. Tente novamente."
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-neutral-600">Carregando campanhas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
+        <div className="w-full max-w-xl flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-2xl font-medium text-neutral-950">
+              Erro ao carregar campanhas
+            </p>
+            <span className="text-neutral-600 text-center">
+              {error instanceof Error ? error.message : "Ocorreu um erro ao buscar as campanhas. Tente novamente."}
+            </span>
+          </div>
+          <Button onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {campaigns.length > 0 ? (
+      {filteredCampaigns.length > 0 ? (
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <div className="w-full max-w-xs">
               <InputSearch
                 placeholder="Pesquisar campanha"
                 icon={<Icon name="Search" color="#0a0a0a" size={16} />}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
@@ -182,7 +357,8 @@ function RouteComponent() {
                       value: "finished_campaigns",
                     },
                   ]}
-                  value="all_campaigns"
+                  value={filterStatus}
+                  onChange={setFilterStatus}
                 />
               </div>
 
@@ -199,7 +375,7 @@ function RouteComponent() {
           </div>
 
           <div className="grid xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-            {campaigns.map((campaign) => (
+            {filteredCampaigns.map((campaign: any) => (
               <CampaignCard
                 key={campaign.id}
                 id={campaign.id}
@@ -346,40 +522,8 @@ function RouteComponent() {
               onEdit={(step) => {
                 setCurrentStep(step);
               }}
-              onSubmitCampaign={() => {
-                toast.success("Campanha criada com sucesso!");
-                setIsModalOpen(false);
-                setCurrentStep(1);
-                setFormData({
-                  title: "",
-                  description: "",
-                  subniches: "",
-                  influencersCount: "",
-                  minFollowers: "",
-                  state: "",
-                  city: "",
-                  gender: "",
-                  paymentType: "",
-                  benefits: "",
-                  generalObjective: "",
-                  whatToDo: "",
-                  whatNotToDo: "",
-                  banner: "",
-                  imageRightsPeriod: "",
-                  brandFiles: "",
-                  phasesCount: "1",
-                  phases: [
-                    {
-                      id: "1",
-                      objective: "",
-                      postDate: "",
-                      postTime: "",
-                      formats: [],
-                      files: "",
-                    },
-                  ],
-                });
-              }}
+              onSubmitCampaign={handleSubmitCampaign}
+              isLoading={createCampaignMutation.isPending}
             />
           )}
         </Modal>

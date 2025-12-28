@@ -17,12 +17,14 @@ interface MetricsTabProps {
   contents: CampaignContent[];
   metrics: { [contentId: string]: ContentMetrics };
   campaignPhases?: CampaignPhase[];
+  identifiedPosts?: IdentifiedPost[];
 }
 
 export function MetricsTab({
   contents,
   metrics,
   campaignPhases = [],
+  identifiedPosts: propsIdentifiedPosts = [],
 }: MetricsTabProps) {
   const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,53 +32,8 @@ export function MetricsTab({
   const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
   const [influencerSearchTerm, setInfluencerSearchTerm] = useState("");
 
-  // Mock de publicações identificadas
-  const identifiedPosts: IdentifiedPost[] = [
-    {
-      id: "id1",
-      influencerId: "3",
-      influencerName: "Ana Costa",
-      influencerAvatar: "https://i.pravatar.cc/150?img=3",
-      socialNetwork: "instagram",
-      contentType: "reels",
-      postUrl: "https://instagram.com/p/identified1",
-      previewUrl: "https://images.unsplash.com/photo-1611162617474-b723cf961d3e?w=400",
-      phaseId: "1",
-      phaseHashtag: "#CampanhaBrandFase1",
-      publishedAt: "2025-01-15T18:00:00Z",
-      metrics: {
-        contentId: "id1",
-        views: 52000,
-        likes: 3800,
-        comments: 165,
-        shares: 95,
-        engagement: 7.8,
-        reach: 45000,
-      },
-    },
-    {
-      id: "id2",
-      influencerId: "4",
-      influencerName: "Pedro Lima",
-      influencerAvatar: "https://i.pravatar.cc/150?img=4",
-      socialNetwork: "instagram",
-      contentType: "post",
-      postUrl: "https://instagram.com/p/identified2",
-      previewUrl: "https://images.unsplash.com/photo-1611162616305-c69b3c7b8d74?w=400",
-      phaseId: "2",
-      phaseHashtag: "#CampanhaBrandFase2",
-      publishedAt: "2025-01-22T20:00:00Z",
-      metrics: {
-        contentId: "id2",
-        views: 38000,
-        likes: 2900,
-        comments: 120,
-        shares: 65,
-        engagement: 8.1,
-        reach: 35000,
-      },
-    },
-  ];
+  // Usar posts identificados da prop
+  const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
   const phaseOptions = [
     { value: "all", label: "Todas as fases" },

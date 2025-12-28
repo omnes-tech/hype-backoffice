@@ -9,9 +9,11 @@ export interface User {
 }
 
 export interface Workspace {
-  id: number;
+  id: string; // public_id (UUID)
   name: string;
-  photo: string;
+  photo?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Niche {
@@ -20,20 +22,37 @@ export interface Niche {
   name: string;
 }
 export interface Campaign {
-  id: number;
-  niche_id: number;
+  id: string; // public_id (UUID)
   title: string;
   description: string;
+  objective: string;
+  secondary_niches?: Array<{ id: number; name: string }> | number[];
   max_influencers: number;
   payment_method: string;
-  payment_method_label: string;
-  payment_value: PaymentValue;
-  benefits: string;
-  objective: string;
-  segments: Segments;
-  rules: Rules;
-  benefits_bonus: string;
-  banner: string;
+  payment_method_details?: {
+    amount?: number;
+    currency?: string;
+    description?: string;
+  };
+  benefits?: string;
+  rules_does?: string;
+  rules_does_not?: string;
+  segment_min_followers?: number;
+  segment_state?: string;
+  segment_city?: string;
+  segment_genders?: string[];
+  image_rights_period?: number;
+  status?: "draft" | "published" | "active" | "completed" | "cancelled";
+  banner?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Campos legados para compatibilidade
+  niche_id?: number;
+  payment_method_label?: string;
+  payment_value?: PaymentValue;
+  segments?: Segments;
+  rules?: Rules;
+  benefits_bonus?: string;
 }
 
 export interface PaymentValue {

@@ -49,6 +49,7 @@ export async function signIn(
 export async function signUp(
   data: SignUpRequestData
 ): Promise<{ token: string }> {
+  const { password_confirmation, ...rest } = data;
   const request = await fetch(getApiUrl("/auth/register"), {
     method: "POST",
     headers: {
@@ -56,7 +57,7 @@ export async function signUp(
       Accept: "application/json",
       "Client-Type": "backoffice",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(rest),
   });
 
   if (!request.ok) {

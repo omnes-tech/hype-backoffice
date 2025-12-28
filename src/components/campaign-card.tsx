@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
 interface CampaignCardProps {
-  id: number;
+  id: string | number;
   title: string;
   phase: string;
   progressPercentage: number;

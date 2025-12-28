@@ -21,9 +21,18 @@ export async function getCurrentUser(): Promise<User> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get current user" };
+    }
 
-    throw error || "Failed to get current user";
+    // Criar erro com status code para tratamento adequado
+    const error = new Error(errorData?.message || "Failed to get current user") as any;
+    error.status = request.status;
+    error.response = { status: request.status };
+    throw error;
   }
 
   const response = await request.json();

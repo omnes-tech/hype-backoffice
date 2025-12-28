@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
@@ -24,6 +26,9 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import type { Influencer, CampaignPhase } from "@/shared/types";
+import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
+import { useInfluencerMessages, useSendMessage } from "@/hooks/use-campaign-chat";
+import { moveToCuration } from "@/shared/services/influencer";
 
 interface ManagementTabProps {
   influencers: Influencer[];
@@ -62,7 +67,6 @@ function SortableInfluencerCard({
   getAvailableActions,
   getSocialNetworkIcon,
   getSocialNetworkLabel,
-  getStatusLabel,
   onApprove,
   onMoveToCuration,
   setSelectedInfluencer,
@@ -74,7 +78,6 @@ function SortableInfluencerCard({
   getAvailableActions: (status: string) => Array<{ label: string; action: string; targetStatus?: string }>;
   getSocialNetworkIcon: (network?: string) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
-  getStatusLabel: (status: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
   onMoveToCuration: (influencer: ExtendedInfluencer) => void;
   setSelectedInfluencer: (inf: ExtendedInfluencer | null) => void;
@@ -248,7 +251,6 @@ function KanbanColumn({
               getAvailableActions={getAvailableActions}
               getSocialNetworkIcon={getSocialNetworkIcon}
               getSocialNetworkLabel={getSocialNetworkLabel}
-              getStatusLabel={getStatusLabel}
               onApprove={onApprove}
               onMoveToCuration={onMoveToCuration}
               setSelectedInfluencer={setSelectedInfluencer}
@@ -309,6 +311,7 @@ export function ManagementTab({
   influencers,
   campaignPhases = [],
 }: ManagementTabProps) {
+  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [influencersState, setInfluencersState] = useState<ExtendedInfluencer[]>([]);
   const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -319,6 +322,9 @@ export function ManagementTab({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Hooks para mutations
+  const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -432,23 +438,64 @@ export function ManagementTab({
   };
 
   const handleApprove = (influencer: ExtendedInfluencer, targetStatus: string) => {
-    updateInfluencerStatus(influencer.id, targetStatus, "Aprovado pelo usuário");
-    setIsModalOpen(false);
-    setSelectedInfluencer(null);
+    updateStatus(
+      {
+        influencer_id: influencer.id,
+        status: targetStatus,
+        feedback: "Aprovado pelo usuário",
+      },
+      {
+        onSuccess: () => {
+          updateInfluencerStatus(influencer.id, targetStatus, "Aprovado pelo usuário");
+          toast.success("Influenciador aprovado com sucesso!");
+          setIsModalOpen(false);
+          setSelectedInfluencer(null);
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao aprovar influenciador");
+        },
+      }
+    );
   };
 
   const handleReject = (influencer: ExtendedInfluencer, feedback: string) => {
-    updateInfluencerStatus(influencer.id, "rejected", feedback);
-    setIsRejectModalOpen(false);
-    setRejectFeedback("");
-    setIsModalOpen(false);
-    setSelectedInfluencer(null);
+    if (!feedback.trim()) {
+      toast.error("Feedback é obrigatório ao recusar influenciador");
+      return;
+    }
+
+    updateStatus(
+      {
+        influencer_id: influencer.id,
+        status: "rejected",
+        feedback,
+      },
+      {
+        onSuccess: () => {
+          updateInfluencerStatus(influencer.id, "rejected", feedback);
+          toast.success("Influenciador recusado");
+          setIsRejectModalOpen(false);
+          setRejectFeedback("");
+          setIsModalOpen(false);
+          setSelectedInfluencer(null);
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao recusar influenciador");
+        },
+      }
+    );
   };
 
-  const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
-    updateInfluencerStatus(influencer.id, "curation", "Movido para curadoria");
-    setIsModalOpen(false);
-    setSelectedInfluencer(null);
+  const handleMoveToCuration = async (influencer: ExtendedInfluencer) => {
+    try {
+      await moveToCuration(campaignId, influencer.id, "Movido para curadoria");
+      updateInfluencerStatus(influencer.id, "curation", "Movido para curadoria");
+      toast.success("Influenciador movido para curadoria");
+      setIsModalOpen(false);
+      setSelectedInfluencer(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao mover influenciador para curadoria");
+    }
   };
 
   const getAvailableActions = (status: string) => {
@@ -1042,10 +1089,10 @@ export function ManagementTab({
                     handleReject(selectedInfluencer, rejectFeedback);
                   }
                 }}
-                disabled={!rejectFeedback.trim()}
+                disabled={!rejectFeedback.trim() || isUpdatingStatus}
                 className="flex-1"
               >
-                Confirmar recusa
+                {isUpdatingStatus ? "Processando..." : "Confirmar recusa"}
               </Button>
             </div>
           </div>
@@ -1063,31 +1110,30 @@ function ChatModal({
   influencer: ExtendedInfluencer;
   onClose: () => void;
 }) {
-  const [messages, setMessages] = useState([
-    {
-      id: "1",
-      senderId: "campaign",
-      senderName: "Você",
-      senderAvatar: "",
-      message: "Olá! Bem-vindo à campanha.",
-      timestamp: new Date().toISOString(),
-      isFromInfluencer: false,
-      attachments: [] as Array<{ id: string; name: string; url: string; type: string }>,
-    },
-    {
-      id: "2",
-      senderId: influencer.id,
-      senderName: influencer.name,
-      senderAvatar: influencer.avatar,
-      message: "Obrigado pelo convite! Estou animado para participar.",
-      timestamp: new Date().toISOString(),
-      isFromInfluencer: true,
-      attachments: [] as Array<{ id: string; name: string; url: string; type: string }>,
-    },
-  ]);
+  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
+  
+  // Hooks para chat
+  const { data: messagesData = [], isLoading: isLoadingMessages } = useInfluencerMessages(
+    campaignId,
+    influencer.id
+  );
+  const { mutate: sendMessage, isPending: isSending } = useSendMessage(campaignId, influencer.id);
+
   const [newMessage, setNewMessage] = useState("");
   const [attachments, setAttachments] = useState<Array<{ id: string; name: string; file: File }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Transformar mensagens da API para formato do componente
+  const messages = messagesData.map((msg: any) => ({
+    id: msg.id,
+    senderId: msg.sender_id,
+    senderName: msg.sender_name,
+    senderAvatar: msg.sender_avatar || "",
+    message: msg.message,
+    timestamp: msg.created_at,
+    isFromInfluencer: msg.sender_id === influencer.id,
+    attachments: msg.attachments || [],
+  }));
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1108,37 +1154,40 @@ function ChatModal({
   const handleSendMessage = () => {
     if (!newMessage.trim() && attachments.length === 0) return;
 
-    const messageAttachments = attachments.map((att) => ({
-      id: att.id,
-      name: att.name,
-      url: URL.createObjectURL(att.file),
-      type: att.file.type,
-    }));
+    // TODO: Upload de arquivos precisa ser implementado
+    // Por enquanto, apenas URLs são suportadas
+    const attachmentUrls = attachments.map((att) => URL.createObjectURL(att.file));
 
-    const message = {
-      id: Date.now().toString(),
-      senderId: "campaign",
-      senderName: "Você",
-      senderAvatar: "",
-      message: newMessage,
-      timestamp: new Date().toISOString(),
-      isFromInfluencer: false,
-      attachments: messageAttachments,
-    };
-
-    setMessages([...messages, message]);
-    setNewMessage("");
-    setAttachments([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    sendMessage(
+      {
+        message: newMessage,
+        attachments: attachmentUrls,
+      },
+      {
+        onSuccess: () => {
+          setNewMessage("");
+          setAttachments([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao enviar mensagem");
+        },
+      }
+    );
   };
 
   return (
     <Modal title={`Chat com ${influencer.name}`} onClose={onClose}>
       <div className="flex flex-col h-[600px]">
-        <div className="flex-1 overflow-y-auto flex flex-col gap-4 mb-4">
-          {messages.map((msg) => (
+        {isLoadingMessages ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-neutral-600">Carregando mensagens...</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto flex flex-col gap-4 mb-4">
+            {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex gap-3 ${
@@ -1159,7 +1208,7 @@ function ChatModal({
                 {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className="flex flex-col gap-2 mb-2">
-                    {msg.attachments.map((att) => (
+                    {msg.attachments.map((att: any) => (
                       <div
                         key={att.id}
                         className={`flex items-center gap-2 p-2 rounded-lg ${
@@ -1189,8 +1238,9 @@ function ChatModal({
                 <Avatar src={msg.senderAvatar} alt={msg.senderName} size="sm" />
               )}
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         
         {/* Anexos selecionados */}
         {attachments.length > 0 && (
@@ -1239,7 +1289,7 @@ function ChatModal({
             placeholder="Digite sua mensagem..."
             className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70"
           />
-          <Button onClick={handleSendMessage}>
+          <Button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && attachments.length === 0)}>
             <Icon name="Send" color="#FAFAFA" size={16} />
           </Button>
         </div>

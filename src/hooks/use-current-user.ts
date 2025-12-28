@@ -16,10 +16,13 @@ export function useCurrentUser() {
     data: currentUser,
     isLoading,
     error,
+    isError,
   } = useQuery({
     queryKey: ["get-current-user", token],
     queryFn: getCurrentUser,
     enabled: !!token,
+    retry: false, // Não tentar novamente em caso de erro
+    refetchOnWindowFocus: false, // Não refazer fetch ao focar na janela
   });
 
   useEffect(() => {
@@ -32,11 +35,13 @@ export function useCurrentUser() {
     }
   }, [currentUser, setUser]);
 
-  const isActuallyLoading = isInitializing || (!!token && isLoading);
+  // Se der erro 401 ou 404, não considerar como loading
+  const isActuallyLoading = isInitializing || (!!token && isLoading && !isError);
 
   return {
     user: currentUser,
     isLoading: isActuallyLoading,
     error,
+    isError,
   };
 }
