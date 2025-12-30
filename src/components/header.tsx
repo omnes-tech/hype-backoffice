@@ -3,12 +3,15 @@ import type { ComponentProps } from "react";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { WorkspaceDropdown } from "./workspace-dropdown";
+import { useWorkspaces } from "@/hooks/use-workspaces";
 
 interface HeaderProps extends ComponentProps<"header"> {
   title: string;
 }
 
 export function Header({ title, ...props }: HeaderProps) {
+  const { data: workspaces = [], isLoading } = useWorkspaces();
+
   return (
     <header
       className="w-full bg-neutral-50 py-3 px-6 flex items-center justify-between"
@@ -28,16 +31,17 @@ export function Header({ title, ...props }: HeaderProps) {
             </div>
           </Button>
 
-          <WorkspaceDropdown
-            options={[
-              { id: "1", name: "Stepy", photo: "https://github.com/shadcn.png" },
-              {
-                id: "2",
-                name: "Coca-Cola",
-                photo: "https://github.com/shadcn.png",
-              },
-            ]}
-          />
+          {isLoading ? (
+            <div className="w-32 h-11 rounded-3xl border border-neutral-200 flex items-center justify-center bg-neutral-50">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-neutral-600"></div>
+            </div>
+          ) : workspaces.length > 0 ? (
+            <WorkspaceDropdown options={workspaces} />
+          ) : (
+            <div className="w-32 h-11 rounded-3xl border border-neutral-200 flex items-center justify-center bg-neutral-50">
+              <span className="text-xs text-neutral-600">Sem workspaces</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">

@@ -64,7 +64,13 @@ export interface UpdateCampaignData extends Partial<CreateCampaignData> {}
 export async function getCampaigns(): Promise<CampaignListItem[]> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
+    throw new Error("Workspace ID é obrigatório. Por favor, selecione um workspace.");
+  }
+
+  // Garantir que workspaceId é uma string válida (UUID), não um número simples
+  if (workspaceId === "1" || workspaceId === "0" || /^\d+$/.test(workspaceId)) {
+    console.error("Workspace ID inválido detectado:", workspaceId);
+    throw new Error("Workspace ID inválido. Por favor, selecione um workspace válido.");
   }
 
   const request = await fetch(getApiUrl("/campaigns"), {

@@ -14,7 +14,7 @@ export function useWorkspace(options: Workspace[], initialValue?: Workspace) {
       const savedWorkspaceId = getWorkspaceId();
       if (savedWorkspaceId) {
         const savedWorkspace = options.find(
-          (option) => option.id.toString() === savedWorkspaceId
+          (option) => option.id === savedWorkspaceId // Comparação direta, ambos são strings
         );
         if (savedWorkspace) {
           setSelectedWorkspace(savedWorkspace);
@@ -33,7 +33,7 @@ export function useWorkspace(options: Workspace[], initialValue?: Workspace) {
 
   const selectWorkspace = (workspace: Workspace) => {
     setSelectedWorkspace(workspace);
-    saveWorkspaceId(workspace.id.toString());
+    saveWorkspaceId(workspace.id); // workspace.id já é string (UUID)
   };
 
   return {

@@ -1,4 +1,4 @@
-// import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
+import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type { CampaignPhase, Influencer, CampaignContent } from "../types";
 
 /**
@@ -74,14 +74,6 @@ export interface DashboardResponse {
 export async function getCampaignDashboard(
   campaignId: string
 ): Promise<DashboardResponse> {
-  // TODO: Remover quando API estiver pronta
-  // Usando mock temporariamente
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const { getMockDashboardDataForCampaign } = await import("../mocks/dashboard-mock");
-  return getMockDashboardDataForCampaign(campaignId);
-
-  // Código da API real (comentado temporariamente)
-  /*
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
     throw new Error("Workspace ID é obrigatório");
@@ -117,7 +109,6 @@ export async function getCampaignDashboard(
 
   const response = await request.json();
   return response.data;
-  */
 }
 
 /**

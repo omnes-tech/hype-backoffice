@@ -85,7 +85,7 @@ function RouteComponent() {
       },
       onSuccess: (workspace: Workspace) => {
         queryClient.invalidateQueries({ queryKey: ["get-workspaces"] });
-        saveWorkspaceId(workspace.id.toString());
+        saveWorkspaceId(workspace.id); // workspace.id já é string (UUID)
         toast.success(`Sua marca ${workspace.name} foi criada com sucesso.`);
         navigate({ to: "/onboarding/welcome" });
       },

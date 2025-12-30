@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type ComponentProps } from "react";
 
 import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { Workspace } from "@/shared/types";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -23,6 +24,7 @@ export function WorkspaceDropdown({
 }: WorkspaceDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
   const { selectedWorkspace, selectWorkspace } = useWorkspace(options, value);
 
   useEffect(() => {
@@ -48,6 +50,12 @@ export function WorkspaceDropdown({
     selectWorkspace(workspace);
     onChange?.(workspace);
     setIsOpen(false);
+    
+    // Invalidar todas as queries relacionadas a campanhas e dados do workspace
+    // para que sejam recarregadas com o novo workspace selecionado
+    queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+    queryClient.invalidateQueries({ queryKey: ["get-campaign"] });
+    queryClient.invalidateQueries({ queryKey: ["get-campaign-dashboard"] });
   };
 
   return (
