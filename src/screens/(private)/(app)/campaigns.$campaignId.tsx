@@ -15,10 +15,7 @@ import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 
 import { useCampaign } from "@/hooks/use-campaigns";
-import { useCampaignMetrics } from "@/hooks/use-campaign-metrics";
-import { useCampaignPhases } from "@/hooks/use-campaign-phases";
-import { useCampaignInfluencers } from "@/hooks/use-campaign-influencers";
-import { useCampaignContents } from "@/hooks/use-campaign-contents";
+import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
@@ -39,38 +36,30 @@ function RouteComponent() {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // Queries principais
+  // Query principal da campanha (dados básicos)
   const {
     data: campaign,
     isLoading: isLoadingCampaign,
     error: campaignError,
   } = useCampaign(campaignId);
 
+  // Query do dashboard (fases, influenciadores, conteúdos, métricas) - UMA ÚNICA CHAMADA
   const {
-    data: metrics,
-    isLoading: isLoadingMetrics,
-  } = useCampaignMetrics(campaignId);
+    data: dashboardData,
+    isLoading: isLoadingDashboard,
+  } = useCampaignDashboard(campaignId);
 
-  const {
-    data: phases = [],
-    isLoading: isLoadingPhases,
-  } = useCampaignPhases(campaignId);
-
-  const {
-    data: influencers = [],
-    isLoading: isLoadingInfluencers,
-  } = useCampaignInfluencers(campaignId);
-
-  const {
-    data: contents = [],
-    isLoading: isLoadingContents,
-  } = useCampaignContents(campaignId);
-
+  // Query de posts identificados (ainda não está no dashboard)
   const {
     data: identifiedPosts = [],
   } = useIdentifiedPosts(campaignId);
 
-  // Transformar dados da API para formato esperado pelos componentes
+  // Extrair dados do dashboard
+  const phases = dashboardData?.phases || [];
+  const influencers = dashboardData?.influencers || [];
+  const contents = dashboardData?.contents || [];
+  const metrics = dashboardData?.metrics;
+
   const campaignFormData = useMemo(() => {
     if (!campaign) return null;
 
@@ -119,7 +108,7 @@ function RouteComponent() {
     return Math.round((published / contents.length) * 100);
   }, [contents]);
 
-  // Métricas formatadas
+  // Métricas formatadas (já vêm formatadas do dashboard)
   const formattedMetrics = useMemo(() => {
     if (!metrics) {
       return {
@@ -133,18 +122,13 @@ function RouteComponent() {
     return {
       reach: metrics.reach || 0,
       engagement: metrics.engagement || 0,
-      publishedContent: metrics.published_content || 0,
-      activeInfluencers: metrics.active_influencers || 0,
+      publishedContent: metrics.publishedContent || 0,
+      activeInfluencers: metrics.activeInfluencers || 0,
     };
   }, [metrics]);
 
-  // Loading state
-  const isLoading =
-    isLoadingCampaign ||
-    isLoadingMetrics ||
-    isLoadingPhases ||
-    isLoadingInfluencers ||
-    isLoadingContents;
+  // Loading state (agora só 2 queries: campaign e dashboard)
+  const isLoading = isLoadingCampaign || isLoadingDashboard;
 
   // Error handling
   if (campaignError) {

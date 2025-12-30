@@ -75,16 +75,13 @@ function RouteComponent() {
   const { mutate: createWorkspaceMutation, isPending: isCreatingWorkspace } =
     useMutation({
       mutationFn: async (data: CreateWorkspaceData) => {
-        const formData = new FormData();
-        formData.append("name", data.name);
-        formData.append("niche", data.niche);
-        formData.append("description", data.description);
-
-        if (data.photo && data.photo.length > 0) {
-          formData.append("photo", data.photo[0]);
-        }
-
-        return createWorkspace(formData);
+        // Enviar apenas os campos que a API aceita como JSON
+        return createWorkspace({
+          name: data.name,
+          niche: data.niche,
+          description: data.description,
+          // photo será ignorado por enquanto, pode ser implementado depois com upload separado
+        });
       },
       onSuccess: (workspace: Workspace) => {
         queryClient.invalidateQueries({ queryKey: ["get-workspaces"] });
@@ -92,8 +89,10 @@ function RouteComponent() {
         toast.success(`Sua marca ${workspace.name} foi criada com sucesso.`);
         navigate({ to: "/onboarding/welcome" });
       },
-      onError: (error) => {
-        toast.error(error.message);
+      onError: (error: any) => {
+        const errorMessage = error?.message || error?.response?.data?.message || "Erro ao criar workspace. Tente novamente.";
+        toast.error(errorMessage);
+        console.error("Erro ao criar workspace:", error);
       },
     });
   return (

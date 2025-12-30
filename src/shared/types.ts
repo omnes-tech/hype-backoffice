@@ -143,7 +143,7 @@ export interface Influencer {
   followers: number;
   engagement: number;
   niche: string;
-  status?: "selected" | "invited" | "active" | "published" | "curation" | "rejected";
+  status?: "convidados" | "aprovados" | "rejeitados" | "curadoria" | "conteudo_submetido" | "conteudo_aprovado" | "conteudo_rejeitado" | "selected" | "invited" | "active" | "published" | "curation" | "rejected";
   phase?: string;
 }
 

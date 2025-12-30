@@ -22,7 +22,13 @@ export async function getWorkspaces(): Promise<Workspace[]> {
   return response.data;
 }
 
-export async function createWorkspace(data: { name: string }): Promise<Workspace> {
+export interface CreateWorkspaceData {
+  name: string;
+  niche?: string;
+  description?: string;
+}
+
+export async function createWorkspace(data: CreateWorkspaceData): Promise<Workspace> {
   const request = await fetch(getApiUrl("/workspaces"), {
     method: "POST",
     headers: {
@@ -35,9 +41,16 @@ export async function createWorkspace(data: { name: string }): Promise<Workspace
   });
 
   if (!request.ok) {
-    const error = await request.json();
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to create workspace" };
+    }
 
-    throw error || "Failed to create workspace";
+    const error = new Error(errorData?.message || "Failed to create workspace") as any;
+    error.status = request.status;
+    throw error;
   }
 
   const response = await request.json();
