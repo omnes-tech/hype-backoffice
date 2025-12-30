@@ -30,9 +30,9 @@ export function Header({ title, ...props }: HeaderProps) {
 
           <WorkspaceDropdown
             options={[
-              { id: 1, name: "Stepy", photo: "https://github.com/shadcn.png" },
+              { id: "1", name: "Stepy", photo: "https://github.com/shadcn.png" },
               {
-                id: 2,
+                id: "2",
                 name: "Coca-Cola",
                 photo: "https://github.com/shadcn.png",
               },

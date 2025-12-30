@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useMemo } from "react";
 
 import type { User } from "@/shared/types";
 
@@ -12,10 +12,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const value: AuthContextType = {
-    user,
-    setUser,
-  };
+  const value: AuthContextType = useMemo(
+    () => ({
+      user,
+      setUser,
+    }),
+    [user]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

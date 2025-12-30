@@ -28,18 +28,18 @@ function RouteComponent() {
   const location = useLocation();
 
   useEffect(() => {
-    // Se houver erro de autenticação (401, 403, 404), redirecionar para login
+    // Se houver erro de autenticação (401, 403, 404, 429), redirecionar para login
     if (isError && error) {
       const errorStatus = (error as any)?.status || (error as any)?.response?.status;
       
-      // Se for erro 401 (não autorizado) ou 404 (não encontrado - token inválido)
-      if (errorStatus === 401 || errorStatus === 404) {
+      // Se for erro 401 (não autorizado), 404 (não encontrado) ou 429 (too many requests)
+      if (errorStatus === 401 || errorStatus === 404 || errorStatus === 429) {
         removeAuthToken();
         navigate({ to: "/sign-in", replace: true });
         return;
       }
     }
-  }, [isError, error, navigate]);
+  }, [isError, error]); // Removido navigate das dependências
 
   useEffect(() => {
     if (user && !user.phone && !location.pathname.startsWith("/onboarding")) {

@@ -199,7 +199,6 @@ function KanbanColumn({
   getAvailableActions,
   getSocialNetworkIcon,
   getSocialNetworkLabel,
-  getStatusLabel,
   onApprove,
   onMoveToCuration,
   setSelectedInfluencer,
@@ -213,7 +212,6 @@ function KanbanColumn({
   getAvailableActions: (status: string) => Array<{ label: string; action: string; targetStatus?: string }>;
   getSocialNetworkIcon: (network?: string) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
-  getStatusLabel: (status: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
   onMoveToCuration: (influencer: ExtendedInfluencer) => void;
   setSelectedInfluencer: (inf: ExtendedInfluencer | null) => void;
@@ -762,7 +760,6 @@ export function ManagementTab({
                       getAvailableActions={getAvailableActions}
                       getSocialNetworkIcon={getSocialNetworkIcon}
                       getSocialNetworkLabel={getSocialNetworkLabel}
-                      getStatusLabel={getStatusLabel}
                       onApprove={handleApprove}
                       onMoveToCuration={handleMoveToCuration}
                       setSelectedInfluencer={setSelectedInfluencer}

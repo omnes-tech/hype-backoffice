@@ -1,5 +1,5 @@
 export const getApiUrl = (path: string): string => {
-  const baseUrl = "http://localhost:3000/api/backoffice";
+  const baseUrl = import.meta.env.VITE_SERVER_URL;
 
   if (!baseUrl) {
     throw new Error("Unable to get base url.");

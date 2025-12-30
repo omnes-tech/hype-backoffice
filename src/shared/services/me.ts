@@ -21,6 +21,14 @@ export async function getCurrentUser(): Promise<User> {
   });
 
   if (!request.ok) {
+    // Se for erro 429 (Too Many Requests), não tentar novamente
+    if (request.status === 429) {
+      const error = new Error("Muitas requisições. Aguarde um momento.") as any;
+      error.status = 429;
+      error.response = { status: 429 };
+      throw error;
+    }
+
     let errorData;
     try {
       errorData = await request.json();
