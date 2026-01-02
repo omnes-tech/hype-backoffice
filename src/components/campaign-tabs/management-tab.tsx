@@ -29,10 +29,21 @@ import type { Influencer, CampaignPhase } from "@/shared/types";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useInfluencerMessages, useSendMessage } from "@/hooks/use-campaign-chat";
 import { moveToCuration } from "@/shared/services/influencer";
+import { useUpdateCampaignUserStatus } from "@/hooks/use-campaign-users";
 
 interface ManagementTabProps {
   influencers: Influencer[];
   campaignPhases?: CampaignPhase[];
+  campaignUsers?: Array<{
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    followers: number;
+    engagement: number;
+    niche?: string;
+    status: string;
+  }>;
 }
 
 interface StatusHistory {
@@ -308,6 +319,7 @@ function DragOverlayCard({
 export function ManagementTab({
   influencers,
   campaignPhases = [],
+  campaignUsers = [],
 }: ManagementTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [influencersState, setInfluencersState] = useState<ExtendedInfluencer[]>([]);
@@ -323,6 +335,7 @@ export function ManagementTab({
 
   // Hooks para mutations
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
+  const { mutate: updateUserStatus } = useUpdateCampaignUserStatus(campaignId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -333,34 +346,112 @@ export function ManagementTab({
     useSensor(KeyboardSensor)
   );
 
-  // Initialize influencers state
+  // Função para mapear status da API para colunas do Kanban
+  const mapUserStatusToKanbanColumn = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      inscricoes: "inscriptions",
+      aprovado: "approved_progress",
+      curadoria: "curation",
+      recusado: "rejected",
+    };
+    return statusMap[status] || "inscriptions";
+  };
+
+  // Função para mapear coluna do Kanban para action da API
+  const mapKanbanColumnToUserAction = (columnId: string): "aprovado" | "curadoria" | "recusado" | "inscricoes" | null => {
+    const columnMap: { [key: string]: "aprovado" | "curadoria" | "recusado" | "inscricoes" } = {
+      inscriptions: "inscricoes",
+      approved_progress: "aprovado",
+      curation: "curadoria",
+      rejected: "recusado",
+    };
+    return columnMap[columnId] || null;
+  };
+
+  // Verificar se um ID pertence a um usuário da campanha
+  const isCampaignUser = (id: string): boolean => {
+    return campaignUsers.some((user) => user.id === id);
+  };
+
+  // Initialize influencers state and merge with all campaign users
   useEffect(() => {
-    if (influencersState.length === 0 && influencers.length > 0) {
-      const extended: ExtendedInfluencer[] = influencers.map((inf, index) => ({
-        ...inf,
-        socialNetwork: ["instagram", "tiktok", "youtube", "instagram", "tiktok"][index % 5],
+    // Converter TODOS os usuários da campanha para o formato ExtendedInfluencer
+    const allCampaignUsers: ExtendedInfluencer[] = campaignUsers.map((user) => {
+      const kanbanStatus = mapUserStatusToKanbanColumn(user.status);
+      return {
+        id: user.id,
+        name: user.name,
+        username: user.username || "",
+        avatar: user.avatar || "",
+        followers: user.followers || 0,
+        engagement: user.engagement || 0,
+        niche: user.niche || "",
+        status: user.status as Influencer["status"],
+        socialNetwork: undefined,
         statusHistory: [
           {
-            id: "1",
-            status: "inscriptions",
-            timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            notes: "Influenciador se inscreveu na campanha",
-          },
-          {
-            id: "2",
-            status: inf.status === "selected" ? "inscriptions" :
-                   inf.status === "invited" ? "invited" :
-                   inf.status === "active" ? "approved_progress" :
-                   inf.status === "published" ? "published" :
-                   "inscriptions",
-            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            notes: "Status atualizado",
+            id: `user-${user.id}`,
+            status: kanbanStatus,
+            timestamp: new Date().toISOString(),
+            notes: `Usuário com status: ${user.status}`,
           },
         ],
-      }));
+      };
+    });
+
+    // Obter IDs dos usuários da campanha para evitar duplicatas
+    const campaignUserIds = new Set(allCampaignUsers.map((u) => u.id));
+
+    // Filtrar influenciadores que não são usuários da campanha
+    const existingInfluencers = influencers.filter(
+      (inf) => !campaignUserIds.has(inf.id)
+    );
+
+    // Combinar influenciadores existentes com usuários da campanha
+    const allInfluencers = [...existingInfluencers, ...allCampaignUsers];
+
+    if (allInfluencers.length > 0) {
+      const extended: ExtendedInfluencer[] = allInfluencers.map((inf, index) => {
+        // Se já tem statusHistory e é um usuário da campanha, manter
+        const extendedInf = inf as ExtendedInfluencer;
+        if (
+          extendedInf.statusHistory &&
+          extendedInf.statusHistory.length > 0 &&
+          campaignUserIds.has(inf.id)
+        ) {
+          return extendedInf;
+        }
+
+        // Caso contrário, é um influenciador normal
+        return {
+          ...inf,
+          socialNetwork: ["instagram", "tiktok", "youtube", "instagram", "tiktok"][index % 5],
+          statusHistory: [
+            {
+              id: "1",
+              status: "inscriptions",
+              timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              notes: "Influenciador se inscreveu na campanha",
+            },
+            {
+              id: "2",
+              status: inf.status === "selected" ? "inscriptions" :
+                     inf.status === "invited" ? "invited" :
+                     inf.status === "active" ? "approved_progress" :
+                     inf.status === "published" ? "published" :
+                     "inscriptions",
+              timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              notes: "Status atualizado",
+            },
+          ],
+        };
+      });
       setInfluencersState(extended);
+    } else if (allInfluencers.length === 0) {
+      // Se não há influenciadores, limpar o estado
+      setInfluencersState([]);
     }
-  }, [influencers, influencersState.length]);
+  }, [influencers, campaignUsers]);
 
   const extendedInfluencers = influencersState.length > 0 ? influencersState : influencers.map((inf, index) => ({
     ...inf,
@@ -633,11 +724,53 @@ export function ManagementTab({
       const currentStatus = getCurrentStatus(draggedInfluencer);
       const targetStatus = targetColumn.id;
 
-      // Validações de movimentação conforme regras de negócio
+      // Verifica se é um usuário da campanha
+      const isUser = isCampaignUser(draggedInfluencer.id);
+
+      if (isUser) {
+        // Para usuários da campanha, validar transição
+        const canMove = validateUserStatusTransition(currentStatus, targetStatus);
+        
+        if (!canMove) {
+          toast.error(
+            `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`
+          );
+          return;
+        }
+
+        // Mapear coluna para action da API
+        const action = mapKanbanColumnToUserAction(targetStatus);
+        
+        if (!action) {
+          toast.error(`Não é possível mover para "${getStatusLabel(targetStatus)}"`);
+          return;
+        }
+
+        // Atualizar status do usuário via API
+        updateUserStatus(
+          {
+            userId: draggedInfluencer.id,
+            data: { action },
+          },
+          {
+            onSuccess: () => {
+              const notes = getTransitionNote(currentStatus, targetStatus);
+              updateInfluencerStatus(draggedInfluencer.id, targetStatus, notes);
+              toast.success("Status do usuário atualizado com sucesso!");
+            },
+            onError: (error: any) => {
+              toast.error(error?.message || "Erro ao atualizar status do usuário");
+            },
+          }
+        );
+        return;
+      }
+
+      // Para influenciadores normais, usar validação e atualização existente
       const canMove = validateStatusTransition(currentStatus, targetStatus);
 
       if (!canMove) {
-        alert(
+        toast.error(
           `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`
         );
         return;
@@ -677,6 +810,20 @@ export function ManagementTab({
     };
 
     const allowedStatuses = validTransitions[fromStatus] || [];
+    return allowedStatuses.includes(toStatus);
+  };
+
+  // Para usuários da campanha, permitir transições mais flexíveis
+  const validateUserStatusTransition = (fromStatus: string, toStatus: string): boolean => {
+    // Usuários podem ser movidos entre: inscrições, aprovado, curadoria, recusado
+    const userValidTransitions: { [key: string]: string[] } = {
+      inscriptions: ["approved_progress", "rejected", "curation"],
+      curation: ["approved_progress", "rejected", "inscriptions"],
+      approved_progress: ["curation", "rejected", "inscriptions"],
+      rejected: ["inscriptions", "curation"], // Permitir reativar recusados
+    };
+
+    const allowedStatuses = userValidTransitions[fromStatus] || [];
     return allowedStatuses.includes(toStatus);
   };
 

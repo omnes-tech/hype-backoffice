@@ -17,6 +17,7 @@ import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
+import { useCampaignUsers } from "@/hooks/use-campaign-users";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
@@ -53,6 +54,11 @@ function RouteComponent() {
   const {
     data: identifiedPosts = [],
   } = useIdentifiedPosts(campaignId);
+
+  // Query de usuários inscritos na campanha
+  const {
+    data: campaignUsers = [],
+  } = useCampaignUsers(campaignId);
 
   // Extrair dados do dashboard
   const phases = dashboardData?.phases || [];
@@ -176,6 +182,7 @@ function RouteComponent() {
           <ManagementTab
             influencers={influencers}
             campaignPhases={phases}
+            campaignUsers={campaignUsers}
           />
         );
       case "selection":
