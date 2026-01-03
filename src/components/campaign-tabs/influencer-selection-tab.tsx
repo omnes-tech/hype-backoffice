@@ -17,6 +17,7 @@ import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
 import { useInviteInfluencer } from "@/hooks/use-campaign-influencers";
 import { moveToCuration } from "@/shared/services/influencer";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
+import { ListSelector } from "@/components/influencer-lists/list-selector";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -707,24 +708,10 @@ export function InfluencerSelectionTab({
 
       {/* Modal de seleção de lista */}
       {modalType === "selectList" && (
-        <Modal title="Selecionar lista" onClose={handleCloseModal}>
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-neutral-600">
-              Escolha uma lista salva para importar influenciadores
-            </p>
-            <div className="flex flex-col gap-2">
-              {/* TODO: Implementar listas salvas quando endpoint estiver disponível */}
-              <div className="text-center py-8">
-                <p className="text-neutral-600">Funcionalidade de listas salvas em desenvolvimento</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleCloseModal} className="flex-1">
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </Modal>
+        <ListSelector
+          campaignId={campaignId}
+          onClose={handleCloseModal}
+        />
       )}
 
       {/* Modal de data limite do mural */}

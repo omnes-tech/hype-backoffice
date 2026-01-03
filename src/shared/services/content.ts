@@ -163,3 +163,75 @@ export async function getContentEvaluation(
   return response.data;
 }
 
+/**
+ * Aprova múltiplos conteúdos em massa
+ */
+export async function bulkApproveContents(
+  campaignId: string,
+  contentIds: string[]
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/contents/bulk-approve`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify({
+        content_ids: contentIds,
+      }),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to bulk approve contents";
+  }
+}
+
+/**
+ * Reprova múltiplos conteúdos em massa
+ */
+export async function bulkRejectContents(
+  campaignId: string,
+  contentIds: string[],
+  feedback: string
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/contents/bulk-reject`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify({
+        content_ids: contentIds,
+        feedback,
+      }),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to bulk reject contents";
+  }
+}
+

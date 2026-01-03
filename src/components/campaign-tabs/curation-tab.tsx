@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
@@ -7,12 +9,15 @@ import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Influencer } from "@/shared/types";
+import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
+import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 
 interface CurationTabProps {
   influencers: Influencer[];
 }
 
 export function CurationTab({ influencers }: CurationTabProps) {
+  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectionFeedback, setRejectionFeedback] = useState("");
@@ -20,6 +25,10 @@ export function CurationTab({ influencers }: CurationTabProps) {
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
+
+  // Hooks para bulk operations
+  const { approve: bulkApprove, reject: bulkReject, isApproving, isRejecting } = useBulkInfluencerActions({ campaignId });
+  const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
 
   const curationInfluencers = influencers.filter(
     (inf) => inf.status === "curation" || inf.status === "rejected"
@@ -46,26 +55,51 @@ export function CurationTab({ influencers }: CurationTabProps) {
   };
 
   const handleBulkApprove = () => {
-    // Aqui seria feita a chamada à API
-    console.log("Bulk approve:", Array.from(selectedInfluencers));
-    setSelectedInfluencers(new Set());
-    setIsBulkActionModalOpen(false);
+    const influencerIds = Array.from(selectedInfluencers);
+    bulkApprove(
+      { influencerIds },
+      {
+        onSuccess: () => {
+          setSelectedInfluencers(new Set());
+          setIsBulkActionModalOpen(false);
+        },
+      }
+    );
   };
 
   const handleBulkReject = () => {
     if (bulkRejectionFeedback.trim()) {
-      // Aqui seria feita a chamada à API
-      console.log("Bulk reject:", Array.from(selectedInfluencers), bulkRejectionFeedback);
-      setSelectedInfluencers(new Set());
-      setBulkRejectionFeedback("");
-      setIsBulkActionModalOpen(false);
-      setBulkActionType(null);
+      const influencerIds = Array.from(selectedInfluencers);
+      bulkReject(
+        { influencerIds, feedback: bulkRejectionFeedback },
+        {
+          onSuccess: () => {
+            setSelectedInfluencers(new Set());
+            setBulkRejectionFeedback("");
+            setIsBulkActionModalOpen(false);
+            setBulkActionType(null);
+          },
+        }
+      );
     }
   };
 
   const handleApprove = (influencer: Influencer) => {
-    // Aqui seria feita a chamada à API
-    console.log("Approve:", influencer);
+    updateStatus(
+      {
+        influencer_id: influencer.id,
+        status: "approved_progress",
+        feedback: "Aprovado pelo usuário",
+      },
+      {
+        onSuccess: () => {
+          toast.success("Influenciador aprovado com sucesso!");
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao aprovar influenciador");
+        },
+      }
+    );
   };
 
   const handleReject = (influencer: Influencer) => {
@@ -75,11 +109,24 @@ export function CurationTab({ influencers }: CurationTabProps) {
 
   const handleConfirmRejection = () => {
     if (selectedInfluencer && rejectionFeedback.trim()) {
-      // Aqui seria feita a chamada à API
-      console.log("Reject:", selectedInfluencer, "Feedback:", rejectionFeedback);
-      setIsRejectModalOpen(false);
-      setSelectedInfluencer(null);
-      setRejectionFeedback("");
+      updateStatus(
+        {
+          influencer_id: selectedInfluencer.id,
+          status: "rejected",
+          feedback: rejectionFeedback,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Influenciador reprovado");
+            setIsRejectModalOpen(false);
+            setSelectedInfluencer(null);
+            setRejectionFeedback("");
+          },
+          onError: (error: any) => {
+            toast.error(error?.message || "Erro ao reprovar influenciador");
+          },
+        }
+      );
     }
   };
 
@@ -356,10 +403,14 @@ export function CurationTab({ influencers }: CurationTabProps) {
                 onClick={
                   bulkActionType === "approve" ? handleBulkApprove : handleBulkReject
                 }
-                disabled={bulkActionType === "reject" && !bulkRejectionFeedback.trim()}
+                disabled={
+                  (bulkActionType === "reject" && !bulkRejectionFeedback.trim()) ||
+                  isApproving ||
+                  isRejecting
+                }
                 className="flex-1"
               >
-                Confirmar
+                {isApproving || isRejecting ? "Processando..." : "Confirmar"}
               </Button>
             </div>
           </div>

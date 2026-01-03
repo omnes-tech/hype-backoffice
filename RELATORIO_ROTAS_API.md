@@ -28,6 +28,9 @@ Este documento lista todas as rotas da API que são chamadas pelo frontend do ba
 11. [Métricas](#métricas)
 12. [Mural](#mural)
 13. [Usuários da Campanha](#usuários-da-campanha)
+14. [Operações em Massa de Influenciadores](#operações-em-massa-de-influenciadores)
+15. [Operações em Massa de Conteúdos](#operações-em-massa-de-conteúdos)
+16. [Listas de Influenciadores](#listas-de-influenciadores)
 
 ---
 
@@ -601,11 +604,148 @@ Este documento lista todas as rotas da API que são chamadas pelo frontend do ba
 ```
 **Descrição**: Atualiza o status de um usuário na campanha. Usado quando o usuário é arrastado para diferentes colunas do Kanban.
 
+----
+
+## 📦 Operações em Massa de Influenciadores
+
+### POST `/campaigns/{campaignId}/influencers/bulk-approve`
+**Arquivo**: `src/shared/services/influencer.ts`  
+**Função**: `bulkApproveInfluencers()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `campaignId` (path)  
+**Body**:
+```json
+{
+  "influencer_ids": string[],
+  "feedback": string (opcional)
+}
+```
+**Descrição**: Aprova múltiplos influenciadores em massa. Usado na aba de curadoria para aprovar vários influenciadores de uma vez.
+
+----
+
+### POST `/campaigns/{campaignId}/influencers/bulk-reject`
+**Arquivo**: `src/shared/services/influencer.ts`  
+**Função**: `bulkRejectInfluencers()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `campaignId` (path)  
+**Body**:
+```json
+{
+  "influencer_ids": string[],
+  "feedback": string (obrigatório)
+}
+```
+**Descrição**: Reprova múltiplos influenciadores em massa. Usado na aba de curadoria para reprovar vários influenciadores de uma vez. O feedback é obrigatório.
+
+----
+
+### POST `/campaigns/{campaignId}/influencers/bulk-add`
+**Arquivo**: `src/shared/services/influencer-lists.ts`  
+**Função**: `bulkAddInfluencersToCampaign()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `campaignId` (path)  
+**Body**:
+```json
+{
+  "influencer_ids": string[] (opcional),
+  "list_id": string (opcional)
+}
+```
+**Descrição**: Adiciona múltiplos influenciadores à campanha. Pode ser feito via array de IDs ou via ID de uma lista salva. Usado para adicionar uma lista completa de influenciadores à campanha.
+
+----
+
+## 📦 Operações em Massa de Conteúdos
+
+### POST `/campaigns/{campaignId}/contents/bulk-approve`
+**Arquivo**: `src/shared/services/content.ts`  
+**Função**: `bulkApproveContents()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `campaignId` (path)  
+**Body**:
+```json
+{
+  "content_ids": string[]
+}
+```
+**Descrição**: Aprova múltiplos conteúdos em massa. Usado na aba de aprovação de conteúdo para aprovar vários conteúdos de uma vez.
+
+----
+
+### POST `/campaigns/{campaignId}/contents/bulk-reject`
+**Arquivo**: `src/shared/services/content.ts`  
+**Função**: `bulkRejectContents()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `campaignId` (path)  
+**Body**:
+```json
+{
+  "content_ids": string[],
+  "feedback": string (obrigatório)
+}
+```
+**Descrição**: Reprova múltiplos conteúdos em massa. Usado na aba de aprovação de conteúdo para reprovar vários conteúdos de uma vez. O feedback é obrigatório.
+
+----
+
+## 📋 Listas de Influenciadores
+
+### GET `/influencer-lists`
+**Arquivo**: `src/shared/services/influencer-lists.ts`  
+**Função**: `getInfluencerLists()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Descrição**: Lista todas as listas de influenciadores do workspace. Usado para exibir as listas disponíveis no seletor de listas.
+
+**Resposta**:
+```json
+{
+  "data": [
+    {
+      "id": "string",
+      "name": "string",
+      "created_at": "string",
+      "influencer_count": number
+    }
+  ]
+}
+```
+
+----
+
+### GET `/influencer-lists/{listId}`
+**Arquivo**: `src/shared/services/influencer-lists.ts`  
+**Função**: `getInfluencerList()`  
+**Autenticação**: Requerida (Bearer Token + Workspace-Id)  
+**Parâmetros**: `listId` (path)  
+**Descrição**: Obtém detalhes de uma lista específica, incluindo todos os influenciadores da lista.
+
+**Resposta**:
+```json
+{
+  "data": {
+    "id": "string",
+    "name": "string",
+    "influencers": [
+      {
+        "id": number,
+        "name": "string",
+        "email": "string",
+        "photo": "string | null"
+      }
+    ],
+    "created_at": "string"
+  }
+}
+```
+
+----
+
 ---
 
 ## 📊 Estatísticas Gerais
 
-### Total de Rotas: **49**
+### Total de Rotas: **55**
 
 #### Por Método HTTP:
 - **GET**: 20 rotas
@@ -626,14 +766,17 @@ Este documento lista todas as rotas da API que são chamadas pelo frontend do ba
 - **Dashboard**: 1 rota
 - **Métricas**: 4 rotas
 - **Mural**: 3 rotas
-- **Usuários da Campanha**: 1 rota
+- **Usuários da Campanha**: 2 rotas
+- **Operações em Massa de Influenciadores**: 3 rotas
+- **Operações em Massa de Conteúdos**: 2 rotas
+- **Listas de Influenciadores**: 2 rotas
 
 #### Requerem Autenticação:
-- **Com Bearer Token**: 42 rotas
+- **Com Bearer Token**: 48 rotas
 - **Sem autenticação**: 5 rotas (login, register, forgot-password, reset-password)
 
 #### Requerem Workspace-Id:
-- **Com Workspace-Id**: 40 rotas
+- **Com Workspace-Id**: 46 rotas
 - **Sem Workspace-Id**: 9 rotas (auth, me, workspaces)
 
 ---

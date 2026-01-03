@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { CampaignContent, AIEvaluation, CampaignPhase } from "@/shared/types";
 import { useApproveContent, useRejectContent } from "@/hooks/use-campaign-contents";
+import { useBulkContentActions } from "@/hooks/use-bulk-content-actions";
 import { getContentEvaluation } from "@/shared/services/content";
 
 interface ExtendedCampaignContent extends CampaignContent {
@@ -39,6 +40,7 @@ export function ContentApprovalTab({ contents, campaignPhases = [] }: ContentApp
   // Hooks para mutations
   const { mutate: approveContent, isPending: isApproving } = useApproveContent(campaignId);
   const { mutate: rejectContent, isPending: isRejecting } = useRejectContent(campaignId);
+  const { approve: bulkApprove, reject: bulkReject, isApproving: isBulkApproving, isRejecting: isBulkRejecting } = useBulkContentActions({ campaignId });
 
   // Buscar avaliação da IA quando modal de detalhes abrir
   const getAIEvaluation = async (contentId: string) => {
@@ -117,18 +119,29 @@ export function ContentApprovalTab({ contents, campaignPhases = [] }: ContentApp
   };
 
   const handleBulkApprove = () => {
-    console.log("Bulk approve:", Array.from(selectedContents));
-    setSelectedContents(new Set());
-    setIsBulkActionModalOpen(false);
+    const contentIds = Array.from(selectedContents);
+    bulkApprove(contentIds, {
+      onSuccess: () => {
+        setSelectedContents(new Set());
+        setIsBulkActionModalOpen(false);
+      },
+    });
   };
 
   const handleBulkReject = () => {
     if (bulkRejectionFeedback.trim()) {
-      console.log("Bulk reject:", Array.from(selectedContents), bulkRejectionFeedback);
-      setSelectedContents(new Set());
-      setBulkRejectionFeedback("");
-      setIsBulkActionModalOpen(false);
-      setBulkActionType(null);
+      const contentIds = Array.from(selectedContents);
+      bulkReject(
+        { contentIds, feedback: bulkRejectionFeedback },
+        {
+          onSuccess: () => {
+            setSelectedContents(new Set());
+            setBulkRejectionFeedback("");
+            setIsBulkActionModalOpen(false);
+            setBulkActionType(null);
+          },
+        }
+      );
     }
   };
 
@@ -698,10 +711,14 @@ export function ContentApprovalTab({ contents, campaignPhases = [] }: ContentApp
                 onClick={
                   bulkActionType === "approve" ? handleBulkApprove : handleBulkReject
                 }
-                disabled={bulkActionType === "reject" && !bulkRejectionFeedback.trim()}
+                disabled={
+                  (bulkActionType === "reject" && !bulkRejectionFeedback.trim()) ||
+                  isBulkApproving ||
+                  isBulkRejecting
+                }
                 className="flex-1"
               >
-                Confirmar
+                {isBulkApproving || isBulkRejecting ? "Processando..." : "Confirmar"}
               </Button>
             </div>
           </div>

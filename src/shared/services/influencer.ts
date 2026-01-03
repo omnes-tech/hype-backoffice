@@ -191,3 +191,77 @@ export async function getInfluencerHistory(
   return response.data;
 }
 
+/**
+ * Aprova múltiplos influenciadores em massa
+ */
+export async function bulkApproveInfluencers(
+  campaignId: string,
+  influencerIds: string[],
+  feedback?: string
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/influencers/bulk-approve`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify({
+        influencer_ids: influencerIds,
+        feedback,
+      }),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to bulk approve influencers";
+  }
+}
+
+/**
+ * Reprova múltiplos influenciadores em massa
+ */
+export async function bulkRejectInfluencers(
+  campaignId: string,
+  influencerIds: string[],
+  feedback: string
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/influencers/bulk-reject`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify({
+        influencer_ids: influencerIds,
+        feedback,
+      }),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to bulk reject influencers";
+  }
+}
+
