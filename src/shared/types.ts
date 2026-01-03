@@ -124,6 +124,13 @@ export interface CampaignFormData {
   city: string;
   gender: string;
   paymentType: string;
+  // Campos específicos de pagamento
+  paymentFixedAmount: string; // Valor fixo por influenciador
+  paymentSwapItem: string; // Item oferecido (Permuta)
+  paymentSwapMarketValue: string; // Valor de mercado (Permuta)
+  paymentCpaActions: string; // Quais ações geram CPA
+  paymentCpaValue: string; // Valor do CPA
+  paymentCpmValue: string; // Valor do CPM
   benefits: string;
   generalObjective: string;
   whatToDo: string;

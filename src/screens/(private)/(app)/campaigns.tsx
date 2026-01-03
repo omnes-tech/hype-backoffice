@@ -21,6 +21,8 @@ import type { CampaignFormData } from "@/shared/types";
 import { useCampaigns, useCreateCampaign } from "@/hooks/use-campaigns";
 import type { CreateCampaignData } from "@/shared/services/campaign";
 import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
+import { unformatNumber } from "@/shared/utils/masks";
+import { getSubnicheLabel } from "@/shared/data/subniches";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
@@ -98,6 +100,12 @@ function RouteComponent() {
     city: "",
     gender: "",
     paymentType: "",
+    paymentFixedAmount: "",
+    paymentSwapItem: "",
+    paymentSwapMarketValue: "",
+    paymentCpaActions: "",
+    paymentCpaValue: "",
+    paymentCpmValue: "",
     benefits: "",
     generalObjective: "",
     whatToDo: "",
@@ -134,6 +142,12 @@ function RouteComponent() {
       city: "",
       gender: "",
       paymentType: "",
+      paymentFixedAmount: "",
+      paymentSwapItem: "",
+      paymentSwapMarketValue: "",
+      paymentCpaActions: "",
+      paymentCpaValue: "",
+      paymentCpmValue: "",
       benefits: "",
       generalObjective: "",
       whatToDo: "",
@@ -160,47 +174,97 @@ function RouteComponent() {
   };
 
   // Mapeamento de subniches para IDs (pode precisar ser ajustado com dados reais da API)
+  // Por enquanto, usa hash simples baseado no valor do subniche
   const getSubnicheId = (subnicheValue: string): number => {
-    const subnicheMap: { [key: string]: number } = {
-      agriculture: 1,
-      architecture: 2,
-      art: 3,
-      athlete: 4,
-      actor: 5,
-      audiovisual: 6,
-      automobilism: 7,
-      beverages: 8,
-      beauty: 9,
-      toys: 10,
-      hair: 11,
-    };
-    return subnicheMap[subnicheValue] || 1;
+    // Gera um ID baseado no hash do valor (pode ser substituído por mapeamento real da API)
+    let hash = 0;
+    for (let i = 0; i < subnicheValue.length; i++) {
+      const char = subnicheValue.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash) || 1;
   };
 
   // Transformar dados do formulário para o formato da API
   const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
-    const subnicheId = getSubnicheId(formData.subniches);
-    const subnicheName = formData.subniches || "beauty";
+    // Processar múltiplos subnichos separados por vírgula
+    const subnicheValues = formData.subniches 
+      ? formData.subniches.split(",").filter(Boolean)
+      : ["beauty"]; // fallback
+    
+    const secondary_niches = subnicheValues.map((value) => ({
+      id: getSubnicheId(value.trim()),
+      name: getSubnicheLabel(value.trim()) || value.trim(),
+    }));
+
+    // Construir payment_method_details baseado no tipo de pagamento
+    const buildPaymentDetails = () => {
+      const baseDetails: {
+        amount?: number;
+        currency?: string;
+        description?: string;
+      } = {
+        description: formData.benefits || "",
+      };
+
+      switch (formData.paymentType) {
+        case "fixed":
+          if (formData.paymentFixedAmount) {
+            baseDetails.amount = parseInt(unformatNumber(formData.paymentFixedAmount)) || 0;
+            baseDetails.currency = "BRL";
+          }
+          break;
+        case "swap":
+          baseDetails.description = `${formData.paymentSwapItem || ""}${
+            formData.paymentSwapMarketValue
+              ? ` - Valor de mercado: R$ ${formData.paymentSwapMarketValue}`
+              : ""
+          }`;
+          if (formData.paymentSwapMarketValue) {
+            baseDetails.amount = parseInt(unformatNumber(formData.paymentSwapMarketValue)) || 0;
+            baseDetails.currency = "BRL";
+          }
+          break;
+        case "cpa":
+          baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions || ""}${
+            formData.paymentCpaValue ? ` - Valor: R$ ${formData.paymentCpaValue}` : ""
+          }`;
+          if (formData.paymentCpaValue) {
+            baseDetails.amount = parseInt(unformatNumber(formData.paymentCpaValue)) || 0;
+            baseDetails.currency = "BRL";
+          }
+          break;
+        case "cpm":
+          if (formData.paymentCpmValue) {
+            baseDetails.amount = parseInt(unformatNumber(formData.paymentCpmValue)) || 0;
+            baseDetails.currency = "BRL";
+          }
+          break;
+        case "price":
+          // Preço definido pelo influenciador - sem detalhes específicos
+          break;
+      }
+
+      return baseDetails;
+    };
 
     return {
       title: formData.title,
       description: formData.description,
       objective: formData.generalObjective || "awareness",
-      secondary_niches: [{ id: subnicheId, name: subnicheName }],
-      max_influencers: parseInt(formData.influencersCount) || 0,
+      secondary_niches,
+      max_influencers: parseInt(unformatNumber(formData.influencersCount)) || 0,
       payment_method: formData.paymentType || "fixed",
-      payment_method_details: {
-        // TODO: Extrair detalhes do pagamento se necessário
-        description: formData.benefits || "",
-      },
+      payment_method_details: buildPaymentDetails(),
       benefits: formData.benefits || "",
       rules_does: formData.whatToDo || "",
       rules_does_not: formData.whatNotToDo || "",
-      segment_min_followers: formData.minFollowers ? parseInt(formData.minFollowers) : undefined,
+      segment_min_followers: formData.minFollowers ? parseInt(unformatNumber(formData.minFollowers)) : undefined,
       segment_state: formData.state || undefined,
       segment_city: formData.city || undefined,
       segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
-      image_rights_period: formData.imageRightsPeriod ? parseInt(formData.imageRightsPeriod) : 0,
+      image_rights_period: formData.imageRightsPeriod ? parseInt(unformatNumber(formData.imageRightsPeriod)) : 0,
       banner: formData.banner || undefined,
     };
   };
@@ -274,6 +338,12 @@ function RouteComponent() {
         city: "",
         gender: "",
         paymentType: "",
+        paymentFixedAmount: "",
+        paymentSwapItem: "",
+        paymentSwapMarketValue: "",
+        paymentCpaActions: "",
+        paymentCpaValue: "",
+        paymentCpmValue: "",
         benefits: "",
         generalObjective: "",
         whatToDo: "",

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import type { CampaignFormData } from "@/shared/types";
+import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFiveProps {
   formData: CampaignFormData;
@@ -124,9 +125,12 @@ export function CreateCampaignStepFive({
         <Input
           label="Período de direitos de imagem (em meses)"
           placeholder="1"
-          type="number"
           value={formData.imageRightsPeriod}
-          onChange={(e) => updateFormData("imageRightsPeriod", e.target.value)}
+          onChange={(e) =>
+            handleNumberInput(e, (value) =>
+              updateFormData("imageRightsPeriod", value)
+            )
+          }
         />
 
         {/* Arquivos da marca */}

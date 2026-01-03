@@ -18,6 +18,7 @@ import { useCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
+import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
@@ -73,8 +74,16 @@ function RouteComponent() {
       title: campaign.title || "",
       description: campaign.description || "",
       subniches: Array.isArray(campaign.secondary_niches)
-        ? campaign.secondary_niches.map((n: any) => (typeof n === 'object' ? n.name : String(n))).join(", ")
-        : String(campaign.secondary_niches || ""),
+        ? campaign.secondary_niches
+            .map((n: any) => {
+              const name = typeof n === 'object' ? n.name : String(n);
+              // Tentar encontrar o valor correspondente ao nome, ou usar o nome como fallback
+              return getSubnicheValueByLabel(name);
+            })
+            .join(",")
+        : campaign.secondary_niches 
+          ? getSubnicheValueByLabel(String(campaign.secondary_niches))
+          : "",
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
       state: campaign.segment_state || "",
@@ -83,6 +92,27 @@ function RouteComponent() {
         ? campaign.segment_genders.join(", ")
         : campaign.segment_genders || "all",
       paymentType: campaign.payment_method || "",
+      paymentFixedAmount: campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
+        ? campaign.payment_method_details.amount.toString()
+        : "",
+      paymentSwapItem: campaign.payment_method === "swap" && campaign.payment_method_details?.description
+        ? campaign.payment_method_details.description.split(" - Valor de mercado:")[0]?.trim() || ""
+        : "",
+      paymentSwapMarketValue: campaign.payment_method === "swap" && campaign.payment_method_details?.amount
+        ? campaign.payment_method_details.amount.toString()
+        : "",
+      paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
+        ? campaign.payment_method_details.description
+            .replace("Ações que geram CPA:", "")
+            .split(" - Valor:")[0]
+            ?.trim() || ""
+        : "",
+      paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
+        ? campaign.payment_method_details.amount.toString()
+        : "",
+      paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
+        ? campaign.payment_method_details.amount.toString()
+        : "",
       benefits: campaign.benefits || "",
       generalObjective: campaign.objective || "",
       whatToDo: campaign.rules_does || "",
@@ -100,7 +130,7 @@ function RouteComponent() {
           id: content.id || Math.random().toString(),
           socialNetwork: content.type,
           contentType: content.options?.[0]?.type || "post",
-          quantity: content.options?.[0]?.quantity?.toString() || "1",
+          quantity: "1", // Sempre quantidade 1
         })) || [],
         files: "",
       })),
@@ -192,6 +222,7 @@ function RouteComponent() {
             campaignPhases={phases.map((phase: any, index: number) => ({
               id: phase.id,
               label: `Fase ${index + 1}`,
+              publish_date: phase.publish_date,
             }))}
           />
         );

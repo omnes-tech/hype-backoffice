@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import type { CampaignFormData } from "@/shared/types";
+import { getSubnicheLabel as getSubnicheLabelUtil } from "@/shared/data/subniches";
 
 interface CreateCampaignStepSevenProps {
   formData: CampaignFormData;
@@ -12,20 +13,15 @@ interface CreateCampaignStepSevenProps {
 }
 
 const getSubnicheLabel = (value: string) => {
-  const subniches: { [key: string]: string } = {
-    agriculture: "Agro",
-    architecture: "Arquitetura/Construção",
-    art: "Arte",
-    athlete: "Atleta",
-    actor: "Ator/Atriz",
-    audiovisual: "Audiovisual",
-    automobilism: "Automobilismo",
-    beverages: "Bebidas",
-    beauty: "Beleza",
-    toys: "Brinquedos",
-    hair: "Cabelo",
-  };
-  return subniches[value] || value;
+  // Se for múltiplos valores separados por vírgula, processar cada um
+  if (value.includes(",")) {
+    return value
+      .split(",")
+      .map((v) => getSubnicheLabelUtil(v.trim()))
+      .filter(Boolean)
+      .join(", ");
+  }
+  return getSubnicheLabelUtil(value) || value;
 };
 
 const getGenderLabel = (value: string) => {
@@ -40,8 +36,8 @@ const getGenderLabel = (value: string) => {
 
 const getPaymentTypeLabel = (value: string) => {
   const types: { [key: string]: string } = {
-    fixed: "Valor fixo",
-    price: "Preço do influenciador",
+    fixed: "Valor fixo por influenciador",
+    price: "Preço definido pelo influenciador",
     swap: "Permuta",
     cpa: "CPA (Custo Por Ação)",
     cpm: "CPM (Custo Por Mil)",
@@ -234,6 +230,80 @@ export function CreateCampaignStepSeven({
                     : "-"}
                 </p>
               </div>
+              
+              {/* Detalhes específicos de pagamento */}
+              {formData.paymentType === "fixed" && formData.paymentFixedAmount && (
+                <div>
+                  <p className="text-sm text-neutral-600 mb-1">
+                    Valor a ser pago
+                  </p>
+                  <p className="text-base text-neutral-950 font-medium">
+                    R$ {formData.paymentFixedAmount}
+                  </p>
+                </div>
+              )}
+
+              {formData.paymentType === "swap" && (
+                <>
+                  {formData.paymentSwapItem && (
+                    <div>
+                      <p className="text-sm text-neutral-600 mb-1">
+                        Item oferecido
+                      </p>
+                      <p className="text-base text-neutral-950 font-medium">
+                        {formData.paymentSwapItem}
+                      </p>
+                    </div>
+                  )}
+                  {formData.paymentSwapMarketValue && (
+                    <div>
+                      <p className="text-sm text-neutral-600 mb-1">
+                        Valor de mercado
+                      </p>
+                      <p className="text-base text-neutral-950 font-medium">
+                        R$ {formData.paymentSwapMarketValue}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {formData.paymentType === "cpa" && (
+                <>
+                  {formData.paymentCpaActions && (
+                    <div>
+                      <p className="text-sm text-neutral-600 mb-1">
+                        Ações que geram CPA
+                      </p>
+                      <p className="text-base text-neutral-950 font-medium">
+                        {formData.paymentCpaActions}
+                      </p>
+                    </div>
+                  )}
+                  {formData.paymentCpaValue && (
+                    <div>
+                      <p className="text-sm text-neutral-600 mb-1">
+                        Valor do CPA
+                      </p>
+                      <p className="text-base text-neutral-950 font-medium">
+                        R$ {formData.paymentCpaValue}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {formData.paymentType === "cpm" && formData.paymentCpmValue && (
+                <div>
+                  <p className="text-sm text-neutral-600 mb-1">
+                    Valor do CPM
+                  </p>
+                  <p className="text-base text-neutral-950 font-medium">
+                    R$ {formData.paymentCpmValue}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm text-neutral-600 mb-1">
                   Benefícios inclusos na campanha

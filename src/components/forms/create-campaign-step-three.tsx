@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
+import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepThreeProps {
   formData: CampaignFormData;
@@ -17,6 +19,89 @@ export function CreateCampaignStepThree({
   onBack,
   onNext,
 }: CreateCampaignStepThreeProps) {
+  const renderPaymentFields = () => {
+    switch (formData.paymentType) {
+      case "fixed":
+        return (
+          <Input
+            label="Valor a ser pago (independente de número de seguidores e métricas)"
+            placeholder="Ex: 1000"
+            value={formData.paymentFixedAmount}
+            onChange={(e) =>
+              handleNumberInput(e, (value) =>
+                updateFormData("paymentFixedAmount", value)
+              )
+            }
+          />
+        );
+
+      case "price":
+        // Preço definido pelo influenciador - sem campos adicionais
+        return null;
+
+      case "swap":
+        return (
+          <>
+            <Input
+              label="Item oferecido"
+              placeholder="Ex: Kit de produtos, Cupom de desconto"
+              value={formData.paymentSwapItem}
+              onChange={(e) => updateFormData("paymentSwapItem", e.target.value)}
+            />
+            <Input
+              label="Valor de mercado"
+              placeholder="Ex: 500"
+              value={formData.paymentSwapMarketValue}
+              onChange={(e) =>
+                handleNumberInput(e, (value) =>
+                  updateFormData("paymentSwapMarketValue", value)
+                )
+              }
+            />
+          </>
+        );
+
+      case "cpa":
+        return (
+          <>
+            <Textarea
+              label="Quais ações geram CPA?"
+              placeholder="Descreva quais ações dos influenciadores gerarão CPA (ex: clique no link, compra realizada, cadastro)"
+              value={formData.paymentCpaActions}
+              onChange={(e) => updateFormData("paymentCpaActions", e.target.value)}
+            />
+            <Input
+              label="Valor do CPA"
+              placeholder="Ex: 50"
+              value={formData.paymentCpaValue}
+              onChange={(e) =>
+                handleNumberInput(e, (value) =>
+                  updateFormData("paymentCpaValue", value)
+                )
+              }
+            />
+          </>
+        );
+
+      case "cpm":
+        return (
+          <Input
+            label="Valor do CPM"
+            placeholder="Ex: 10"
+            value={formData.paymentCpmValue}
+            onChange={(e) =>
+              handleNumberInput(e, (value) =>
+                updateFormData("paymentCpmValue", value)
+              )
+            }
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-4">
@@ -26,13 +111,15 @@ export function CreateCampaignStepThree({
           value={formData.paymentType}
           onChange={(value) => updateFormData("paymentType", value)}
           options={[
-            { label: "Valor fixo", value: "fixed" },
-            { label: "Preço do influenciador", value: "price" },
+            { label: "Valor fixo por influenciador", value: "fixed" },
+            { label: "Preço definido pelo influenciador", value: "price" },
             { label: "Permuta", value: "swap" },
             { label: "CPA (Custo Por Ação)", value: "cpa" },
             { label: "CPM (Custo Por Mil)", value: "cpm" },
           ]}
         />
+
+        {renderPaymentFields()}
 
         <Textarea
           label="Benefícios Inclusos na Campanha"

@@ -5,6 +5,10 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { CampaignFormData, CampaignPhase, SocialFormat } from "@/shared/types";
+import {
+  validatePhase1Date,
+  validateSubsequentPhaseDate,
+} from "@/shared/utils/date-validations";
 
 interface CreateCampaignStepSixProps {
   formData: CampaignFormData;
@@ -74,7 +78,7 @@ export function CreateCampaignStepSix({
           id: Date.now().toString(),
           socialNetwork: "",
           contentType: "",
-          quantity: "",
+          quantity: "1",
         };
         return {
           ...phase,
@@ -111,9 +115,17 @@ export function CreateCampaignStepSix({
       if (phase.id === phaseId) {
         return {
           ...phase,
-          formats: phase.formats.map((format) =>
-            format.id === formatId ? { ...format, [field]: value } : format
-          ),
+          formats: phase.formats.map((format) => {
+            if (format.id === formatId) {
+              // Sempre manter quantidade como "1"
+              const updatedFormat = { ...format, [field]: value };
+              if (field !== "quantity") {
+                updatedFormat.quantity = "1";
+              }
+              return updatedFormat;
+            }
+            return format;
+          }),
         };
       }
       return phase;
@@ -167,6 +179,40 @@ export function CreateCampaignStepSix({
     return contentTypesByNetwork[socialNetwork] || [];
   };
 
+  // Calcular data mínima para cada fase
+  const getPhaseMinDate = (phaseIndex: number, phaseDate: string): string | undefined => {
+    if (phaseIndex === 0) {
+      // Fase 1: mínimo 10 dias da data atual
+      const validation = validatePhase1Date(phaseDate);
+      return validation.minDate;
+    } else {
+      // Fases subsequentes: mínimo 3 dias da fase anterior
+      const previousPhase = phases[phaseIndex - 1];
+      if (previousPhase?.postDate) {
+        const validation = validateSubsequentPhaseDate(phaseDate, previousPhase.postDate);
+        return validation.minDate;
+      }
+    }
+    return undefined;
+  };
+
+  // Validar data da fase e retornar erro se houver
+  const getPhaseDateError = (phaseIndex: number, phaseDate: string): string | undefined => {
+    if (!phaseDate) return undefined;
+
+    if (phaseIndex === 0) {
+      const validation = validatePhase1Date(phaseDate);
+      return validation.error;
+    } else {
+      const previousPhase = phases[phaseIndex - 1];
+      if (previousPhase?.postDate) {
+        const validation = validateSubsequentPhaseDate(phaseDate, previousPhase.postDate);
+        return validation.error;
+      }
+    }
+    return undefined;
+  };
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-8">
@@ -216,21 +262,30 @@ export function CreateCampaignStepSix({
               ]}
             />
 
-            {/* Data e horário */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Data */}
+            <div className="flex flex-col gap-1">
               <Input
                 label="Data prevista de postagem"
                 type="date"
                 value={phase.postDate}
                 onChange={(e) => updatePhase(phase.id, "postDate", e.target.value)}
+                min={getPhaseMinDate(phaseIndex, phase.postDate)}
+                error={getPhaseDateError(phaseIndex, phase.postDate)}
               />
-
-              <Input
-                label="Horário da postagem"
-                type="time"
-                value={phase.postTime}
-                onChange={(e) => updatePhase(phase.id, "postTime", e.target.value)}
-              />
+              {phaseIndex === 0 && phase.postDate && (
+                <p className="text-xs text-neutral-500 mt-1">
+                  Data mínima: {getPhaseMinDate(phaseIndex, phase.postDate) 
+                    ? new Date(getPhaseMinDate(phaseIndex, phase.postDate)!).toLocaleDateString("pt-BR")
+                    : ""}
+                </p>
+              )}
+              {phaseIndex > 0 && phases[phaseIndex - 1]?.postDate && phase.postDate && (
+                <p className="text-xs text-neutral-500 mt-1">
+                  Data mínima: {getPhaseMinDate(phaseIndex, phase.postDate) 
+                    ? new Date(getPhaseMinDate(phaseIndex, phase.postDate)!).toLocaleDateString("pt-BR")
+                    : ""} (3 dias após a fase anterior)
+                </p>
+              )}
             </div>
 
             {/* Formatos e redes sociais */}
@@ -264,15 +319,8 @@ export function CreateCampaignStepSix({
                   />
 
                   <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Quantidade"
-                        type="number"
-                        value={format.quantity}
-                        onChange={(e) =>
-                          updateFormat(phase.id, format.id, "quantity", e.target.value)
-                        }
-                      />
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-neutral-600 font-medium">Quantidade: 1</span>
                     </div>
                     <button
                       type="button"

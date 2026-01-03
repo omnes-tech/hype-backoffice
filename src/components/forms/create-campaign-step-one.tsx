@@ -1,10 +1,13 @@
+import { useMemo } from "react";
+
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
+import { SUBNICHES } from "@/shared/data/subniches";
 
 interface CreateCampaignStepOneProps {
   formData: CampaignFormData;
@@ -17,6 +20,21 @@ export function CreateCampaignStepOne({
   updateFormData, 
   onNext 
 }: CreateCampaignStepOneProps) {
+  const subnicheOptions = useMemo(() => {
+    return SUBNICHES.map((subniche) => ({
+      value: subniche.value,
+      label: `${subniche.label} (${subniche.category})`,
+    }));
+  }, []);
+
+  const selectedSubniches = useMemo(() => {
+    return formData.subniches ? formData.subniches.split(",").filter(Boolean) : [];
+  }, [formData.subniches]);
+
+  const handleSubnichesChange = (values: string[]) => {
+    updateFormData("subniches", values.join(","));
+  };
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex items-center flex-col gap-1">
@@ -46,24 +64,13 @@ export function CreateCampaignStepOne({
           onChange={(e) => updateFormData("description", e.target.value)}
         />
 
-        <Select
+        <MultiSelect
           label="Subnichos da Campanha"
           placeholder="Selecione os subnichos que representam o foco da campanha"
-          value={formData.subniches}
-          onChange={(value) => updateFormData("subniches", value)}
-          options={[
-            { label: "Agro", value: "agriculture" },
-            { label: "Arquitetura/Construção", value: "architecture" },
-            { label: "Arte", value: "art" },
-            { label: "Atleta", value: "athlete" },
-            { label: "Ator/Atriz", value: "actor" },
-            { label: "Audiovisual", value: "audiovisual" },
-            { label: "Automobilismo", value: "automobilism" },
-            { label: "Bebidas", value: "beverages" },
-            { label: "Beleza", value: "beauty" },
-            { label: "Brinquedos", value: "toys" },
-            { label: "Cabelo", value: "hair" },
-          ]}
+          options={subnicheOptions}
+          value={selectedSubniches}
+          onChange={handleSubnichesChange}
+          menuPlacement="top"
         />
       </div>
 

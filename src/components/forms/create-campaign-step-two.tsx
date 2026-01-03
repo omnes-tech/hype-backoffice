@@ -1,8 +1,17 @@
+import { useState, useMemo, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Select } from "@/components/ui/select";
 import type { CampaignFormData } from "@/shared/types";
+import {
+  BRAZILIAN_STATES,
+  BRAZILIAN_CITIES,
+  getCitiesByState,
+} from "@/shared/data/brazilian-states-cities";
+import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepTwoProps {
   formData: CampaignFormData;
@@ -17,6 +26,61 @@ export function CreateCampaignStepTwo({
   onBack,
   onNext,
 }: CreateCampaignStepTwoProps) {
+  const [selectedStates, setSelectedStates] = useState<string[]>(
+    formData.state ? formData.state.split(",").filter(Boolean) : []
+  );
+
+  // Sincronizar estados selecionados quando formData mudar
+  useEffect(() => {
+    if (formData.state) {
+      const states = formData.state.split(",").filter(Boolean);
+      setSelectedStates(states);
+    } else {
+      setSelectedStates([]);
+    }
+  }, [formData.state]);
+
+  const stateOptions = BRAZILIAN_STATES.map((state) => ({
+    value: state.code,
+    label: state.name,
+  }));
+
+  const cityOptions = useMemo(() => {
+    if (selectedStates.length === 0) {
+      return BRAZILIAN_CITIES.map((city) => ({
+        value: `${city.name}-${city.state}`,
+        label: `${city.name} - ${city.state}`,
+      }));
+    }
+
+    const cities: Array<{ value: string; label: string }> = [];
+    selectedStates.forEach((stateCode) => {
+      const citiesInState = getCitiesByState(stateCode);
+      citiesInState.forEach((city) => {
+        cities.push({
+          value: `${city.name}-${city.state}`,
+          label: `${city.name} - ${city.state}`,
+        });
+      });
+    });
+    return cities;
+  }, [selectedStates]);
+
+  const selectedCities = useMemo(() => {
+    return formData.city ? formData.city.split(",").filter(Boolean) : [];
+  }, [formData.city]);
+
+  const handleStateChange = (values: string[]) => {
+    setSelectedStates(values);
+    updateFormData("state", values.join(","));
+    // Limpar cidades quando estados mudarem
+    updateFormData("city", "");
+  };
+
+  const handleCityChange = (values: string[]) => {
+    updateFormData("city", values.join(","));
+  };
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-4">
@@ -24,28 +88,43 @@ export function CreateCampaignStepTwo({
           label="Quantos influenciadores deseja na campanha?"
           placeholder="1"
           value={formData.influencersCount}
-          onChange={(e) => updateFormData("influencersCount", e.target.value)}
+          onChange={(e) =>
+            handleNumberInput(e, (value) =>
+              updateFormData("influencersCount", value)
+            )
+          }
         />
 
         <Input 
           label="Quantidade mínima de seguidores" 
           placeholder="1.000"
           value={formData.minFollowers}
-          onChange={(e) => updateFormData("minFollowers", e.target.value)}
+          onChange={(e) =>
+            handleNumberInput(e, (value) =>
+              updateFormData("minFollowers", value)
+            )
+          }
         />
 
-        <Input
+        <MultiSelect
           label="Estado"
           placeholder="Selecione o/os estado(s) desejado(s)"
-          value={formData.state}
-          onChange={(e) => updateFormData("state", e.target.value)}
+          options={stateOptions}
+          value={selectedStates}
+          onChange={handleStateChange}
         />
 
-        <Input
+        <MultiSelect
           label="Cidade"
-          placeholder="Selecione a/as cidade(s) desejada(s)"
-          value={formData.city}
-          onChange={(e) => updateFormData("city", e.target.value)}
+          placeholder={
+            selectedStates.length === 0
+              ? "Selecione primeiro um ou mais estados"
+              : "Selecione a/as cidade(s) desejada(s)"
+          }
+          options={cityOptions}
+          value={selectedCities}
+          onChange={handleCityChange}
+          disabled={selectedStates.length === 0}
         />
 
         <Select

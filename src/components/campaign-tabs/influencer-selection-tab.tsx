@@ -16,6 +16,7 @@ import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
 import { useInviteInfluencer } from "@/hooks/use-campaign-influencers";
 import { moveToCuration } from "@/shared/services/influencer";
+import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -30,7 +31,7 @@ interface ExtendedInfluencer extends Influencer {
 
 interface InfluencerSelectionTabProps {
   influencers: Influencer[];
-  campaignPhases?: Array<{ id: string; label: string }>;
+  campaignPhases?: Array<{ id: string; label: string; publish_date?: string }>;
 }
 
 export function InfluencerSelectionTab({
@@ -727,56 +728,75 @@ export function InfluencerSelectionTab({
       )}
 
       {/* Modal de data limite do mural */}
-      {showMuralDateModal && (
-        <Modal
-          title="Definir data limite do mural"
-          onClose={() => {
-            setShowMuralDateModal(false);
-            setTempMuralEndDate("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <p className="text-sm text-neutral-600">
-              Defina até quando o mural ficará visível para os influenciadores. Após ativado, não será possível desativar até a data limite.
-            </p>
-            <Input
-              label="Data limite"
-              type="date"
-              value={tempMuralEndDate}
-              onChange={(e) => setTempMuralEndDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
-            />
-            {tempMuralEndDate && (
-              <div className="bg-primary-50 rounded-2xl p-4">
-                <p className="text-sm text-primary-900">
-                  O mural ficará ativo até{" "}
-                  <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
+      {showMuralDateModal && (() => {
+        const phase1Date = _campaignPhases?.[0]?.publish_date || "";
+        const validation = tempMuralEndDate 
+          ? validateMuralEndDate(tempMuralEndDate, phase1Date)
+          : { valid: true };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minDate = formatDateForInput(addDays(today, 1));
+        const maxDate = validation.maxDate;
+
+        return (
+          <Modal
+            title="Definir data limite do mural (Ativar Descobrir)"
+            onClose={() => {
+              setShowMuralDateModal(false);
+              setTempMuralEndDate("");
+            }}
+          >
+            <div className="flex flex-col gap-6">
+              <p className="text-sm text-neutral-600">
+                Defina até quando o mural ficará visível para os influenciadores. A data limite precisa ser maior que a data atual e pelo menos 7 dias menor que a data prevista da fase 1.
+              </p>
+              <Input
+                label="Data limite para receber inscrições"
+                type="date"
+                value={tempMuralEndDate}
+                onChange={(e) => setTempMuralEndDate(e.target.value)}
+                min={minDate}
+                max={maxDate}
+                error={validation.error}
+              />
+              {phase1Date && (
+                <p className="text-xs text-neutral-500">
+                  Data da fase 1: {new Date(phase1Date).toLocaleDateString("pt-BR")} | 
+                  Data máxima permitida: {maxDate ? new Date(maxDate).toLocaleDateString("pt-BR") : "N/A"}
                 </p>
+              )}
+              {tempMuralEndDate && validation.valid && (
+                <div className="bg-primary-50 rounded-2xl p-4">
+                  <p className="text-sm text-primary-900">
+                    O mural ficará ativo até{" "}
+                    <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowMuralDateModal(false);
+                    setTempMuralEndDate("");
+                  }}
+                  disabled={isActivatingMural}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleActivateMural}
+                  disabled={!tempMuralEndDate || isActivatingMural || !validation.valid}
+                  className="flex-1"
+                >
+                  {isActivatingMural ? "Ativando..." : "Ativar mural"}
+                </Button>
               </div>
-            )}
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowMuralDateModal(false);
-                  setTempMuralEndDate("");
-                }}
-                disabled={isActivatingMural}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleActivateMural}
-                disabled={!tempMuralEndDate || isActivatingMural}
-                className="flex-1"
-              >
-                {isActivatingMural ? "Ativando..." : "Ativar mural"}
-              </Button>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
     </>
   );
 }

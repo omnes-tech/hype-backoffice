@@ -12,8 +12,37 @@ export function Input({
   icon,
   error,
   type = "text",
+  onChange,
   ...props
 }: InputProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Prevenir números negativos em inputs do tipo number
+    if (type === "number") {
+      const value = e.target.value;
+      
+      // Permite campo vazio ou apenas o sinal de menos sendo removido
+      if (value === "" || value === "-") {
+        if (onChange) {
+          const newEvent = { ...e, target: { ...e.target, value: "" } };
+          onChange(newEvent as React.ChangeEvent<HTMLInputElement>);
+        }
+        return;
+      }
+      
+      const numValue = parseFloat(value);
+      
+      // Se for negativo ou NaN, não atualiza
+      if (isNaN(numValue) || numValue < 0) {
+        return;
+      }
+    }
+    
+    // Chamar o onChange original se fornecido
+    if (onChange) {
+      onChange(e);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -27,6 +56,8 @@ export function Input({
           type={type}
           className="w-full h-full rounded-3xl outline-none placeholder:text-neutral-400 text-neutral-950"
           {...props}
+          onChange={handleChange}
+          min={type === "number" ? "0" : undefined}
         />
 
         {icon}
