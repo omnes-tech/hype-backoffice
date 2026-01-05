@@ -109,6 +109,7 @@ export interface CampaignPhase {
   id: string;
   objective: string;
   postDate: string;
+  postTime?: string;
   formats: SocialFormat[];
   files: string;
 }

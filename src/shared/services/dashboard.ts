@@ -119,6 +119,7 @@ export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
     id: phase.id,
     objective: phase.objective,
     postDate: phase.publish_date,
+    postTime: phase.publish_time,
     formats: phase.contents.flatMap((content) =>
       content.options.map((option) => ({
         id: `${content.type}-${option.type}-${option.quantity}`,
