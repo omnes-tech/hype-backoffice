@@ -23,8 +23,8 @@ export interface CampaignDetail extends Campaign {
     description?: string;
   };
   segment_min_followers?: number;
-  segment_state?: string;
-  segment_city?: string;
+  segment_state?: string[];
+  segment_city?: string[];
   segment_genders?: string[];
   image_rights_period?: number;
   rules_does?: string;
@@ -37,7 +37,7 @@ export interface CreateCampaignData {
   title: string;
   description: string;
   objective: string;
-  secondary_niches: Array<{ id: number; name: string }>;
+  secondary_niches: number[];
   max_influencers: number;
   payment_method: string;
   payment_method_details: {
@@ -49,11 +49,11 @@ export interface CreateCampaignData {
   rules_does: string;
   rules_does_not: string;
   segment_min_followers?: number;
-  segment_state?: string;
-  segment_city?: string;
+  segment_state?: string[];
+  segment_city?: string[];
   segment_genders?: string[];
   image_rights_period: number;
-  banner?: string;
+  // banner não é enviado aqui, será feito upload separado
 }
 
 export interface UpdateCampaignData extends Partial<CreateCampaignData> {}
@@ -150,6 +150,47 @@ export async function createCampaign(
 
   const response = await request.json();
   return response.data;
+}
+
+/**
+ * Faz upload do banner da campanha
+ */
+export async function uploadCampaignBanner(
+  campaignId: string,
+  banner: File
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const formData = new FormData();
+  formData.append("banner", banner);
+
+  const request = await fetch(getApiUrl(`/campaigns/${campaignId}/banner`), {
+    method: "POST",
+    headers: {
+      "Client-Type": "backoffice",
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Workspace-Id": workspaceId,
+    },
+    body: formData,
+  });
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to upload campaign banner" };
+    }
+
+    const error = new Error(
+      errorData?.message || "Failed to upload campaign banner"
+    ) as any;
+    error.status = request.status;
+    throw error;
+  }
 }
 
 /**

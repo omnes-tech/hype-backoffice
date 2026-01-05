@@ -31,7 +31,6 @@ export function CreateCampaignStepSix({
             id: "1",
             objective: "",
             postDate: "",
-            postTime: "",
             formats: [],
             files: "",
           },
@@ -53,7 +52,6 @@ export function CreateCampaignStepSix({
           id: i.toString(),
           objective: "",
           postDate: "",
-          postTime: "",
           formats: [],
           files: "",
         }

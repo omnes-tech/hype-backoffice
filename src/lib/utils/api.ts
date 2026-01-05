@@ -31,3 +31,37 @@ export const saveWorkspaceId = (workspaceId: string): void => {
 export const removeWorkspaceId = (): void => {
   localStorage.removeItem("workspaceId");
 };
+
+/**
+ * Constrói a URL completa para arquivos de upload
+ * Extrai a base URL do VITE_SERVER_URL removendo o path da API
+ * 
+ * @param uploadPath - Caminho do upload (ex: /uploads/workspaces/photo.png)
+ * @returns URL completa (ex: http://localhost:3000/uploads/workspaces/photo.png)
+ */
+export const getUploadUrl = (uploadPath: string | null | undefined): string | undefined => {
+  if (!uploadPath) {
+    return undefined;
+  }
+
+  // Se já for uma URL completa, retornar como está
+  if (uploadPath.startsWith("http://") || uploadPath.startsWith("https://")) {
+    return uploadPath;
+  }
+
+  // Extrair a base URL do VITE_SERVER_URL
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
+  
+  if (!serverUrl) {
+    throw new Error("Unable to get base url.");
+  }
+
+  // Remover o path da API para obter apenas a base URL
+  // Ex: http://localhost:3000/api/backoffice -> http://localhost:3000
+  const baseUrl = serverUrl.replace(/\/api\/backoffice\/?$/, "");
+
+  // Garantir que o uploadPath comece com /
+  const normalizedPath = uploadPath.startsWith("/") ? uploadPath : `/${uploadPath}`;
+
+  return `${baseUrl}${normalizedPath}`;
+};

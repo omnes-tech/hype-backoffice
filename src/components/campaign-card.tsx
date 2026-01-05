@@ -2,13 +2,14 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { getUploadUrl } from "@/lib/utils/api";
 
 interface CampaignCardProps {
   id: string | number;
   title: string;
   phase: string;
   progressPercentage: number;
-  banner: string;
+  banner?: string;
   influencersCount: number;
 }
 
@@ -36,7 +37,11 @@ export function CampaignCard({
       onClick={handleClick}
     >
       <div className="w-full h-48 relative">
-        <img src={banner} alt={title} className="w-full h-full object-cover" />
+        <img 
+          src={getUploadUrl(banner) || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0"} 
+          alt={title} 
+          className="w-full h-full object-cover" 
+        />
 
         <div className="absolute top-3 right-4">
           <Badge

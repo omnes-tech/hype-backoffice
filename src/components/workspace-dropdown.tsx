@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import type { Workspace } from "@/shared/types";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { getUploadUrl } from "@/lib/utils/api";
 
 import { Avatar } from "@/components/ui/avatar";
 
@@ -73,7 +74,7 @@ export function WorkspaceDropdown({
         <div className="flex items-center gap-2">
           <Avatar
             size="xs"
-            src={selectedWorkspace?.photo}
+            src={getUploadUrl(selectedWorkspace?.photo)}
             alt={selectedWorkspace?.name || ""}
           />
 
@@ -109,7 +110,7 @@ export function WorkspaceDropdown({
               )}
             >
               <div className="flex items-center gap-2">
-                <Avatar size="xs" src={option.photo} alt={option.name} />
+                <Avatar size="xs" src={getUploadUrl(option.photo)} alt={option.name} />
 
                 <span className="whitespace-nowrap text-neutral-950">
                   {option.name}

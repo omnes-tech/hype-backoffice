@@ -81,7 +81,7 @@ export function ImageUpload({
             id={id}
             type="file"
             accept={accept}
-            className="hidden"
+            className="hidden sr-only"
             disabled={disabled}
             {...register}
             ref={(e) => {
@@ -98,10 +98,10 @@ export function ImageUpload({
             }}
           />
 
-          <div className="flex flex-col items-center gap-1">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
             <Icon name="Camera" color="#A3A3A3" size={32} />
 
-            <p className="text-neutral-400 font-medium">Enviar foto</p>
+            <p className="text-neutral-400 font-medium text-center">Enviar foto</p>
           </div>
         </div>
       )}

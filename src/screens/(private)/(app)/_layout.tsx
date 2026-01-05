@@ -15,6 +15,8 @@ function RouteComponent() {
 
   if (pathname === "/campaigns") {
     title = "Campanhas";
+  } else if (pathname.includes("/edit")) {
+    title = "Editar campanha";
   } else if (pathname.startsWith("/campaigns/")) {
     title = "Detalhes da campanha";
   }

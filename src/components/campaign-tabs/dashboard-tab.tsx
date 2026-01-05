@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData } from "@/shared/types";
+import { getUploadUrl } from "@/lib/utils/api";
+import { useNiches } from "@/hooks/use-niches";
 
 interface DashboardTabProps {
   campaign: CampaignFormData;
@@ -32,6 +34,20 @@ const contentTypeLabels: { [key: string]: string } = {
 
 export function DashboardTab({ campaign, metrics, progressPercentage }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const { data: niches = [] } = useNiches();
+
+  // Mapear IDs dos nichos para nomes
+  const nicheNames = useMemo(() => {
+    if (!campaign.subniches) return "";
+    
+    const nicheIds = campaign.subniches.split(",").filter(Boolean);
+    const names = nicheIds.map((id) => {
+      const niche = niches.find((n) => n.id.toString() === id.trim());
+      return niche?.name || id;
+    });
+    
+    return names.join(", ");
+  }, [campaign.subniches, niches]);
 
   const togglePhase = (phaseId: string) => {
     const newExpanded = new Set(expandedPhases);
@@ -100,119 +116,125 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           Fases da campanha
         </h3>
         <div className="flex flex-col gap-3">
-          {campaign.phases?.map((phase, index) => {
-            const isExpanded = expandedPhases.has(phase.id);
-            return (
-              <div
-                key={phase.id}
-                className="border border-neutral-200 rounded-2xl overflow-hidden"
-              >
-                <button
-                  onClick={() => togglePhase(phase.id)}
-                  className="w-full p-4 bg-neutral-50 hover:bg-neutral-100 transition-colors"
+          {campaign.phases && campaign.phases.length > 0 ? (
+            campaign.phases.map((phase, index) => {
+              const isExpanded = expandedPhases.has(phase.id);
+              return (
+                <div
+                  key={phase.id}
+                  className="border border-neutral-200 rounded-2xl overflow-hidden"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        text={`Fase ${index + 1}`}
-                        backgroundColor="bg-tertiary-600"
-                        textColor="text-neutral-50"
-                      />
-                      <span className="text-sm text-neutral-950">
-                        {phase.postDate
-                          ? new Date(phase.postDate).toLocaleDateString("pt-BR")
-                          : "-"}
-                        {phase.postTime && ` • ${phase.postTime}`}
-                      </span>
-                    </div>
-                    <Icon
-                      name={isExpanded ? "ChevronUp" : "ChevronDown"}
-                      size={20}
-                      color="#404040"
-                    />
-                  </div>
-                </button>
-                {isExpanded && (
-                  <div className="p-4 bg-white border-t border-neutral-200">
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <p className="text-sm text-neutral-600 mb-2">Objetivo</p>
+                  <button
+                    onClick={() => togglePhase(phase.id)}
+                    className="w-full p-4 bg-neutral-50 hover:bg-neutral-100 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
                         <Badge
-                          text={
-                            phase.objective === "engagement"
-                              ? "Engajamento"
-                              : phase.objective === "conversion"
-                              ? "Conversão"
-                              : phase.objective
-                          }
-                          backgroundColor="bg-primary-50"
-                          textColor="text-primary-900"
+                          text={`Fase ${index + 1}`}
+                          backgroundColor="bg-tertiary-600"
+                          textColor="text-neutral-50"
                         />
-                      </div>
-                      <div>
-                        <p className="text-sm text-neutral-600 mb-2">
-                          Data e horário da postagem
-                        </p>
-                        <p className="text-base text-neutral-950">
+                        <span className="text-sm text-neutral-950">
                           {phase.postDate
-                            ? new Date(phase.postDate).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "long",
-                                year: "numeric",
-                              })
+                            ? new Date(phase.postDate).toLocaleDateString("pt-BR")
                             : "-"}
-                          {phase.postTime && ` às ${phase.postTime}`}
-                        </p>
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm text-neutral-600 mb-2">
-                          Formatos de conteúdo
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          {phase.formats && phase.formats.length > 0 ? (
-                            phase.formats.map((format) => (
-                              <div
-                                key={format.id}
-                                className="p-3 bg-neutral-50 rounded-xl border border-neutral-200"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex flex-col gap-1">
-                                    <p className="text-sm font-medium text-neutral-950">
-                                      {socialNetworkLabels[format.socialNetwork] ||
-                                        format.socialNetwork}
-                                    </p>
-                                    <p className="text-xs text-neutral-600">
-                                      {contentTypeLabels[format.contentType] ||
-                                        format.contentType}
-                                    </p>
-                                  </div>
-                                  <Badge
-                                    text={`${format.quantity}x`}
-                                    backgroundColor="bg-tertiary-50"
-                                    textColor="text-tertiary-900"
-                                  />
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-neutral-600">
-                              Nenhum formato definido
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {phase.files && (
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-1">Arquivos</p>
-                          <p className="text-base text-neutral-950">{phase.files}</p>
-                        </div>
-                      )}
+                      <Icon
+                        name={isExpanded ? "ChevronUp" : "ChevronDown"}
+                        size={20}
+                        color="#404040"
+                      />
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  </button>
+                  {isExpanded && (
+                    <div className="p-4 bg-white border-t border-neutral-200">
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <p className="text-sm text-neutral-600 mb-2">Objetivo</p>
+                          <Badge
+                            text={
+                              phase.objective === "engagement"
+                                ? "Engajamento"
+                                : phase.objective === "conversion"
+                                ? "Conversão"
+                                : phase.objective
+                            }
+                            backgroundColor="bg-primary-50"
+                            textColor="text-primary-900"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm text-neutral-600 mb-2">
+                            Data e horário da postagem
+                          </p>
+                          <p className="text-base text-neutral-950">
+                            {phase.postDate
+                              ? new Date(phase.postDate).toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "long",
+                                  year: "numeric",
+                                })
+                              : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-neutral-600 mb-2">
+                            Formatos de conteúdo
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            {phase.formats && phase.formats.length > 0 ? (
+                              phase.formats.map((format) => (
+                                <div
+                                  key={format.id}
+                                  className="p-3 bg-neutral-50 rounded-xl border border-neutral-200"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-col gap-1">
+                                      <p className="text-sm font-medium text-neutral-950">
+                                        {socialNetworkLabels[format.socialNetwork] ||
+                                          format.socialNetwork}
+                                      </p>
+                                      <p className="text-xs text-neutral-600">
+                                        {contentTypeLabels[format.contentType] ||
+                                          format.contentType}
+                                      </p>
+                                    </div>
+                                    <Badge
+                                      text={`${format.quantity}x`}
+                                      backgroundColor="bg-tertiary-50"
+                                      textColor="text-tertiary-900"
+                                    />
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-neutral-600">
+                                Nenhum formato definido
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {phase.files && (
+                          <div>
+                            <p className="text-sm text-neutral-600 mb-1">Arquivos</p>
+                            <p className="text-base text-neutral-950">{phase.files}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-sm text-neutral-600">
+                Nenhuma fase cadastrada para esta campanha
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -228,7 +250,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
               <p className="text-sm text-neutral-600 mb-2">Banner</p>
               <div className="rounded-2xl overflow-hidden border border-neutral-200 w-full">
                 <img
-                  src={campaign.banner}
+                  src={getUploadUrl(campaign.banner) || ""}
                   alt="Banner da campanha"
                   className="w-full h-80 object-cover"
                 />
@@ -240,11 +262,15 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-neutral-600 mb-1">Nicho</p>
-              <Badge
-                text={campaign.subniches}
-                backgroundColor="bg-tertiary-50"
-                textColor="text-tertiary-900"
-              />
+              {nicheNames ? (
+                <Badge
+                  text={nicheNames}
+                  backgroundColor="bg-tertiary-50"
+                  textColor="text-tertiary-900"
+                />
+              ) : (
+                <p className="text-base text-neutral-950">-</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-neutral-600 mb-1">Tipo de remuneração</p>

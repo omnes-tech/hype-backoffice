@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams, Outlet, useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-se
 import { CurationTab } from "@/components/campaign-tabs/curation-tab";
 import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
+import { ShareCampaignModal } from "@/components/share-campaign-modal";
 
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
@@ -35,8 +36,15 @@ const tabs = [
 
 function RouteComponent() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Se estiver na rota de edição, renderizar apenas o Outlet
+  if (location.pathname.includes("/edit")) {
+    return <Outlet />;
+  }
 
   // Query principal da campanha (dados básicos)
   const {
@@ -86,8 +94,12 @@ function RouteComponent() {
           : "",
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
-      state: campaign.segment_state || "",
-      city: campaign.segment_city || "",
+      state: Array.isArray(campaign.segment_state) 
+        ? campaign.segment_state.join(",") 
+        : campaign.segment_state || "",
+      city: Array.isArray(campaign.segment_city) 
+        ? campaign.segment_city.join(",") 
+        : campaign.segment_city || "",
       gender: Array.isArray(campaign.segment_genders)
         ? campaign.segment_genders.join(", ")
         : campaign.segment_genders || "all",
@@ -121,19 +133,7 @@ function RouteComponent() {
       imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
       brandFiles: "",
       phasesCount: phases.length.toString(),
-      phases: phases.map((phase: any) => ({
-        id: phase.id,
-        objective: phase.objective,
-        postDate: phase.publish_date,
-        postTime: phase.publish_time,
-        formats: phase.contents?.map((content: any) => ({
-          id: content.id || Math.random().toString(),
-          socialNetwork: content.type,
-          contentType: content.options?.[0]?.type || "post",
-          quantity: "1", // Sempre quantidade 1
-        })) || [],
-        files: "",
-      })),
+      phases: phases, // Já vem transformado do hook useCampaignDashboard
     };
   }, [campaign, phases]);
 
@@ -292,13 +292,21 @@ function RouteComponent() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline">
-                <div className="flex items-center gap-2">
-                  <Icon name="Pencil" color="#404040" size={16} />
-                  <span>Editar</span>
-                </div>
-              </Button>
-              <Button variant="outline">
+              {((campaign?.status as any)?.value === "draft" || campaign?.status === "draft") && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="Pencil" color="#404040" size={16} />
+                    <span>Editar</span>
+                  </div>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setIsShareModalOpen(true)}
+              >
                 <div className="flex items-center gap-2">
                   <Icon name="Share2" color="#404040" size={16} />
                   <span>Compartilhar</span>
@@ -316,6 +324,16 @@ function RouteComponent() {
       <div className="flex-1 overflow-y-auto p-6 px-0">
         {renderTabContent()}
       </div>
+
+      {/* Modal de compartilhamento */}
+      {campaign && (
+        <ShareCampaignModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          campaignId={campaignId}
+          campaignTitle={campaign.title}
+        />
+      )}
     </div>
   );
 }

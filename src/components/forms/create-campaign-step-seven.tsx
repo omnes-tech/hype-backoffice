@@ -471,14 +471,6 @@ export function CreateCampaignStepSeven({
                             {phase.postDate ? formatDate(phase.postDate) : "-"}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-1">
-                            Horário da postagem
-                          </p>
-                          <p className="text-base text-neutral-950">
-                            {phase.postTime ? `${phase.postTime} horas` : "-"}
-                          </p>
-                        </div>
                       </div>
                       {phase.formats && phase.formats.length > 0 && (
                         <div>

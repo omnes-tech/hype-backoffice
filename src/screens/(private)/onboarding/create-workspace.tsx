@@ -6,9 +6,10 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { createWorkspace } from "@/shared/services/workspace";
+import { createWorkspace, uploadWorkspacePhoto } from "@/shared/services/workspace";
 import { saveWorkspaceId } from "@/lib/utils/api";
 import type { Workspace } from "@/shared/types";
+import { useNiches } from "@/hooks/use-niches";
 
 import { ImageUpload } from "@/components/image-upload";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ function RouteComponent() {
   const queryClient = useQueryClient();
 
   const [preview, setPreview] = useState<string | null>(null);
+  const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
 
   const {
     control,
@@ -75,17 +77,28 @@ function RouteComponent() {
   const { mutate: createWorkspaceMutation, isPending: isCreatingWorkspace } =
     useMutation({
       mutationFn: async (data: CreateWorkspaceData) => {
-        // Enviar apenas os campos que a API aceita como JSON
+        // Converter niche (string) para niche_id (number) e enviar para a API
         return createWorkspace({
           name: data.name,
-          niche: data.niche,
+          niche_id: data.niche ? parseInt(data.niche, 10) : undefined,
           description: data.description,
-          // photo será ignorado por enquanto, pode ser implementado depois com upload separado
         });
       },
-      onSuccess: (workspace: Workspace) => {
+      onSuccess: async (workspace: Workspace, variables: CreateWorkspaceData) => {
         queryClient.invalidateQueries({ queryKey: ["get-workspaces"] });
         saveWorkspaceId(workspace.id); // workspace.id já é string (UUID)
+        
+        // Fazer upload da foto se houver
+        if (variables.photo && variables.photo.length > 0) {
+          try {
+            await uploadWorkspacePhoto(workspace.id, variables.photo[0]);
+          } catch (error: any) {
+            console.error("Erro ao fazer upload da foto:", error);
+            // Não bloquear o fluxo se o upload da foto falhar
+            toast.error("Workspace criado, mas houve um erro ao fazer upload da foto.");
+          }
+        }
+        
         toast.success(`Sua marca ${workspace.name} foi criada com sucesso.`);
         navigate({ to: "/onboarding/welcome" });
       },
@@ -137,24 +150,21 @@ function RouteComponent() {
             <Select
               id="niche"
               label="Nicho"
-              placeholder="Selecione o nicho da sua marca"
+              placeholder={
+                isLoadingNiches
+                  ? "Carregando nichos..."
+                  : "Selecione o nicho da sua marca"
+              }
               value={field.value}
               onChange={field.onChange}
-              options={[
-                { label: "Agro", value: "agriculture" },
-                { label: "Arquitetura/Construção", value: "architecture" },
-                { label: "Arte", value: "art" },
-                { label: "Atleta", value: "athlete" },
-                { label: "Ator/Atriz", value: "actor" },
-                { label: "Audiovisual", value: "audiovisual" },
-                { label: "Automobilismo", value: "automobilism" },
-                { label: "Bebidas", value: "beverages" },
-                { label: "Beleza", value: "beauty" },
-                { label: "Brinquedos", value: "toys" },
-                { label: "Cabelo", value: "hair" },
-              ]}
+              options={niches
+                .filter((niche) => niche.parent_id === null) // Apenas nichos principais (sem parent_id)
+                .map((niche) => ({
+                  label: niche.name,
+                  value: niche.id.toString(),
+                }))}
               error={errors.niche?.message}
-              disabled={isCreatingWorkspace}
+              disabled={isCreatingWorkspace || isLoadingNiches}
             />
           )}
         />

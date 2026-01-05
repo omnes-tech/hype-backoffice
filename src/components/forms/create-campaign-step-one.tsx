@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
-import { SUBNICHES } from "@/shared/data/subniches";
+import { useNiches } from "@/hooks/use-niches";
+import { useAuth } from "@/contexts/auth-context";
 
 interface CreateCampaignStepOneProps {
   formData: CampaignFormData;
@@ -20,12 +21,18 @@ export function CreateCampaignStepOne({
   updateFormData, 
   onNext 
 }: CreateCampaignStepOneProps) {
+  const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
+  const { user } = useAuth();
+
+  // Filtrar apenas subnichos (nichos com parent_id não nulo)
   const subnicheOptions = useMemo(() => {
-    return SUBNICHES.map((subniche) => ({
-      value: subniche.value,
-      label: `${subniche.label} (${subniche.category})`,
-    }));
-  }, []);
+    return niches
+      .filter((niche) => niche.parent_id !== null)
+      .map((niche) => ({
+        value: niche.id.toString(),
+        label: niche.name,
+      }));
+  }, [niches]);
 
   const selectedSubniches = useMemo(() => {
     return formData.subniches ? formData.subniches.split(",").filter(Boolean) : [];
@@ -41,11 +48,11 @@ export function CreateCampaignStepOne({
         <Avatar
           size="4xl"
           src="https://github.com/shadcn.png"
-          alt="Stepy Tecnologia LTDA"
+          alt={user?.name || "Usuário"}
         />
 
         <p className="text-neutral-950 font-medium text-lg">
-          Stepy Tecnologia LTDA
+          {user?.name || "Carregando..."}
         </p>
       </div>
 
@@ -66,11 +73,16 @@ export function CreateCampaignStepOne({
 
         <MultiSelect
           label="Subnichos da Campanha"
-          placeholder="Selecione os subnichos que representam o foco da campanha"
+          placeholder={
+            isLoadingNiches
+              ? "Carregando subnichos..."
+              : "Selecione os subnichos que representam o foco da campanha"
+          }
           options={subnicheOptions}
           value={selectedSubniches}
           onChange={handleSubnichesChange}
           menuPlacement="top"
+          disabled={isLoadingNiches}
         />
       </div>
 

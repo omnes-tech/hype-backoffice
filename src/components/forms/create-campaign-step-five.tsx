@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -25,6 +25,13 @@ export function CreateCampaignStepFive({
     formData.banner || null
   );
 
+  // Atualizar preview quando formData.banner mudar (útil para edição)
+  useEffect(() => {
+    if (formData.banner && !bannerPreview) {
+      setBannerPreview(formData.banner);
+    }
+  }, [formData.banner, bannerPreview]);
+
   const handleBannerSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
       const file = files[0];
@@ -33,6 +40,9 @@ export function CreateCampaignStepFive({
         const result = reader.result as string;
         setBannerPreview(result);
         updateFormData("banner", result);
+        // Armazenar o arquivo original para upload posterior
+        // Usar uma propriedade customizada no formData
+        (formData as any).bannerFile = file;
       };
       reader.readAsDataURL(file);
     }
@@ -77,6 +87,8 @@ export function CreateCampaignStepFive({
                 onClick={() => {
                   setBannerPreview(null);
                   updateFormData("banner", "");
+                  // Limpar o arquivo também
+                  (formData as any).bannerFile = undefined;
                   if (bannerInputRef.current) {
                     bannerInputRef.current.value = "";
                   }

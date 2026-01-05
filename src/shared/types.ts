@@ -38,8 +38,8 @@ export interface Campaign {
   rules_does?: string;
   rules_does_not?: string;
   segment_min_followers?: number;
-  segment_state?: string;
-  segment_city?: string;
+  segment_state?: string[];
+  segment_city?: string[];
   segment_genders?: string[];
   image_rights_period?: number;
   status?: "draft" | "published" | "active" | "completed" | "cancelled";
@@ -109,7 +109,6 @@ export interface CampaignPhase {
   id: string;
   objective: string;
   postDate: string;
-  postTime: string;
   formats: SocialFormat[];
   files: string;
 }
@@ -136,6 +135,7 @@ export interface CampaignFormData {
   whatToDo: string;
   whatNotToDo: string;
   banner: string;
+  bannerFile?: File; // Arquivo original do banner para upload
   imageRightsPeriod: string;
   brandFiles: string;
   phasesCount: string;
