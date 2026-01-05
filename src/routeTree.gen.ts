@@ -13,6 +13,7 @@ import { Route as publicLayoutRouteImport } from './screens/(public)/_layout'
 import { Route as privateLayoutRouteImport } from './screens/(private)/_layout'
 import { Route as publicSignUpRouteImport } from './screens/(public)/sign-up'
 import { Route as publicSignInRouteImport } from './screens/(public)/sign-in'
+import { Route as publicResetPasswordRouteImport } from './screens/(public)/reset-password'
 import { Route as publicForgotPasswordRouteImport } from './screens/(public)/forgot-password'
 import { Route as privateOnboardingLayoutRouteImport } from './screens/(private)/onboarding/_layout'
 import { Route as privateappLayoutRouteImport } from './screens/(private)/(app)/_layout'
@@ -41,6 +42,11 @@ const publicSignUpRoute = publicSignUpRouteImport.update({
 const publicSignInRoute = publicSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => publicLayoutRoute,
+} as any)
+const publicResetPasswordRoute = publicResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => publicLayoutRoute,
 } as any)
 const publicForgotPasswordRoute = publicForgotPasswordRouteImport.update({
@@ -106,6 +112,7 @@ const privateappCampaignsCampaignIdEditRoute =
 export interface FileRoutesByFullPath {
   '/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/forgot-password': typeof publicForgotPasswordRoute
+  '/reset-password': typeof publicResetPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
   '/campaigns': typeof privateappCampaignsRouteWithChildren
@@ -119,6 +126,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof publicForgotPasswordRoute
+  '/reset-password': typeof publicResetPasswordRoute
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
   '/campaigns': typeof privateappCampaignsRouteWithChildren
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/(private)/(app)': typeof privateappLayoutRouteWithChildren
   '/(private)/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
+  '/(public)/reset-password': typeof publicResetPasswordRoute
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
   '/(private)/(app)/campaigns': typeof privateappCampaignsRouteWithChildren
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/onboarding'
     | '/forgot-password'
+    | '/reset-password'
     | '/sign-in'
     | '/sign-up'
     | '/campaigns'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
+    | '/reset-password'
     | '/sign-in'
     | '/sign-up'
     | '/campaigns'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/(private)/(app)'
     | '/(private)/onboarding'
     | '/(public)/forgot-password'
+    | '/(public)/reset-password'
     | '/(public)/sign-in'
     | '/(public)/sign-up'
     | '/(private)/(app)/campaigns'
@@ -228,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof publicSignInRouteImport
+      parentRoute: typeof publicLayoutRoute
+    }
+    '/(public)/reset-password': {
+      id: '/(public)/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof publicResetPasswordRouteImport
       parentRoute: typeof publicLayoutRoute
     }
     '/(public)/forgot-password': {
@@ -387,12 +406,14 @@ const privateLayoutRouteWithChildren = privateLayoutRoute._addFileChildren(
 
 interface publicLayoutRouteChildren {
   publicForgotPasswordRoute: typeof publicForgotPasswordRoute
+  publicResetPasswordRoute: typeof publicResetPasswordRoute
   publicSignInRoute: typeof publicSignInRoute
   publicSignUpRoute: typeof publicSignUpRoute
 }
 
 const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   publicForgotPasswordRoute: publicForgotPasswordRoute,
+  publicResetPasswordRoute: publicResetPasswordRoute,
   publicSignInRoute: publicSignInRoute,
   publicSignUpRoute: publicSignUpRoute,
 }

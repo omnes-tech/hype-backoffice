@@ -17,9 +17,8 @@ interface ForgotPasswordRequestData {
 }
 
 interface ResetPasswordRequestData {
-  token: string;
+  code: string;
   password: string;
-  passwordConfirmation: string;
 }
 
 export async function signIn(
@@ -73,7 +72,7 @@ export async function signUp(
 
 export async function forgotPassword(
   data: ForgotPasswordRequestData
-): Promise<void> {
+): Promise<{ message: string }> {
   const request = await fetch(getApiUrl("/auth/forgot-password"), {
     method: "POST",
     headers: {
@@ -86,8 +85,8 @@ export async function forgotPassword(
 
   if (!request.ok) {
     const error = await request.json();
-
-    throw error || "Failed to forgot password";
+    const errorMessage = error?.message || "Failed to forgot password";
+    throw new Error(errorMessage);
   }
 
   const response = await request.json();
@@ -97,7 +96,7 @@ export async function forgotPassword(
 
 export async function resetPassword(
   data: ResetPasswordRequestData
-): Promise<void> {
+): Promise<{ message: string }> {
   const request = await fetch(getApiUrl("/auth/reset-password"), {
     method: "POST",
     headers: {
@@ -110,8 +109,8 @@ export async function resetPassword(
 
   if (!request.ok) {
     const error = await request.json();
-
-    throw error || "Failed to reset password";
+    const errorMessage = error?.message || "Failed to reset password";
+    throw new Error(errorMessage);
   }
 
   const response = await request.json();

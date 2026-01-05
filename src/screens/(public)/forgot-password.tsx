@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -24,10 +24,13 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordSchemaData = z.infer<typeof forgotPasswordSchema>;
 
 function RouteComponent() {
+  const navigate = useNavigate();
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    getValues,
   } = useForm<ForgotPasswordSchemaData>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: "" },
@@ -38,11 +41,20 @@ function RouteComponent() {
     isPending: isSendingForgotPasswordEmail,
   } = useMutation({
     mutationFn: forgotPassword,
-    onSuccess: () => {
-      toast.success("Email de recuperação enviado com sucesso");
+    onSuccess: (data) => {
+      const email = getValues("email");
+      toast.success(
+        data.message ||
+          "Se o e-mail estiver cadastrado, você receberá um código para redefinir sua senha."
+      );
+      // Redirecionar para tela de inserção de código
+      navigate({
+        to: "/reset-password",
+        search: { email },
+      });
     },
-    onError: (error) => {
-      toast.error(error.message || "Erro ao enviar email de recuperação");
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao solicitar redefinição de senha");
     },
   });
 
@@ -57,7 +69,7 @@ function RouteComponent() {
         </h1>
 
         <p className="text-neutral-600 text-center">
-          Digite seu email abaixo e enviaremos um link para redefinir sua senha
+          Digite seu email abaixo e enviaremos um código de 6 dígitos para redefinir sua senha
         </p>
       </div>
 
@@ -73,9 +85,7 @@ function RouteComponent() {
       <div className="flex flex-col gap-4">
         <Button type="submit" disabled={isSendingForgotPasswordEmail}>
           <p className="text-neutral-50 font-semibold">
-            {isSendingForgotPasswordEmail
-              ? "Enviando link..."
-              : "Enviar link para recuperar senha"}
+            {isSendingForgotPasswordEmail ? "Enviando..." : "Enviar código"}
           </p>
         </Button>
 
