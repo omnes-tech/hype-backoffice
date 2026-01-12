@@ -9,35 +9,57 @@ export const addDays = (date: Date, days: number): Date => {
 
 /**
  * Formata data para YYYY-MM-DD (formato do input date)
+ * Usa métodos locais para evitar problemas de timezone
  */
 export const formatDateForInput = (date: Date): string => {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Calcula a data mínima para fase 1 (10 dias a partir de hoje)
+ */
+export const getPhase1MinDate = (): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const minDate = addDays(today, 10);
+  minDate.setHours(0, 0, 0, 0);
+  return formatDateForInput(minDate);
 };
 
 /**
  * Valida data da fase 1: não pode ser menor que 10 dias da data atual
  */
 export const validatePhase1Date = (date: string): { valid: boolean; error?: string; minDate?: string } => {
+  const minDateStr = getPhase1MinDate();
+  // Criar data mínima a partir da string (evita problemas de timezone)
+  const [minYear, minMonth, minDay] = minDateStr.split("-").map(Number);
+  const minDate = new Date(minYear, minMonth - 1, minDay);
+  minDate.setHours(0, 0, 0, 0);
+  
   if (!date) {
-    return { valid: true }; // Permite campo vazio
+    return { valid: true, minDate: minDateStr }; // Permite campo vazio
   }
 
-  const selectedDate = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const minDate = addDays(today, 10);
-  minDate.setHours(0, 0, 0, 0);
+  // Criar data a partir da string no formato YYYY-MM-DD (evita problemas de timezone)
+  const [year, month, day] = date.split("-").map(Number);
+  const selectedDate = new Date(year, month - 1, day);
+  selectedDate.setHours(0, 0, 0, 0);
 
-  if (selectedDate < minDate) {
+  // Comparar apenas as datas (sem horas)
+  if (selectedDate.getTime() < minDate.getTime()) {
+    // Formatar a data mínima para exibição (usando a mesma lógica de parsing)
+    const minDateFormatted = minDate.toLocaleDateString("pt-BR");
     return {
       valid: false,
-      error: `A data prevista para a primeira entrega não pode ser menor que 10 dias da data atual. Data mínima: ${minDate.toLocaleDateString("pt-BR")}`,
-      minDate: formatDateForInput(minDate),
+      error: `A data prevista para a primeira entrega não pode ser menor que 10 dias da data atual. Data mínima: ${minDateFormatted}`,
+      minDate: minDateStr,
     };
   }
 
-  return { valid: true, minDate: formatDateForInput(minDate) };
+  return { valid: true, minDate: minDateStr };
 };
 
 /**
@@ -55,14 +77,20 @@ export const validateSubsequentPhaseDate = (
     return { valid: true }; // Se não há fase anterior, não valida
   }
 
-  const selectedDate = new Date(date);
-  const prevDate = new Date(previousPhaseDate);
+  // Criar data a partir da string no formato YYYY-MM-DD (evita problemas de timezone)
+  const [year, month, day] = date.split("-").map(Number);
+  const selectedDate = new Date(year, month - 1, day);
+  selectedDate.setHours(0, 0, 0, 0);
+  
+  const [prevYear, prevMonth, prevDay] = previousPhaseDate.split("-").map(Number);
+  const prevDate = new Date(prevYear, prevMonth - 1, prevDay);
   prevDate.setHours(0, 0, 0, 0);
   
   const minDate = addDays(prevDate, 3);
   minDate.setHours(0, 0, 0, 0);
 
-  if (selectedDate < minDate) {
+  // Comparar apenas as datas (sem horas)
+  if (selectedDate.getTime() < minDate.getTime()) {
     return {
       valid: false,
       error: `A data prevista entre uma fase e outra não pode ser menor que 3 dias. Data mínima: ${minDate.toLocaleDateString("pt-BR")}`,
@@ -86,12 +114,16 @@ export const validateMuralEndDate = (
     return { valid: true }; // Permite campo vazio
   }
 
-  const selectedDate = new Date(date);
+  // Criar data a partir da string no formato YYYY-MM-DD (evita problemas de timezone)
+  const [year, month, day] = date.split("-").map(Number);
+  const selectedDate = new Date(year, month - 1, day);
+  selectedDate.setHours(0, 0, 0, 0);
+  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // Deve ser maior que hoje
-  if (selectedDate <= today) {
+  if (selectedDate.getTime() <= today.getTime()) {
     return {
       valid: false,
       error: "A data limite precisa ser maior que a data atual.",
@@ -103,14 +135,15 @@ export const validateMuralEndDate = (
     return { valid: true }; // Se não há fase 1, não valida o limite superior
   }
 
-  const phase1 = new Date(phase1Date);
+  const [phase1Year, phase1Month, phase1Day] = phase1Date.split("-").map(Number);
+  const phase1 = new Date(phase1Year, phase1Month - 1, phase1Day);
   phase1.setHours(0, 0, 0, 0);
   
   // Deve ser 7 dias menor que a fase 1
   const maxDate = addDays(phase1, -7);
   maxDate.setHours(0, 0, 0, 0);
 
-  if (selectedDate >= phase1) {
+  if (selectedDate.getTime() >= phase1.getTime()) {
     return {
       valid: false,
       error: `A data limite para receber inscrições precisa ser pelo menos 7 dias menor que a data prevista da fase 1. Data máxima: ${maxDate.toLocaleDateString("pt-BR")}`,

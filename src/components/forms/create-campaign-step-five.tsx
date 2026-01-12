@@ -56,11 +56,6 @@ export function CreateCampaignStepFive({
     }
   };
 
-  const handleGenerateBannerWithAI = () => {
-    // Implementar lógica de geração de banner com IA
-    console.log("Gerar banner com IA");
-  };
-
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-6">
@@ -117,20 +112,6 @@ export function CreateCampaignStepFive({
               </p>
             </div>
           )}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGenerateBannerWithAI}
-            className="w-fit"
-          >
-            <div className="flex items-center gap-2">
-              <Icon name="Wand" color="#404040" size={16} />
-              <p className="text-neutral-700 font-semibold">
-                Gerar banner com IA
-              </p>
-            </div>
-          </Button>
         </div>
 
         {/* Período de direitos de imagem */}

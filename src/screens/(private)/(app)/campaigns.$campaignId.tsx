@@ -20,6 +20,7 @@ import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
+import { formatCurrency } from "@/shared/utils/masks";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
@@ -105,13 +106,13 @@ function RouteComponent() {
         : campaign.segment_genders || "all",
       paymentType: campaign.payment_method || "",
       paymentFixedAmount: campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
-        ? campaign.payment_method_details.amount.toString()
+        ? formatCurrency(campaign.payment_method_details.amount.toString())
         : "",
       paymentSwapItem: campaign.payment_method === "swap" && campaign.payment_method_details?.description
         ? campaign.payment_method_details.description.split(" - Valor de mercado:")[0]?.trim() || ""
         : "",
       paymentSwapMarketValue: campaign.payment_method === "swap" && campaign.payment_method_details?.amount
-        ? campaign.payment_method_details.amount.toString()
+        ? formatCurrency(campaign.payment_method_details.amount.toString())
         : "",
       paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
         ? campaign.payment_method_details.description
@@ -120,15 +121,23 @@ function RouteComponent() {
             ?.trim() || ""
         : "",
       paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
-        ? campaign.payment_method_details.amount.toString()
+        ? formatCurrency(campaign.payment_method_details.amount.toString())
         : "",
       paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
-        ? campaign.payment_method_details.amount.toString()
+        ? formatCurrency(campaign.payment_method_details.amount.toString())
         : "",
       benefits: campaign.benefits || "",
       generalObjective: campaign.objective || "",
-      whatToDo: campaign.rules_does || "",
-      whatNotToDo: campaign.rules_does_not || "",
+      whatToDo: Array.isArray(campaign.rules_does) 
+        ? campaign.rules_does 
+        : campaign.rules_does 
+          ? [campaign.rules_does]
+          : [""],
+      whatNotToDo: Array.isArray(campaign.rules_does_not)
+        ? campaign.rules_does_not
+        : campaign.rules_does_not
+          ? [campaign.rules_does_not]
+          : [""],
       banner: campaign.banner || "",
       imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
       brandFiles: "",

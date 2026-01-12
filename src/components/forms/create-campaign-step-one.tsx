@@ -16,10 +16,10 @@ interface CreateCampaignStepOneProps {
   onNext: () => void;
 }
 
-export function CreateCampaignStepOne({ 
-  formData, 
-  updateFormData, 
-  onNext 
+export function CreateCampaignStepOne({
+  formData,
+  updateFormData,
+  onNext,
 }: CreateCampaignStepOneProps) {
   const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
   const { user } = useAuth();
@@ -27,7 +27,7 @@ export function CreateCampaignStepOne({
   // Filtrar apenas subnichos (nichos com parent_id não nulo)
   const subnicheOptions = useMemo(() => {
     return niches
-      .filter((niche) => niche.parent_id !== null)
+      .filter((niche) => !!niche.parent_id)
       .map((niche) => ({
         value: niche.id.toString(),
         label: niche.name,
@@ -35,7 +35,9 @@ export function CreateCampaignStepOne({
   }, [niches]);
 
   const selectedSubniches = useMemo(() => {
-    return formData.subniches ? formData.subniches.split(",").filter(Boolean) : [];
+    return formData.subniches
+      ? formData.subniches.split(",").filter(Boolean)
+      : [];
   }, [formData.subniches]);
 
   const handleSubnichesChange = (values: string[]) => {

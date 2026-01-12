@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -8,6 +9,7 @@ import type { CampaignFormData, CampaignPhase, SocialFormat } from "@/shared/typ
 import {
   validatePhase1Date,
   validateSubsequentPhaseDate,
+  getPhase1MinDate,
 } from "@/shared/utils/date-validations";
 
 interface CreateCampaignStepSixProps {
@@ -180,9 +182,8 @@ export function CreateCampaignStepSix({
   // Calcular data mínima para cada fase
   const getPhaseMinDate = (phaseIndex: number, phaseDate: string): string | undefined => {
     if (phaseIndex === 0) {
-      // Fase 1: mínimo 10 dias da data atual
-      const validation = validatePhase1Date(phaseDate);
-      return validation.minDate;
+      // Fase 1: mínimo 10 dias da data atual (sempre calcula da mesma forma)
+      return getPhase1MinDate();
     } else {
       // Fases subsequentes: mínimo 3 dias da fase anterior
       const previousPhase = phases[phaseIndex - 1];
@@ -209,6 +210,56 @@ export function CreateCampaignStepSix({
       }
     }
     return undefined;
+  };
+
+  // Validar todas as fases antes de avançar
+  const validateAllPhases = (): boolean => {
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
+      
+      // Verificar se o objetivo está preenchido
+      if (!phase.objective || phase.objective.trim() === "") {
+        toast.error(`A Fase ${i + 1} precisa ter um objetivo selecionado.`);
+        return false;
+      }
+
+      // Verificar se a data está preenchida
+      if (!phase.postDate || phase.postDate.trim() === "") {
+        toast.error(`A Fase ${i + 1} precisa ter uma data prevista de postagem.`);
+        return false;
+      }
+
+      // Verificar se a data é válida
+      const dateError = getPhaseDateError(i, phase.postDate);
+      if (dateError) {
+        toast.error(`Fase ${i + 1}: ${dateError}`);
+        return false;
+      }
+
+      // Verificar se há pelo menos um formato preenchido
+      if (!phase.formats || phase.formats.length === 0) {
+        toast.error(`A Fase ${i + 1} precisa ter pelo menos um formato e rede social adicionado.`);
+        return false;
+      }
+
+      // Verificar se todos os formatos têm rede social e tipo de conteúdo preenchidos
+      const incompleteFormats = phase.formats.filter(
+        (format) => !format.socialNetwork || !format.contentType
+      );
+      
+      if (incompleteFormats.length > 0) {
+        toast.error(`A Fase ${i + 1} tem formato(s) incompleto(s). Preencha a rede social e o tipo de conteúdo.`);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateAllPhases()) {
+      onNext();
+    }
   };
 
   return (
@@ -270,20 +321,30 @@ export function CreateCampaignStepSix({
                 min={getPhaseMinDate(phaseIndex, phase.postDate)}
                 error={getPhaseDateError(phaseIndex, phase.postDate)}
               />
-              {phaseIndex === 0 && phase.postDate && (
-                <p className="text-xs text-neutral-500 mt-1">
-                  Data mínima: {getPhaseMinDate(phaseIndex, phase.postDate) 
-                    ? new Date(getPhaseMinDate(phaseIndex, phase.postDate)!).toLocaleDateString("pt-BR")
-                    : ""}
-                </p>
-              )}
-              {phaseIndex > 0 && phases[phaseIndex - 1]?.postDate && phase.postDate && (
-                <p className="text-xs text-neutral-500 mt-1">
-                  Data mínima: {getPhaseMinDate(phaseIndex, phase.postDate) 
-                    ? new Date(getPhaseMinDate(phaseIndex, phase.postDate)!).toLocaleDateString("pt-BR")
-                    : ""} (3 dias após a fase anterior)
-                </p>
-              )}
+              {phaseIndex === 0 && phase.postDate && (() => {
+                const minDateStr = getPhaseMinDate(phaseIndex, phase.postDate);
+                if (!minDateStr) return null;
+                // Parsear a data corretamente para evitar problemas de timezone
+                const [year, month, day] = minDateStr.split("-").map(Number);
+                const minDate = new Date(year, month - 1, day);
+                return (
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Data mínima: {minDate.toLocaleDateString("pt-BR")}
+                  </p>
+                );
+              })()}
+              {phaseIndex > 0 && phases[phaseIndex - 1]?.postDate && phase.postDate && (() => {
+                const minDateStr = getPhaseMinDate(phaseIndex, phase.postDate);
+                if (!minDateStr) return null;
+                // Parsear a data corretamente para evitar problemas de timezone
+                const [year, month, day] = minDateStr.split("-").map(Number);
+                const minDate = new Date(year, month - 1, day);
+                return (
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Data mínima: {minDate.toLocaleDateString("pt-BR")} (3 dias após a fase anterior)
+                  </p>
+                );
+              })()}
             </div>
 
             {/* Formatos e redes sociais */}
@@ -393,7 +454,7 @@ export function CreateCampaignStepSix({
         </div>
 
         <div className="w-fit">
-          <Button onClick={onNext} type="button">
+          <Button onClick={handleNext} type="button">
             <div className="flex items-center justify-center gap-2">
               <p className="text-neutral-50 font-semibold">Avançar</p>
 

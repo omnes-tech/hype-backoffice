@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
-import { handleNumberInput } from "@/shared/utils/masks";
+import { handleCurrencyInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepThreeProps {
   formData: CampaignFormData;
@@ -25,10 +25,10 @@ export function CreateCampaignStepThree({
         return (
           <Input
             label="Valor a ser pago (independente de número de seguidores e métricas)"
-            placeholder="Ex: 1000"
-            value={formData.paymentFixedAmount}
+            placeholder="Ex: R$ 1.000,00"
+            value={formData.paymentFixedAmount ? `R$ ${formData.paymentFixedAmount}` : ""}
             onChange={(e) =>
-              handleNumberInput(e, (value) =>
+              handleCurrencyInput(e, (value) =>
                 updateFormData("paymentFixedAmount", value)
               )
             }
@@ -50,10 +50,10 @@ export function CreateCampaignStepThree({
             />
             <Input
               label="Valor de mercado"
-              placeholder="Ex: 500"
-              value={formData.paymentSwapMarketValue}
+              placeholder="Ex: R$ 500,00"
+              value={formData.paymentSwapMarketValue ? `R$ ${formData.paymentSwapMarketValue}` : ""}
               onChange={(e) =>
-                handleNumberInput(e, (value) =>
+                handleCurrencyInput(e, (value) =>
                   updateFormData("paymentSwapMarketValue", value)
                 )
               }
@@ -72,10 +72,10 @@ export function CreateCampaignStepThree({
             />
             <Input
               label="Valor do CPA"
-              placeholder="Ex: 50"
-              value={formData.paymentCpaValue}
+              placeholder="Ex: R$ 50,00"
+              value={formData.paymentCpaValue ? `R$ ${formData.paymentCpaValue}` : ""}
               onChange={(e) =>
-                handleNumberInput(e, (value) =>
+                handleCurrencyInput(e, (value) =>
                   updateFormData("paymentCpaValue", value)
                 )
               }
@@ -87,10 +87,10 @@ export function CreateCampaignStepThree({
         return (
           <Input
             label="Valor do CPM"
-            placeholder="Ex: 10"
-            value={formData.paymentCpmValue}
+            placeholder="Ex: R$ 10,00"
+            value={formData.paymentCpmValue ? `R$ ${formData.paymentCpmValue}` : ""}
             onChange={(e) =>
-              handleNumberInput(e, (value) =>
+              handleCurrencyInput(e, (value) =>
                 updateFormData("paymentCpmValue", value)
               )
             }

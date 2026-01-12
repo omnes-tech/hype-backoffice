@@ -345,16 +345,36 @@ export function CreateCampaignStepSeven({
                 <p className="text-sm text-success-600 font-medium mb-1">
                   O que fazer
                 </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {formData.whatToDo || "-"}
+                <div className="text-base text-neutral-950">
+                  {Array.isArray(formData.whatToDo) 
+                    ? formData.whatToDo.length > 0 
+                      ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {formData.whatToDo.filter(item => item.trim() !== "").map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        )
+                      : "-"
+                    : formData.whatToDo || "-"}
                 </div>
               </div>
               <div>
                 <p className="text-sm text-danger-600 font-medium mb-1">
                   O que NÃO fazer
                 </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {formData.whatNotToDo || "-"}
+                <div className="text-base text-neutral-950">
+                  {Array.isArray(formData.whatNotToDo)
+                    ? formData.whatNotToDo.length > 0
+                      ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {formData.whatNotToDo.filter(item => item.trim() !== "").map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        )
+                      : "-"
+                    : formData.whatNotToDo || "-"}
                 </div>
               </div>
             </div>

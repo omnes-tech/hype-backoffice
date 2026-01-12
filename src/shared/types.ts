@@ -35,8 +35,8 @@ export interface Campaign {
     description?: string;
   };
   benefits?: string;
-  rules_does?: string;
-  rules_does_not?: string;
+  rules_does?: string | string[]; // Aceita string (compatibilidade) ou array de strings
+  rules_does_not?: string | string[]; // Aceita string (compatibilidade) ou array de strings
   segment_min_followers?: number;
   segment_state?: string[];
   segment_city?: string[];
@@ -133,8 +133,8 @@ export interface CampaignFormData {
   paymentCpmValue: string; // Valor do CPM
   benefits: string;
   generalObjective: string;
-  whatToDo: string;
-  whatNotToDo: string;
+  whatToDo: string | string[]; // Aceita string (compatibilidade) ou array de strings
+  whatNotToDo: string | string[]; // Aceita string (compatibilidade) ou array de strings
   banner: string;
   bannerFile?: File; // Arquivo original do banner para upload
   imageRightsPeriod: string;

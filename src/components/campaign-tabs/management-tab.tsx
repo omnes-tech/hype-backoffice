@@ -11,7 +11,11 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent, DragOverEvent } from "@dnd-kit/core";
+import type {
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+} from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -27,8 +31,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import type { Influencer, CampaignPhase } from "@/shared/types";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
-import { useInfluencerMessages, useSendMessage } from "@/hooks/use-campaign-chat";
-import { moveToCuration } from "@/shared/services/influencer";
+import {
+  useInfluencerMessages,
+  useSendMessage,
+} from "@/hooks/use-campaign-chat";
 import { useUpdateCampaignUserStatus } from "@/hooks/use-campaign-users";
 
 interface ManagementTabProps {
@@ -62,12 +68,29 @@ const kanbanColumns = [
   { id: "inscriptions", label: "Inscrições", color: "bg-neutral-50" },
   { id: "curation", label: "Curadoria", color: "bg-blue-50" },
   { id: "invited", label: "Convidados", color: "bg-yellow-50" },
-  { id: "approved_progress", label: "Aprovados/Em Andamento", color: "bg-green-50" },
-  { id: "awaiting_approval", label: "Aguardando Aprovação", color: "bg-orange-50" },
+  {
+    id: "approved_progress",
+    label: "Aprovados/Em Andamento",
+    color: "bg-green-50",
+  },
+  {
+    id: "awaiting_approval",
+    label: "Aguardando Aprovação",
+    color: "bg-orange-50",
+  },
   { id: "in_correction", label: "Em Correção", color: "bg-yellow-100" },
-  { id: "content_approved", label: "Conteúdo Aprovado/Aguardando Publicação", color: "bg-purple-50" },
+  {
+    id: "content_approved",
+    label: "Conteúdo Aprovado/Aguardando Publicação",
+    color: "bg-purple-50",
+  },
   { id: "published", label: "Publicado", color: "bg-success-50" },
-  { id: "rejected", label: "Recusados", color: "bg-danger-50", highlight: true },
+  {
+    id: "rejected",
+    label: "Recusados",
+    color: "bg-danger-50",
+    highlight: true,
+  },
 ];
 
 // Componente de Card Arrastável
@@ -86,8 +109,12 @@ function SortableInfluencerCard({
   influencer: ExtendedInfluencer;
   onClick: (influencer: ExtendedInfluencer) => void;
   getCurrentStatus: (inf: ExtendedInfluencer) => string;
-  getAvailableActions: (status: string) => Array<{ label: string; action: string; targetStatus?: string }>;
-  getSocialNetworkIcon: (network?: string) => keyof typeof import("lucide-react").icons;
+  getAvailableActions: (
+    status: string
+  ) => Array<{ label: string; action: string; targetStatus?: string }>;
+  getSocialNetworkIcon: (
+    network?: string
+  ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
   onMoveToCuration: (influencer: ExtendedInfluencer) => void;
@@ -157,8 +184,7 @@ function SortableInfluencerCard({
                       day: "2-digit",
                       month: "2-digit",
                     })}
-                  </span>
-                  {" "}
+                  </span>{" "}
                   <span>
                     {new Date(history.timestamp).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
@@ -189,7 +215,7 @@ function SortableInfluencerCard({
                   onMoveToCuration(influencer);
                 }
               }}
-              style={{ fontSize: '10px', height: '24px', padding: '0 8px' }}
+              style={{ fontSize: "10px", height: "24px", padding: "0 8px" }}
             >
               {action.label}
             </Button>
@@ -215,13 +241,17 @@ function KanbanColumn({
   setSelectedInfluencer,
   setIsRejectModalOpen,
 }: {
-  column: typeof kanbanColumns[0];
+  column: (typeof kanbanColumns)[0];
   influencers: ExtendedInfluencer[];
   influencerIds: string[];
   onInfluencerClick: (inf: ExtendedInfluencer) => void;
   getCurrentStatus: (inf: ExtendedInfluencer) => string;
-  getAvailableActions: (status: string) => Array<{ label: string; action: string; targetStatus?: string }>;
-  getSocialNetworkIcon: (network?: string) => keyof typeof import("lucide-react").icons;
+  getAvailableActions: (
+    status: string
+  ) => Array<{ label: string; action: string; targetStatus?: string }>;
+  getSocialNetworkIcon: (
+    network?: string
+  ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
   onMoveToCuration: (influencer: ExtendedInfluencer) => void;
@@ -240,7 +270,9 @@ function KanbanColumn({
       }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <h4 className={`text-xs font-semibold ${column.highlight ? "text-danger-600" : "text-neutral-950"}`}>
+        <h4
+          className={`text-xs font-semibold ${column.highlight ? "text-danger-600" : "text-neutral-950"}`}
+        >
           {column.label}
         </h4>
         <Badge
@@ -249,7 +281,10 @@ function KanbanColumn({
           textColor="text-neutral-700"
         />
       </div>
-      <SortableContext items={influencerIds} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={influencerIds}
+        strategy={verticalListSortingStrategy}
+      >
         <div className="flex flex-col gap-1.5">
           {influencers.map((influencer) => (
             <SortableInfluencerCard
@@ -284,7 +319,9 @@ function DragOverlayCard({
   getSocialNetworkLabel,
 }: {
   influencer: ExtendedInfluencer;
-  getSocialNetworkIcon: (network?: string) => keyof typeof import("lucide-react").icons;
+  getSocialNetworkIcon: (
+    network?: string
+  ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
 }) {
   return (
@@ -321,9 +358,14 @@ export function ManagementTab({
   campaignPhases = [],
   campaignUsers = [],
 }: ManagementTabProps) {
-  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
-  const [influencersState, setInfluencersState] = useState<ExtendedInfluencer[]>([]);
-  const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
+  const { campaignId } = useParams({
+    from: "/(private)/(app)/campaigns/$campaignId",
+  });
+  const [influencersState, setInfluencersState] = useState<
+    ExtendedInfluencer[]
+  >([]);
+  const [selectedInfluencer, setSelectedInfluencer] =
+    useState<ExtendedInfluencer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -334,7 +376,8 @@ export function ManagementTab({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Hooks para mutations
-  const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
+  const { mutate: updateStatus, isPending: isUpdatingStatus } =
+    useUpdateInfluencerStatus(campaignId);
   const { mutate: updateUserStatus } = useUpdateCampaignUserStatus(campaignId);
 
   const sensors = useSensors(
@@ -350,16 +393,27 @@ export function ManagementTab({
   const mapUserStatusToKanbanColumn = (status: string): string => {
     const statusMap: { [key: string]: string } = {
       inscricoes: "inscriptions",
-      aprovado: "approved_progress",
+      aprovado: "approved",
+      approved_progress: "approved_progress", // Status em inglês também
       curadoria: "curation",
+      curation: "curation", // Status em inglês também
       recusado: "rejected",
+      rejected: "rejected", // Status em inglês também
+      invited: "invited",
+      selected: "inscriptions",
+      active: "approved_progress",
+      published: "published",
     };
     return statusMap[status] || "inscriptions";
   };
 
   // Função para mapear coluna do Kanban para action da API
-  const mapKanbanColumnToUserAction = (columnId: string): "aprovado" | "curadoria" | "recusado" | "inscricoes" | null => {
-    const columnMap: { [key: string]: "aprovado" | "curadoria" | "recusado" | "inscricoes" } = {
+  const mapKanbanColumnToUserAction = (
+    columnId: string
+  ): "aprovado" | "curadoria" | "recusado" | "inscricoes" | null => {
+    const columnMap: {
+      [key: string]: "aprovado" | "curadoria" | "recusado" | "inscricoes";
+    } = {
       inscriptions: "inscricoes",
       approved_progress: "aprovado",
       curation: "curadoria",
@@ -411,41 +465,70 @@ export function ManagementTab({
     const allInfluencers = [...existingInfluencers, ...allCampaignUsers];
 
     if (allInfluencers.length > 0) {
-      const extended: ExtendedInfluencer[] = allInfluencers.map((inf, index) => {
-        // Se já tem statusHistory e é um usuário da campanha, manter
-        const extendedInf = inf as ExtendedInfluencer;
-        if (
-          extendedInf.statusHistory &&
-          extendedInf.statusHistory.length > 0 &&
-          campaignUserIds.has(inf.id)
-        ) {
-          return extendedInf;
-        }
+      const extended: ExtendedInfluencer[] = allInfluencers.map(
+        (inf, index) => {
+          const currentMappedStatus = mapUserStatusToKanbanColumn(
+            inf.status || ""
+          );
 
-        // Caso contrário, é um influenciador normal
-        return {
-          ...inf,
-          socialNetwork: ["instagram", "tiktok", "youtube", "instagram", "tiktok"][index % 5],
-          statusHistory: [
-            {
-              id: "1",
-              status: "inscriptions",
-              timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-              notes: "Influenciador se inscreveu na campanha",
-            },
-            {
-              id: "2",
-              status: inf.status === "selected" ? "inscriptions" :
-                     inf.status === "invited" ? "invited" :
-                     inf.status === "active" ? "approved_progress" :
-                     inf.status === "published" ? "published" :
-                     "inscriptions",
-              timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-              notes: "Status atualizado",
-            },
-          ],
-        };
-      });
+          // Se já tem statusHistory e é um usuário da campanha, atualizar o statusHistory com o status atual
+          const extendedInf = inf as ExtendedInfluencer;
+          if (
+            extendedInf.statusHistory &&
+            extendedInf.statusHistory.length > 0 &&
+            campaignUserIds.has(inf.id)
+          ) {
+            // Verificar se o status atual é diferente do último status no histórico
+            const lastStatus =
+              extendedInf.statusHistory[extendedInf.statusHistory.length - 1]
+                ?.status;
+            if (lastStatus !== currentMappedStatus) {
+              // Adicionar novo status ao histórico
+              return {
+                ...extendedInf,
+                statusHistory: [
+                  ...extendedInf.statusHistory,
+                  {
+                    id: `update-${Date.now()}`,
+                    status: currentMappedStatus,
+                    timestamp: new Date().toISOString(),
+                    notes: `Status atualizado para: ${currentMappedStatus}`,
+                  },
+                ],
+              };
+            }
+            return extendedInf;
+          }
+
+          // Caso contrário, é um influenciador normal - usar o status atual do objeto
+          return {
+            ...inf,
+            socialNetwork: [
+              "instagram",
+              "tiktok",
+              "youtube",
+              "instagram",
+              "tiktok",
+            ][index % 5],
+            statusHistory: [
+              {
+                id: "1",
+                status: "inscriptions",
+                timestamp: new Date(
+                  Date.now() - 7 * 24 * 60 * 60 * 1000
+                ).toISOString(),
+                notes: "Influenciador se inscreveu na campanha",
+              },
+              {
+                id: "2",
+                status: currentMappedStatus,
+                timestamp: new Date().toISOString(),
+                notes: "Status atualizado",
+              },
+            ],
+          };
+        }
+      );
       setInfluencersState(extended);
     } else if (allInfluencers.length === 0) {
       // Se não há influenciadores, limpar o estado
@@ -453,43 +536,66 @@ export function ManagementTab({
     }
   }, [influencers, campaignUsers]);
 
-  const extendedInfluencers = influencersState.length > 0 ? influencersState : influencers.map((inf, index) => ({
-    ...inf,
-    socialNetwork: ["instagram", "tiktok", "youtube", "instagram", "tiktok"][index % 5],
-    statusHistory: [
-      {
-        id: "1",
-        status: "inscriptions",
-        timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        notes: "Influenciador se inscreveu na campanha",
-      },
-      {
-        id: "2",
-        status: inf.status === "selected" ? "inscriptions" :
-               inf.status === "invited" ? "invited" :
-               inf.status === "active" ? "approved_progress" :
-               inf.status === "published" ? "published" :
-               "inscriptions",
-        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        notes: "Status atualizado",
-      },
-    ],
-  }));
+  const extendedInfluencers =
+    influencersState.length > 0
+      ? influencersState
+      : influencers.map((inf, index) => {
+          const currentMappedStatus = mapUserStatusToKanbanColumn(
+            inf.status || ""
+          );
+          return {
+            ...inf,
+            socialNetwork: [
+              "instagram",
+              "tiktok",
+              "youtube",
+              "instagram",
+              "tiktok",
+            ][index % 5],
+            statusHistory: [
+              {
+                id: "1",
+                status: "inscriptions",
+                timestamp: new Date(
+                  Date.now() - 7 * 24 * 60 * 60 * 1000
+                ).toISOString(),
+                notes: "Influenciador se inscreveu na campanha",
+              },
+              {
+                id: "2",
+                status: currentMappedStatus,
+                timestamp: new Date().toISOString(),
+                notes: "Status atualizado",
+              },
+            ],
+          };
+        });
 
   const getCurrentStatus = (inf: ExtendedInfluencer): string => {
+    // Priorizar o status direto do objeto (mais confiável e atualizado)
+    if (inf.status) {
+      const mappedStatus = mapUserStatusToKanbanColumn(inf.status);
+      if (
+        mappedStatus !== "inscriptions" ||
+        !inf.statusHistory ||
+        inf.statusHistory.length === 0
+      ) {
+        return mappedStatus;
+      }
+    }
+
+    // Se não houver status ou for "inscriptions", verificar o statusHistory
     if (inf.statusHistory && inf.statusHistory.length > 0) {
       // Get the most recent status from history
       const sortedHistory = [...inf.statusHistory].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
       return sortedHistory[0].status;
     }
-    // Fallback to mapping old statuses
-    return inf.status === "selected" ? "inscriptions" :
-           inf.status === "invited" ? "invited" :
-           inf.status === "active" ? "approved_progress" :
-           inf.status === "published" ? "published" :
-           "inscriptions";
+
+    // Fallback final
+    return "inscriptions";
   };
 
   const getInfluencersByStatus = (status: string) => {
@@ -497,16 +603,20 @@ export function ManagementTab({
       const currentStatus = getCurrentStatus(inf);
       return currentStatus === status;
     });
-    
+
     // Filtrar por fase se selecionado
     if (selectedPhaseFilter !== "all") {
       filtered = filtered.filter((inf) => inf.phase === selectedPhaseFilter);
     }
-    
+
     return filtered;
   };
 
-  const updateInfluencerStatus = (influencerId: string, newStatus: string, notes?: string) => {
+  const updateInfluencerStatus = (
+    influencerId: string,
+    newStatus: string,
+    notes?: string
+  ) => {
     setInfluencersState((prev) =>
       prev.map((inf) => {
         if (inf.id === influencerId) {
@@ -526,7 +636,10 @@ export function ManagementTab({
     );
   };
 
-  const handleApprove = (influencer: ExtendedInfluencer, targetStatus: string) => {
+  const handleApprove = (
+    influencer: ExtendedInfluencer,
+    targetStatus: string
+  ) => {
     updateStatus(
       {
         influencer_id: influencer.id,
@@ -535,7 +648,11 @@ export function ManagementTab({
       },
       {
         onSuccess: () => {
-          updateInfluencerStatus(influencer.id, targetStatus, "Aprovado pelo usuário");
+          updateInfluencerStatus(
+            influencer.id,
+            targetStatus,
+            "Aprovado pelo usuário"
+          );
           toast.success("Influenciador aprovado com sucesso!");
           setIsModalOpen(false);
           setSelectedInfluencer(null);
@@ -575,29 +692,52 @@ export function ManagementTab({
     );
   };
 
-  const handleMoveToCuration = async (influencer: ExtendedInfluencer) => {
-    try {
-      await moveToCuration(campaignId, influencer.id, "Movido para curadoria");
-      updateInfluencerStatus(influencer.id, "curation", "Movido para curadoria");
-      toast.success("Influenciador movido para curadoria");
-      setIsModalOpen(false);
-      setSelectedInfluencer(null);
-    } catch (error: any) {
-      toast.error(error?.message || "Erro ao mover influenciador para curadoria");
-    }
+  const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
+    updateStatus(
+      {
+        influencer_id: influencer.id,
+        status: "curadoria",
+        feedback: "Movido para curadoria",
+      },
+      {
+        onSuccess: () => {
+          updateInfluencerStatus(
+            influencer.id,
+            "curation",
+            "Movido para curadoria"
+          );
+          toast.success("Influenciador movido para curadoria");
+          setIsModalOpen(false);
+          setSelectedInfluencer(null);
+        },
+        onError: (error: any) => {
+          toast.error(
+            error?.message || "Erro ao mover influenciador para curadoria"
+          );
+        },
+      }
+    );
   };
 
   const getAvailableActions = (status: string) => {
     switch (status) {
       case "inscriptions":
         return [
-          { label: "Aprovar", action: "approve", targetStatus: "approved_progress" },
+          {
+            label: "Aprovar",
+            action: "approve",
+            targetStatus: "approved_progress",
+          },
           { label: "Recusar", action: "reject" },
           { label: "Colocar em Curadoria", action: "curation" },
         ];
       case "curation":
         return [
-          { label: "Aprovar", action: "approve", targetStatus: "approved_progress" },
+          {
+            label: "Aprovar",
+            action: "approve",
+            targetStatus: "approved_progress",
+          },
           { label: "Recusar", action: "reject" },
         ];
       case "invited":
@@ -608,7 +748,11 @@ export function ManagementTab({
         return [];
       case "awaiting_approval":
         return [
-          { label: "Aprovar Conteúdo", action: "approve", targetStatus: "content_approved" },
+          {
+            label: "Aprovar Conteúdo",
+            action: "approve",
+            targetStatus: "content_approved",
+          },
           { label: "Recusar Conteúdo", action: "reject" },
         ];
       case "in_correction":
@@ -634,13 +778,14 @@ export function ManagementTab({
   };
 
   const getSocialNetworkIcon = (network?: string) => {
-    const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
+    const icons: { [key: string]: keyof typeof import("lucide-react").icons } =
+      {
+        instagram: "Instagram",
+        youtube: "Youtube",
+        tiktok: "Music",
+        facebook: "Facebook",
+        twitter: "Twitter",
+      };
     return icons[network || ""] || "Share2";
   };
 
@@ -691,7 +836,9 @@ export function ManagementTab({
     }
 
     // Se está arrastando sobre outro card
-    const activeInfluencer = extendedInfluencers.find((inf) => inf.id === activeId);
+    const activeInfluencer = extendedInfluencers.find(
+      (inf) => inf.id === activeId
+    );
     const overInfluencer = extendedInfluencers.find((inf) => inf.id === overId);
 
     if (!activeInfluencer || !overInfluencer) return;
@@ -715,7 +862,9 @@ export function ManagementTab({
     const overId = over.id as string;
 
     // Encontra o influenciador sendo arrastado
-    const draggedInfluencer = extendedInfluencers.find((inf) => inf.id === activeId);
+    const draggedInfluencer = extendedInfluencers.find(
+      (inf) => inf.id === activeId
+    );
     if (!draggedInfluencer) return;
 
     // Verifica se foi solto sobre uma coluna
@@ -729,8 +878,11 @@ export function ManagementTab({
 
       if (isUser) {
         // Para usuários da campanha, validar transição
-        const canMove = validateUserStatusTransition(currentStatus, targetStatus);
-        
+        const canMove = validateUserStatusTransition(
+          currentStatus,
+          targetStatus
+        );
+
         if (!canMove) {
           toast.error(
             `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`
@@ -740,9 +892,11 @@ export function ManagementTab({
 
         // Mapear coluna para action da API
         const action = mapKanbanColumnToUserAction(targetStatus);
-        
+
         if (!action) {
-          toast.error(`Não é possível mover para "${getStatusLabel(targetStatus)}"`);
+          toast.error(
+            `Não é possível mover para "${getStatusLabel(targetStatus)}"`
+          );
           return;
         }
 
@@ -759,7 +913,9 @@ export function ManagementTab({
               toast.success("Status do usuário atualizado com sucesso!");
             },
             onError: (error: any) => {
-              toast.error(error?.message || "Erro ao atualizar status do usuário");
+              toast.error(
+                error?.message || "Erro ao atualizar status do usuário"
+              );
             },
           }
         );
@@ -775,10 +931,35 @@ export function ManagementTab({
         );
         return;
       }
+      const apiStatus =
+        targetStatus === "curation"
+          ? "curadoria"
+          : targetStatus === "approved_progress"
+            ? "aprovado"
+            : targetStatus === "rejected"
+              ? "recusado"
+              : targetStatus === "inscriptions"
+                ? "inscricoes"
+                : targetStatus;
 
-      // Atualiza o status do influenciador
+      // Atualiza o status do influenciador via API
       const notes = getTransitionNote(currentStatus, targetStatus);
-      updateInfluencerStatus(draggedInfluencer.id, targetStatus, notes);
+      updateStatus(
+        {
+          influencer_id: draggedInfluencer.id,
+          status: apiStatus,
+          feedback: notes,
+        },
+        {
+          onSuccess: () => {
+            updateInfluencerStatus(draggedInfluencer.id, targetStatus, notes);
+            toast.success("Status atualizado com sucesso!");
+          },
+          onError: (error: any) => {
+            toast.error(error?.message || "Erro ao atualizar status");
+          },
+        }
+      );
       return;
     }
 
@@ -795,7 +976,10 @@ export function ManagementTab({
     }
   };
 
-  const validateStatusTransition = (fromStatus: string, toStatus: string): boolean => {
+  const validateStatusTransition = (
+    fromStatus: string,
+    toStatus: string
+  ): boolean => {
     // Regras de transição válidas
     const validTransitions: { [key: string]: string[] } = {
       inscriptions: ["approved_progress", "rejected", "curation"],
@@ -814,7 +998,10 @@ export function ManagementTab({
   };
 
   // Para usuários da campanha, permitir transições mais flexíveis
-  const validateUserStatusTransition = (fromStatus: string, toStatus: string): boolean => {
+  const validateUserStatusTransition = (
+    fromStatus: string,
+    toStatus: string
+  ): boolean => {
     // Usuários podem ser movidos entre: inscrições, aprovado, curadoria, recusado
     const userValidTransitions: { [key: string]: string[] } = {
       inscriptions: ["approved_progress", "rejected", "curation"],
@@ -838,12 +1025,16 @@ export function ManagementTab({
       "invited->rejected": "Recusou o convite",
       "approved_progress->awaiting_approval": "Conteúdo enviado para aprovação",
       "awaiting_approval->content_approved": "Conteúdo aprovado",
-      "awaiting_approval->in_correction": "Conteúdo recusado, aguardando correção",
+      "awaiting_approval->in_correction":
+        "Conteúdo recusado, aguardando correção",
       "in_correction->awaiting_approval": "Novo conteúdo enviado",
       "content_approved->published": "Publicação identificada pelo bot",
     };
 
-    return notes[`${fromStatus}->${toStatus}`] || `Movido de ${getStatusLabel(fromStatus)} para ${getStatusLabel(toStatus)}`;
+    return (
+      notes[`${fromStatus}->${toStatus}`] ||
+      `Movido de ${getStatusLabel(fromStatus)} para ${getStatusLabel(toStatus)}`
+    );
   };
 
   return (
@@ -919,7 +1110,9 @@ export function ManagementTab({
             <DragOverlay>
               {activeId ? (
                 <DragOverlayCard
-                  influencer={extendedInfluencers.find((inf) => inf.id === activeId)!}
+                  influencer={
+                    extendedInfluencers.find((inf) => inf.id === activeId)!
+                  }
                   getSocialNetworkIcon={getSocialNetworkIcon}
                   getSocialNetworkLabel={getSocialNetworkLabel}
                 />
@@ -1000,35 +1193,48 @@ export function ManagementTab({
                       textColor="text-primary-900"
                     />
                   </div>
-                  {influencer.statusHistory && influencer.statusHistory.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-neutral-200">
-                      <p className="text-xs font-medium text-neutral-600 mb-2">Log histórico:</p>
-                      <div className="flex flex-col gap-1 max-h-24 overflow-y-auto">
-                        {influencer.statusHistory.map((history) => (
-                          <div key={history.id} className="text-xs text-neutral-500">
-                            <span className="font-medium">
-                              {new Date(history.timestamp).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit",
-                              })}
-                            </span>
-                            {" "}
-                            <span>
-                              {new Date(history.timestamp).toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                            {" - "}
-                            <span>{getStatusLabel(history.status)}</span>
-                            {history.notes && (
-                              <span className="block text-neutral-400 mt-0.5">{history.notes}</span>
-                            )}
-                          </div>
-                        ))}
+                  {influencer.statusHistory &&
+                    influencer.statusHistory.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-neutral-200">
+                        <p className="text-xs font-medium text-neutral-600 mb-2">
+                          Log histórico:
+                        </p>
+                        <div className="flex flex-col gap-1 max-h-24 overflow-y-auto">
+                          {influencer.statusHistory.map((history) => (
+                            <div
+                              key={history.id}
+                              className="text-xs text-neutral-500"
+                            >
+                              <span className="font-medium">
+                                {new Date(history.timestamp).toLocaleDateString(
+                                  "pt-BR",
+                                  {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                  }
+                                )}
+                              </span>{" "}
+                              <span>
+                                {new Date(history.timestamp).toLocaleTimeString(
+                                  "pt-BR",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                              {" - "}
+                              <span>{getStatusLabel(history.status)}</span>
+                              {history.notes && (
+                                <span className="block text-neutral-400 mt-0.5">
+                                  {history.notes}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               );
             })}
@@ -1056,11 +1262,15 @@ export function ManagementTab({
                 <h3 className="text-xl font-semibold text-neutral-950">
                   {selectedInfluencer.name}
                 </h3>
-                <p className="text-neutral-600">@{selectedInfluencer.username}</p>
+                <p className="text-neutral-600">
+                  @{selectedInfluencer.username}
+                </p>
                 {selectedInfluencer.socialNetwork && (
                   <div className="flex items-center gap-2 mt-1">
                     <Icon
-                      name={getSocialNetworkIcon(selectedInfluencer.socialNetwork)}
+                      name={getSocialNetworkIcon(
+                        selectedInfluencer.socialNetwork
+                      )}
                       color="#404040"
                       size={16}
                     />
@@ -1099,43 +1309,61 @@ export function ManagementTab({
                 />
               </div>
             </div>
-            
+
             {/* Log Histórico Completo */}
-            {selectedInfluencer.statusHistory && selectedInfluencer.statusHistory.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-neutral-950 mb-3">Log Histórico Completo</p>
-                <div className="bg-neutral-50 rounded-2xl p-4 max-h-64 overflow-y-auto">
-                  <div className="flex flex-col gap-3">
-                    {selectedInfluencer.statusHistory
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                      .map((history) => (
-                        <div key={history.id} className="border-l-2 border-primary-600 pl-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-semibold text-neutral-950">
-                              {getStatusLabel(history.status)}
-                            </span>
-                            <span className="text-xs text-neutral-600">
-                              {new Date(history.timestamp).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              })}
-                              {" às "}
-                              {new Date(history.timestamp).toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
+            {selectedInfluencer.statusHistory &&
+              selectedInfluencer.statusHistory.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-neutral-950 mb-3">
+                    Log Histórico Completo
+                  </p>
+                  <div className="bg-neutral-50 rounded-2xl p-4 max-h-64 overflow-y-auto">
+                    <div className="flex flex-col gap-3">
+                      {selectedInfluencer.statusHistory
+                        .sort(
+                          (a, b) =>
+                            new Date(b.timestamp).getTime() -
+                            new Date(a.timestamp).getTime()
+                        )
+                        .map((history) => (
+                          <div
+                            key={history.id}
+                            className="border-l-2 border-primary-600 pl-3"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-semibold text-neutral-950">
+                                {getStatusLabel(history.status)}
+                              </span>
+                              <span className="text-xs text-neutral-600">
+                                {new Date(history.timestamp).toLocaleDateString(
+                                  "pt-BR",
+                                  {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  }
+                                )}
+                                {" às "}
+                                {new Date(history.timestamp).toLocaleTimeString(
+                                  "pt-BR",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                            </div>
+                            {history.notes && (
+                              <p className="text-xs text-neutral-600">
+                                {history.notes}
+                              </p>
+                            )}
                           </div>
-                          {history.notes && (
-                            <p className="text-xs text-neutral-600">{history.notes}</p>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             <div className="flex gap-3">
               <Button
@@ -1194,14 +1422,17 @@ export function ManagementTab({
                 <h3 className="text-lg font-semibold text-neutral-950">
                   {selectedInfluencer.name}
                 </h3>
-                <p className="text-neutral-600">@{selectedInfluencer.username}</p>
+                <p className="text-neutral-600">
+                  @{selectedInfluencer.username}
+                </p>
               </div>
             </div>
 
             <div className="bg-danger-50 rounded-2xl p-4">
               <p className="text-sm text-danger-900">
-                O feedback é obrigatório ao recusar um influenciador. Ele será enviado ao
-                influenciador para que possa entender o motivo da recusa.
+                O feedback é obrigatório ao recusar um influenciador. Ele será
+                enviado ao influenciador para que possa entender o motivo da
+                recusa.
               </p>
             </div>
 
@@ -1254,17 +1485,22 @@ function ChatModal({
   influencer: ExtendedInfluencer;
   onClose: () => void;
 }) {
-  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
-  
+  const { campaignId } = useParams({
+    from: "/(private)/(app)/campaigns/$campaignId",
+  });
+
   // Hooks para chat
-  const { data: messagesData = [], isLoading: isLoadingMessages } = useInfluencerMessages(
+  const { data: messagesData = [], isLoading: isLoadingMessages } =
+    useInfluencerMessages(campaignId, influencer.id);
+  const { mutate: sendMessage, isPending: isSending } = useSendMessage(
     campaignId,
     influencer.id
   );
-  const { mutate: sendMessage, isPending: isSending } = useSendMessage(campaignId, influencer.id);
 
   const [newMessage, setNewMessage] = useState("");
-  const [attachments, setAttachments] = useState<Array<{ id: string; name: string; file: File }>>([]);
+  const [attachments, setAttachments] = useState<
+    Array<{ id: string; name: string; file: File }>
+  >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Transformar mensagens da API para formato do componente
@@ -1300,7 +1536,9 @@ function ChatModal({
 
     // TODO: Upload de arquivos precisa ser implementado
     // Por enquanto, apenas URLs são suportadas
-    const attachmentUrls = attachments.map((att) => URL.createObjectURL(att.file));
+    const attachmentUrls = attachments.map((att) =>
+      URL.createObjectURL(att.file)
+    );
 
     sendMessage(
       {
@@ -1332,60 +1570,76 @@ function ChatModal({
         ) : (
           <div className="flex-1 overflow-y-auto flex flex-col gap-4 mb-4">
             {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${
-                msg.isFromInfluencer ? "justify-start" : "justify-end"
-              }`}
-            >
-              {msg.isFromInfluencer && (
-                <Avatar src={msg.senderAvatar} alt={msg.senderName} size="sm" />
-              )}
               <div
-                className={`max-w-[70%] rounded-2xl p-3 ${
-                  msg.isFromInfluencer
-                    ? "bg-neutral-100 text-neutral-950"
-                    : "bg-primary-600 text-neutral-50"
+                key={msg.id}
+                className={`flex gap-3 ${
+                  msg.isFromInfluencer ? "justify-start" : "justify-end"
                 }`}
               >
-                <p className="text-sm font-medium mb-1">{msg.senderName}</p>
-                {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
-                {msg.attachments && msg.attachments.length > 0 && (
-                  <div className="flex flex-col gap-2 mb-2">
-                    {msg.attachments.map((att: any) => (
-                      <div
-                        key={att.id}
-                        className={`flex items-center gap-2 p-2 rounded-lg ${
-                          msg.isFromInfluencer ? "bg-neutral-200" : "bg-primary-500"
-                        }`}
-                      >
-                        <Icon name="Paperclip" color={msg.isFromInfluencer ? "#404040" : "#FAFAFA"} size={16} />
-                        <a
-                          href={att.url}
-                          download={att.name}
-                          className="text-xs underline truncate flex-1"
-                        >
-                          {att.name}
-                        </a>
-                      </div>
-                    ))}
-                  </div>
+                {msg.isFromInfluencer && (
+                  <Avatar
+                    src={msg.senderAvatar}
+                    alt={msg.senderName}
+                    size="sm"
+                  />
                 )}
-                <p className={`text-xs ${msg.isFromInfluencer ? "text-neutral-600" : "opacity-70"} mt-1`}>
-                  {new Date(msg.timestamp).toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
+                <div
+                  className={`max-w-[70%] rounded-2xl p-3 ${
+                    msg.isFromInfluencer
+                      ? "bg-neutral-100 text-neutral-950"
+                      : "bg-primary-600 text-neutral-50"
+                  }`}
+                >
+                  <p className="text-sm font-medium mb-1">{msg.senderName}</p>
+                  {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="flex flex-col gap-2 mb-2">
+                      {msg.attachments.map((att: any) => (
+                        <div
+                          key={att.id}
+                          className={`flex items-center gap-2 p-2 rounded-lg ${
+                            msg.isFromInfluencer
+                              ? "bg-neutral-200"
+                              : "bg-primary-500"
+                          }`}
+                        >
+                          <Icon
+                            name="Paperclip"
+                            color={msg.isFromInfluencer ? "#404040" : "#FAFAFA"}
+                            size={16}
+                          />
+                          <a
+                            href={att.url}
+                            download={att.name}
+                            className="text-xs underline truncate flex-1"
+                          >
+                            {att.name}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p
+                    className={`text-xs ${msg.isFromInfluencer ? "text-neutral-600" : "opacity-70"} mt-1`}
+                  >
+                    {new Date(msg.timestamp).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                {!msg.isFromInfluencer && (
+                  <Avatar
+                    src={msg.senderAvatar}
+                    alt={msg.senderName}
+                    size="sm"
+                  />
+                )}
               </div>
-              {!msg.isFromInfluencer && (
-                <Avatar src={msg.senderAvatar} alt={msg.senderName} size="sm" />
-              )}
-            </div>
             ))}
           </div>
         )}
-        
+
         {/* Anexos selecionados */}
         {attachments.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
@@ -1433,7 +1687,12 @@ function ChatModal({
             placeholder="Digite sua mensagem..."
             className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70"
           />
-          <Button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && attachments.length === 0)}>
+          <Button
+            onClick={handleSendMessage}
+            disabled={
+              isSending || (!newMessage.trim() && attachments.length === 0)
+            }
+          >
             <Icon name="Send" color="#FAFAFA" size={16} />
           </Button>
         </div>
@@ -1441,4 +1700,3 @@ function ChatModal({
     </Modal>
   );
 }
-

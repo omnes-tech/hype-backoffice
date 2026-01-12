@@ -382,7 +382,17 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           <div>
             <p className="text-sm text-success-600 font-medium mb-1">O que fazer</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
-              {campaign.whatToDo}
+              {Array.isArray(campaign.whatToDo) 
+                ? campaign.whatToDo.length > 0 
+                  ? (
+                      <ul className="list-disc list-inside space-y-1">
+                        {campaign.whatToDo.filter(item => item.trim() !== "").map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    )
+                  : "-"
+                : campaign.whatToDo || "-"}
             </div>
           </div>
 
@@ -390,7 +400,17 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           <div>
             <p className="text-sm text-error-600 font-medium mb-1">O que não fazer</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
-              {campaign.whatNotToDo}
+              {Array.isArray(campaign.whatNotToDo)
+                ? campaign.whatNotToDo.length > 0
+                  ? (
+                      <ul className="list-disc list-inside space-y-1">
+                        {campaign.whatNotToDo.filter(item => item.trim() !== "").map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    )
+                  : "-"
+                : campaign.whatNotToDo || "-"}
             </div>
           </div>
 

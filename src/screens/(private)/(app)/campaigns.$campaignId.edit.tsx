@@ -19,7 +19,7 @@ import { useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber } from "@/shared/utils/masks";
+import { unformatNumber, unformatCurrency } from "@/shared/utils/masks";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -129,8 +129,16 @@ function RouteComponent() {
           : "",
         benefits: campaign.benefits || "",
         generalObjective: campaign.objective || "",
-        whatToDo: campaign.rules_does || "",
-        whatNotToDo: campaign.rules_does_not || "",
+      whatToDo: Array.isArray(campaign.rules_does) 
+        ? campaign.rules_does 
+        : campaign.rules_does 
+          ? [campaign.rules_does]
+          : [""],
+      whatNotToDo: Array.isArray(campaign.rules_does_not)
+        ? campaign.rules_does_not
+        : campaign.rules_does_not
+          ? [campaign.rules_does_not]
+          : [""],
         banner: campaign.banner ? getUploadUrl(campaign.banner) || campaign.banner : "",
         imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
         brandFiles: "",
@@ -172,7 +180,7 @@ function RouteComponent() {
       switch (formData.paymentType) {
         case "fixed":
           if (formData.paymentFixedAmount) {
-            baseDetails.amount = parseInt(unformatNumber(formData.paymentFixedAmount)) || 0;
+            baseDetails.amount = parseInt(unformatCurrency(formData.paymentFixedAmount)) || 0;
             baseDetails.currency = "BRL";
             baseDetails.description = "Pagamento fixo por influenciador";
           }
@@ -180,20 +188,20 @@ function RouteComponent() {
         case "swap":
           if (formData.paymentSwapItem && formData.paymentSwapMarketValue) {
             baseDetails.description = `${formData.paymentSwapItem} - Valor de mercado: ${formData.paymentSwapMarketValue}`;
-            baseDetails.amount = parseInt(unformatNumber(formData.paymentSwapMarketValue)) || 0;
+            baseDetails.amount = parseInt(unformatCurrency(formData.paymentSwapMarketValue)) || 0;
             baseDetails.currency = "BRL";
           }
           break;
         case "cpa":
           if (formData.paymentCpaActions && formData.paymentCpaValue) {
             baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions} - Valor: ${formData.paymentCpaValue}`;
-            baseDetails.amount = parseInt(unformatNumber(formData.paymentCpaValue)) || 0;
+            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpaValue)) || 0;
             baseDetails.currency = "BRL";
           }
           break;
         case "cpm":
           if (formData.paymentCpmValue) {
-            baseDetails.amount = parseInt(unformatNumber(formData.paymentCpmValue)) || 0;
+            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpmValue)) || 0;
             baseDetails.currency = "BRL";
           }
           break;
@@ -213,8 +221,16 @@ function RouteComponent() {
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
       benefits: formData.benefits || "",
-      rules_does: formData.whatToDo || "",
-      rules_does_not: formData.whatNotToDo || "",
+      rules_does: Array.isArray(formData.whatToDo) 
+        ? formData.whatToDo.filter(item => item.trim() !== "")
+        : formData.whatToDo 
+          ? [formData.whatToDo].filter(item => item.trim() !== "")
+          : [],
+      rules_does_not: Array.isArray(formData.whatNotToDo)
+        ? formData.whatNotToDo.filter(item => item.trim() !== "")
+        : formData.whatNotToDo
+          ? [formData.whatNotToDo].filter(item => item.trim() !== "")
+          : [],
       segment_min_followers: formData.minFollowers ? parseInt(unformatNumber(formData.minFollowers)) : undefined,
       segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
       segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,

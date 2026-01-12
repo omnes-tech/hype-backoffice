@@ -12,6 +12,7 @@ import {
   getCitiesByState,
 } from "@/shared/data/brazilian-states-cities";
 import { handleNumberInput } from "@/shared/utils/masks";
+import { useInfluencersCatalog } from "@/hooks/use-catalog";
 
 interface CreateCampaignStepTwoProps {
   formData: CampaignFormData;
@@ -81,6 +82,63 @@ export function CreateCampaignStepTwo({
     updateFormData("city", values.join(","));
   };
 
+  // Preparar filtros para buscar influenciadores
+  const catalogFilters = useMemo(() => {
+    const filters: {
+      gender?: string;
+      followers_min?: number;
+      state?: string;
+      city?: string;
+    } = {};
+
+    // Mapear gênero
+    if (formData.gender && formData.gender !== "all") {
+      filters.gender = formData.gender;
+    }
+
+    // Mapear seguidores mínimos
+    if (formData.minFollowers) {
+      const minFollowersNum = parseInt(formData.minFollowers.replace(/\D/g, ""), 10);
+      if (!isNaN(minFollowersNum) && minFollowersNum > 0) {
+        filters.followers_min = minFollowersNum;
+      }
+    }
+
+    // Mapear estados (pegar o primeiro estado se houver múltiplos)
+    // Nota: Se a API suportar múltiplos estados, pode ser ajustado para enviar array
+    if (selectedStates.length > 0) {
+      filters.state = selectedStates[0];
+    }
+
+    // Mapear cidades (pegar a primeira cidade se houver múltiplas)
+    // Nota: Se a API suportar múltiplas cidades, pode ser ajustado para enviar array
+    if (selectedCities.length > 0) {
+      // Extrair apenas o nome da cidade (formato é "NomeCidade-ESTADO")
+      const firstCity = selectedCities[0].split("-")[0];
+      filters.city = firstCity;
+    }
+
+    return filters;
+  }, [formData.gender, formData.minFollowers, selectedStates, selectedCities]);
+
+  // Verificar se há filtros aplicados
+  const hasFilters = useMemo(() => {
+    return (
+      (formData.gender && formData.gender !== "all") ||
+      (formData.minFollowers && parseInt(formData.minFollowers.replace(/\D/g, ""), 10) > 0) ||
+      selectedStates.length > 0 ||
+      selectedCities.length > 0
+    );
+  }, [formData.gender, formData.minFollowers, selectedStates, selectedCities]);
+
+  // Buscar influenciadores com os filtros (só busca se houver filtros)
+  const { data: influencers = [], isLoading: isLoadingInfluencers } = useInfluencersCatalog(
+    hasFilters ? catalogFilters : undefined
+  );
+
+  // Contagem de influenciadores encontrados
+  const influencersCount = influencers.length;
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex flex-col gap-4">
@@ -138,6 +196,31 @@ export function CreateCampaignStepTwo({
             { label: "Outros", value: "outros" },
           ]}
         />
+
+        {/* Contador de influenciadores encontrados */}
+        {hasFilters && (
+          <div className="p-4 bg-primary-50 rounded-2xl border border-primary-200">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-primary-900">
+                  Influenciadores encontrados
+                </p>
+                <p className="text-xs text-primary-700">
+                  Baseado nos filtros selecionados
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isLoadingInfluencers ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                ) : (
+                  <span className="text-2xl font-bold text-primary-900">
+                    {influencersCount}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between">

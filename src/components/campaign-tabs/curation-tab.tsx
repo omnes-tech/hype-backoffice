@@ -31,7 +31,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
   const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
 
   const curationInfluencers = influencers.filter(
-    (inf) => inf.status === "curation" || inf.status === "rejected"
+    (inf) => inf.status === "curation" || inf.status === "curadoria"
   );
 
   const handleSelectInfluencer = (influencerId: string) => {
