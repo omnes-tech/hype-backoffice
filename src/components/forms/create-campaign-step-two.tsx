@@ -98,7 +98,10 @@ export function CreateCampaignStepTwo({
 
     // Mapear seguidores mínimos
     if (formData.minFollowers) {
-      const minFollowersNum = parseInt(formData.minFollowers.replace(/\D/g, ""), 10);
+      const minFollowersNum = parseInt(
+        formData.minFollowers.replace(/\D/g, ""),
+        10
+      );
       if (!isNaN(minFollowersNum) && minFollowersNum > 0) {
         filters.followers_min = minFollowersNum;
       }
@@ -125,19 +128,31 @@ export function CreateCampaignStepTwo({
   const hasFilters = useMemo(() => {
     return (
       (formData.gender && formData.gender !== "all") ||
-      (formData.minFollowers && parseInt(formData.minFollowers.replace(/\D/g, ""), 10) > 0) ||
+      (formData.minFollowers &&
+        parseInt(formData.minFollowers.replace(/\D/g, ""), 10) > 0) ||
       selectedStates.length > 0 ||
       selectedCities.length > 0
     );
   }, [formData.gender, formData.minFollowers, selectedStates, selectedCities]);
 
   // Buscar influenciadores com os filtros (só busca se houver filtros)
-  const { data: influencers = [], isLoading: isLoadingInfluencers } = useInfluencersCatalog(
-    hasFilters ? catalogFilters : undefined
-  );
+  const { data: influencers = [], isLoading: isLoadingInfluencers } =
+    useInfluencersCatalog(hasFilters ? catalogFilters : undefined);
 
   // Contagem de influenciadores encontrados
   const influencersCount = influencers.length;
+
+  // Calcular total de seguidores dos influenciadores filtrados
+  const totalFollowers = useMemo(() => {
+    return influencers.reduce((sum, influencer) => {
+      return sum + (influencer.followers || 0);
+    }, 0);
+  }, [influencers]);
+
+  // Formatar número no padrão brasileiro (XXX.XXX.XXX)
+  const formatNumber = (num: number): string => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
 
   return (
     <form className="flex flex-col gap-10">
@@ -153,8 +168,8 @@ export function CreateCampaignStepTwo({
           }
         />
 
-        <Input 
-          label="Quantidade mínima de seguidores" 
+        <Input
+          label="Quantidade mínima de seguidores"
           placeholder="1.000"
           value={formData.minFollowers}
           onChange={(e) =>
@@ -190,10 +205,13 @@ export function CreateCampaignStepTwo({
           placeholder="Selecione o/os gênero(s)"
           value={formData.gender}
           onChange={(value) => updateFormData("gender", value)}
+          openUp
           options={[
             { label: "Masculino", value: "male" },
             { label: "Feminino", value: "female" },
+            { label: "Prefiro não informar", value: "preferNotToInform" },
             { label: "Outros", value: "outros" },
+            { label: "Todos", value: "all" },
           ]}
         />
 
@@ -201,21 +219,21 @@ export function CreateCampaignStepTwo({
         {hasFilters && (
           <div className="p-4 bg-primary-50 rounded-2xl border border-primary-200">
             <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium text-primary-900">
-                  Influenciadores encontrados
-                </p>
-                <p className="text-xs text-primary-700">
-                  Baseado nos filtros selecionados
-                </p>
-              </div>
               <div className="flex items-center gap-2">
                 {isLoadingInfluencers ? (
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
                 ) : (
-                  <span className="text-2xl font-bold text-primary-900">
-                    {influencersCount}
-                  </span>
+                  <p className="text-xs text-primary-700">
+                    Com esta segmentação você terá um potencial de{" "}
+                    <span className="font-bold text-primary-900">
+                      {influencersCount}
+                    </span>{" "}
+                    influenciadores. Com um público total de{" "}
+                    <span className="font-bold text-primary-900">
+                      {formatNumber(totalFollowers)}
+                    </span>{" "}
+                    de seguidores
+                  </p>
                 )}
               </div>
             </div>

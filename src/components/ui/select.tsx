@@ -12,6 +12,7 @@ interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   onChange?: (value: string) => void;
   error?: string;
   disabled?: boolean;
+  openUp?: boolean;
 }
 
 export function Select({
@@ -22,6 +23,7 @@ export function Select({
   onChange,
   error,
   disabled = false,
+  openUp = false,
   ...props
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -94,7 +96,8 @@ export function Select({
         {isOpen && (
           <div
             className={clsx(
-              "absolute z-50 w-full mt-1 rounded-3xl bg-neutral-100 border border-neutral-200 shadow-lg overflow-hidden max-h-60 overflow-y-auto"
+              "absolute z-50 w-full rounded-3xl bg-neutral-100 border border-neutral-200 shadow-lg overflow-hidden max-h-60 overflow-y-auto",
+              openUp ? "bottom-full mb-1" : "top-full mt-1"
             )}
           >
             {options.map((option) => (
