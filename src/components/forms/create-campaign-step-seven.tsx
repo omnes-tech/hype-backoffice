@@ -59,25 +59,22 @@ const getObjectiveLabel = (value: string) => {
 const getSocialNetworkLabel = (value: string) => {
   const networks: { [key: string]: string } = {
     instagram: "Instagram",
-    youtube: "Youtube",
     tiktok: "TikTok",
-    facebook: "Facebook",
-    twitter: "Twitter",
+    youtube: "Youtube",
+    ugc: "UGC",
   };
   return networks[value] || value;
 };
 
 const getContentTypeLabel = (value: string) => {
   const types: { [key: string]: string } = {
-    stories: "Stories",
     post: "Post",
     reels: "Reels",
-    igtv: "IGTV",
-    live: "Live",
+    stories: "Stories",
     video: "Vídeo",
+    live: "LIVE",
     shorts: "Shorts",
-    tweet: "Tweet",
-    thread: "Thread",
+    image: "Imagem",
   };
   return types[value] || value;
 };

@@ -142,36 +142,29 @@ export function CreateCampaignStepSix({
 
   const socialNetworks = [
     { label: "Instagram", value: "instagram" },
-    { label: "Youtube", value: "youtube" },
     { label: "TikTok", value: "tiktok" },
-    { label: "Facebook", value: "facebook" },
-    { label: "Twitter", value: "twitter" },
+    { label: "Youtube", value: "youtube" },
+    { label: "UGC", value: "ugc" },
   ];
 
   const contentTypesByNetwork: { [key: string]: Array<{ label: string; value: string }> } = {
     instagram: [
-      { label: "Stories", value: "stories" },
       { label: "Post", value: "post" },
       { label: "Reels", value: "reels" },
-      { label: "IGTV", value: "igtv" },
-    ],
-    youtube: [
-      { label: "Live", value: "live" },
-      { label: "Vídeo", value: "video" },
-      { label: "Shorts", value: "shorts" },
+      { label: "Stories", value: "stories" },
     ],
     tiktok: [
-      { label: "Vídeo", value: "video" },
-      { label: "Live", value: "live" },
+      { label: "Vídeos", value: "video" },
+      { label: "LIVE", value: "live" },
     ],
-    facebook: [
-      { label: "Post", value: "post" },
-      { label: "Vídeo", value: "video" },
-      { label: "Live", value: "live" },
+    youtube: [
+      { label: "Video", value: "video" },
+      { label: "Shorts", value: "shorts" },
+      { label: "LIVE", value: "live" },
     ],
-    twitter: [
-      { label: "Tweet", value: "tweet" },
-      { label: "Thread", value: "thread" },
+    ugc: [
+      { label: "Imagem", value: "image" },
+      { label: "Vídeo", value: "video" },
     ],
   };
 

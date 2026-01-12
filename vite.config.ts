@@ -21,4 +21,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  // O Vite já faz fallback automático para index.html em desenvolvimento
+  // Esta configuração garante que funcione corretamente
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
 });

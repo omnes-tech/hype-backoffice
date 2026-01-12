@@ -21,15 +21,17 @@ const socialNetworkLabels: { [key: string]: string } = {
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
-  twitter: "Twitter",
+  ugc: "UGC",
 };
 
 const contentTypeLabels: { [key: string]: string } = {
   post: "Post",
-  stories: "Stories",
   reels: "Reels",
+  stories: "Stories",
   video: "Vídeo",
-  short: "Short",
+  live: "LIVE",
+  shorts: "Shorts",
+  image: "Imagem",
 };
 
 export function DashboardTab({ campaign, metrics, progressPercentage }: DashboardTabProps) {
