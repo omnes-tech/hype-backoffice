@@ -17,21 +17,33 @@ interface CurationTabProps {
 }
 
 export function CurationTab({ influencers }: CurationTabProps) {
-  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
-  const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+  const { campaignId } = useParams({
+    from: "/(private)/(app)/campaigns/$campaignId",
+  });
+  const [selectedInfluencer, setSelectedInfluencer] =
+    useState<Influencer | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectionFeedback, setRejectionFeedback] = useState("");
-  const [selectedInfluencers, setSelectedInfluencers] = useState<Set<string>>(new Set());
+  const [selectedInfluencers, setSelectedInfluencers] = useState<Set<string>>(
+    new Set()
+  );
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
+  const [bulkActionType, setBulkActionType] = useState<
+    "approve" | "reject" | null
+  >(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
   // Hooks para bulk operations
-  const { approve: bulkApprove, reject: bulkReject, isApproving, isRejecting } = useBulkInfluencerActions({ campaignId });
+  const {
+    approve: bulkApprove,
+    reject: bulkReject,
+    isApproving,
+    isRejecting,
+  } = useBulkInfluencerActions({ campaignId });
   const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
 
   const curationInfluencers = influencers.filter(
-    (inf) => inf.status === "curation" || inf.status === "curadoria"
+    (inf) => inf.status === "curation"
   );
 
   const handleSelectInfluencer = (influencerId: string) => {
@@ -88,7 +100,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
     updateStatus(
       {
         influencer_id: influencer.id,
-        status: "approved_progress",
+        status: "approved",
         feedback: "Aprovado pelo usuário",
       },
       {
@@ -193,7 +205,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
             <>
               <div className="flex items-center gap-2 mb-4">
                 <Checkbox
-                  checked={selectedInfluencers.size === curationInfluencers.length}
+                  checked={
+                    selectedInfluencers.size === curationInfluencers.length
+                  }
                   onCheckedChange={handleSelectAll}
                 />
                 <label className="text-sm font-medium text-neutral-950">
@@ -213,7 +227,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
                     <div className="flex items-start gap-3 mb-3">
                       <Checkbox
                         checked={selectedInfluencers.has(influencer.id)}
-                        onCheckedChange={() => handleSelectInfluencer(influencer.id)}
+                        onCheckedChange={() =>
+                          handleSelectInfluencer(influencer.id)
+                        }
                       />
                       <Avatar
                         src={influencer.avatar}
@@ -230,50 +246,51 @@ export function CurationTab({ influencers }: CurationTabProps) {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-neutral-600">
-                      {influencer.followers.toLocaleString("pt-BR")} seguidores
-                    </span>
-                    <span className="text-neutral-600">
-                      {influencer.engagement}% engajamento
-                    </span>
-                  </div>
-                  <div className="mb-3">
-                    <Badge
-                      text={influencer.niche}
-                      backgroundColor="bg-tertiary-50"
-                      textColor="text-tertiary-900"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleApprove(influencer)}
-                      className="flex-1"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon name="Check" color="#16a34a" size={16} />
-                        <span>Aprovar</span>
-                      </div>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleReject(influencer)}
-                      className="flex-1"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon name="X" color="#dc2626" size={16} />
-                        <span>Reprovar</span>
-                      </div>
-                    </Button>
-                  </div>
-                  <Button variant="ghost" className="w-full mt-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Icon name="ExternalLink" color="#404040" size={14} />
-                      <span>Ver perfil completo</span>
+                      <span className="text-neutral-600">
+                        {influencer.followers.toLocaleString("pt-BR")}{" "}
+                        seguidores
+                      </span>
+                      <span className="text-neutral-600">
+                        {influencer.engagement}% engajamento
+                      </span>
                     </div>
-                  </Button>
-                </div>
-              ))}
+                    <div className="mb-3">
+                      <Badge
+                        text={influencer.niche}
+                        backgroundColor="bg-tertiary-50"
+                        textColor="text-tertiary-900"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleApprove(influencer)}
+                        className="flex-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon name="Check" color="#16a34a" size={16} />
+                          <span>Aprovar</span>
+                        </div>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleReject(influencer)}
+                        className="flex-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon name="X" color="#dc2626" size={16} />
+                          <span>Reprovar</span>
+                        </div>
+                      </Button>
+                    </div>
+                    <Button variant="ghost" className="w-full mt-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Icon name="ExternalLink" color="#404040" size={14} />
+                        <span>Ver perfil completo</span>
+                      </div>
+                    </Button>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -291,58 +308,63 @@ export function CurationTab({ influencers }: CurationTabProps) {
           }}
         >
           <div className="flex flex-col gap-6">
-              <div className="flex items-center gap-4">
-                <Avatar
-                  src={selectedInfluencer.avatar}
-                  alt={selectedInfluencer.name}
-                  size="lg"
-                />
-                <div>
-                  <h3 className="text-lg font-semibold text-neutral-950">
-                    {selectedInfluencer.name}
-                  </h3>
-                  <p className="text-neutral-600">@{selectedInfluencer.username}</p>
-                </div>
-              </div>
-
-              <div className="bg-danger-50 rounded-2xl p-4">
-                <p className="text-sm text-danger-900">
-                  O feedback é obrigatório ao reprovar um influenciador. Ele será
-                  enviado ao influenciador para que possa entender o motivo da reprovação.
+            <div className="flex items-center gap-4">
+              <Avatar
+                src={selectedInfluencer.avatar}
+                alt={selectedInfluencer.name}
+                size="lg"
+              />
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-950">
+                  {selectedInfluencer.name}
+                </h3>
+                <p className="text-neutral-600">
+                  @{selectedInfluencer.username}
                 </p>
               </div>
-
-              <Textarea
-                label="Feedback de reprovação"
-                placeholder="Explique o motivo da reprovação..."
-                value={rejectionFeedback}
-                onChange={(e) => setRejectionFeedback(e.target.value)}
-                error={
-                  !rejectionFeedback.trim() ? "Este campo é obrigatório" : undefined
-                }
-              />
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsRejectModalOpen(false);
-                    setSelectedInfluencer(null);
-                    setRejectionFeedback("");
-                  }}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleConfirmRejection}
-                  disabled={!rejectionFeedback.trim()}
-                  className="flex-1"
-                >
-                  Confirmar reprovação
-                </Button>
-              </div>
             </div>
+
+            <div className="bg-danger-50 rounded-2xl p-4">
+              <p className="text-sm text-danger-900">
+                O feedback é obrigatório ao reprovar um influenciador. Ele será
+                enviado ao influenciador para que possa entender o motivo da
+                reprovação.
+              </p>
+            </div>
+
+            <Textarea
+              label="Feedback de reprovação"
+              placeholder="Explique o motivo da reprovação..."
+              value={rejectionFeedback}
+              onChange={(e) => setRejectionFeedback(e.target.value)}
+              error={
+                !rejectionFeedback.trim()
+                  ? "Este campo é obrigatório"
+                  : undefined
+              }
+            />
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsRejectModalOpen(false);
+                  setSelectedInfluencer(null);
+                  setRejectionFeedback("");
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmRejection}
+                disabled={!rejectionFeedback.trim()}
+                className="flex-1"
+              >
+                Confirmar reprovação
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
 
@@ -371,8 +393,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
               <>
                 <div className="bg-danger-50 rounded-2xl p-4">
                   <p className="text-sm text-danger-900">
-                    O feedback é obrigatório ao reprovar influenciadores em massa. Ele será
-                    enviado a todos os influenciadores selecionados.
+                    O feedback é obrigatório ao reprovar influenciadores em
+                    massa. Ele será enviado a todos os influenciadores
+                    selecionados.
                   </p>
                 </div>
                 <Textarea
@@ -381,7 +404,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
                   value={bulkRejectionFeedback}
                   onChange={(e) => setBulkRejectionFeedback(e.target.value)}
                   error={
-                    !bulkRejectionFeedback.trim() ? "Este campo é obrigatório" : undefined
+                    !bulkRejectionFeedback.trim()
+                      ? "Este campo é obrigatório"
+                      : undefined
                   }
                 />
               </>
@@ -401,10 +426,13 @@ export function CurationTab({ influencers }: CurationTabProps) {
               </Button>
               <Button
                 onClick={
-                  bulkActionType === "approve" ? handleBulkApprove : handleBulkReject
+                  bulkActionType === "approve"
+                    ? handleBulkApprove
+                    : handleBulkReject
                 }
                 disabled={
-                  (bulkActionType === "reject" && !bulkRejectionFeedback.trim()) ||
+                  (bulkActionType === "reject" &&
+                    !bulkRejectionFeedback.trim()) ||
                   isApproving ||
                   isRejecting
                 }
@@ -419,4 +447,3 @@ export function CurationTab({ influencers }: CurationTabProps) {
     </>
   );
 }
-

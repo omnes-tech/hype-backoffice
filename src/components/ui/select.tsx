@@ -79,7 +79,7 @@ export function Select({
               selectedOption ? "text-neutral-950" : "text-neutral-400"
             )}
           >
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption?.label ?? placeholder}
           </span>
 
           <Icon

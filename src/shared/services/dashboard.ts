@@ -133,6 +133,47 @@ export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
 }
 
 /**
+ * Normaliza status de português para inglês
+ * Garante que todos os status sejam sempre em inglês, usando os valores do enum do backend
+ * Baseado em CampaignUserStatusEnum do backend
+ */
+function normalizeStatus(status: string | undefined): string {
+  if (!status) return "applications";
+  
+  const statusMap: { [key: string]: string } = {
+    // Valores corretos do enum do backend (mantém como está)
+    applications: "applications",
+    curation: "curation",
+    invited: "invited",
+    approved: "approved",
+    pending_approval: "pending_approval",
+    in_correction: "in_correction",
+    content_approved: "content_approved",
+    published: "published",
+    rejected: "rejected",
+    // Valores antigos do frontend (mapeia para valores corretos)
+    inscriptions: "applications",
+    approved_progress: "approved",
+    awaiting_approval: "pending_approval",
+    selected: "applications",
+    active: "approved",
+    // Status em português (converte para inglês usando valores do enum)
+    inscricoes: "applications",
+    aprovado: "approved",
+    curadoria: "curation",
+    recusado: "rejected",
+    convidados: "invited",
+    aprovados: "approved",
+    rejeitados: "rejected",
+    conteudo_submetido: "pending_approval",
+    conteudo_aprovado: "content_approved",
+    conteudo_rejeitado: "in_correction",
+  };
+  
+  return statusMap[status.toLowerCase()] || status;
+}
+
+/**
  * Transforma DashboardInfluencer para Influencer (formato usado no frontend)
  */
 export function transformDashboardInfluencer(
@@ -146,7 +187,7 @@ export function transformDashboardInfluencer(
     followers: influencer.followers,
     engagement: influencer.engagement,
     niche: influencer.niche || "",
-    status: influencer.status as Influencer["status"],
+    status: normalizeStatus(influencer.status) as Influencer["status"],
     phase: influencer.phase,
   };
 }

@@ -65,16 +65,16 @@ interface ExtendedInfluencer extends Influencer {
 }
 
 const kanbanColumns = [
-  { id: "inscriptions", label: "Inscrições", color: "bg-neutral-50" },
+  { id: "applications", label: "Inscrições", color: "bg-neutral-50" },
   { id: "curation", label: "Curadoria", color: "bg-blue-50" },
   { id: "invited", label: "Convidados", color: "bg-yellow-50" },
   {
-    id: "approved_progress",
+    id: "approved",
     label: "Aprovados/Em Andamento",
     color: "bg-green-50",
   },
   {
-    id: "awaiting_approval",
+    id: "pending_approval",
     label: "Aguardando Aprovação",
     color: "bg-orange-50",
   },
@@ -303,7 +303,7 @@ function KanbanColumn({
           ))}
           {influencers.length === 0 && (
             <div className="text-xs text-neutral-400 text-center py-2">
-              Nenhum influenciador
+              No influencers
             </div>
           )}
         </div>
@@ -390,34 +390,54 @@ export function ManagementTab({
   );
 
   // Função para mapear status da API para colunas do Kanban
+  // Usa os valores do enum do backend: applications, curation, invited, approved, pending_approval, in_correction, content_approved, published, rejected
   const mapUserStatusToKanbanColumn = (status: string): string => {
     const statusMap: { [key: string]: string } = {
-      inscricoes: "inscriptions",
-      aprovado: "approved",
-      approved_progress: "approved_progress", // Status em inglês também
-      curadoria: "curation",
-      curation: "curation", // Status em inglês também
-      recusado: "rejected",
-      rejected: "rejected", // Status em inglês também
+      // Valores corretos do enum do backend
+      applications: "applications",
+      curation: "curation",
       invited: "invited",
-      selected: "inscriptions",
-      active: "approved_progress",
+      approved: "approved",
+      pending_approval: "pending_approval",
+      in_correction: "in_correction",
+      content_approved: "content_approved",
       published: "published",
+      rejected: "rejected",
+      // Valores antigos do frontend (mapeia para valores corretos)
+      inscriptions: "applications",
+      approved_progress: "approved",
+      awaiting_approval: "pending_approval",
+      selected: "applications",
+      active: "approved",
+      // Mantém compatibilidade com status antigos em português (caso ainda venham do backend)
+      inscricoes: "applications",
+      aprovado: "approved",
+      curadoria: "curation",
+      recusado: "rejected",
+      convidados: "invited",
+      aprovados: "approved",
+      rejeitados: "rejected",
+      conteudo_submetido: "pending_approval",
+      conteudo_aprovado: "content_approved",
+      conteudo_rejeitado: "in_correction",
     };
-    return statusMap[status] || "inscriptions";
+    return statusMap[status.toLowerCase()] || "applications";
   };
 
   // Função para mapear coluna do Kanban para action da API
   const mapKanbanColumnToUserAction = (
     columnId: string
-  ): "aprovado" | "curadoria" | "recusado" | "inscricoes" | null => {
+  ): "approved" | "curation" | "rejected" | "applications" | null => {
     const columnMap: {
-      [key: string]: "aprovado" | "curadoria" | "recusado" | "inscricoes";
+      [key: string]: "approved" | "curation" | "rejected" | "applications";
     } = {
-      inscriptions: "inscricoes",
-      approved_progress: "aprovado",
-      curation: "curadoria",
-      rejected: "recusado",
+      applications: "applications",
+      approved: "approved",
+      curation: "curation",
+      rejected: "rejected",
+      // Compatibilidade com valores antigos
+      inscriptions: "applications",
+      approved_progress: "approved",
     };
     return columnMap[columnId] || null;
   };
@@ -513,17 +533,17 @@ export function ManagementTab({
             statusHistory: [
               {
                 id: "1",
-                status: "inscriptions",
+                status: "applications",
                 timestamp: new Date(
                   Date.now() - 7 * 24 * 60 * 60 * 1000
                 ).toISOString(),
-                notes: "Influenciador se inscreveu na campanha",
+                notes: "Influencer enrolled in campaign",
               },
               {
                 id: "2",
                 status: currentMappedStatus,
                 timestamp: new Date().toISOString(),
-                notes: "Status atualizado",
+                notes: "Status updated",
               },
             ],
           };
@@ -555,17 +575,17 @@ export function ManagementTab({
             statusHistory: [
               {
                 id: "1",
-                status: "inscriptions",
+                status: "applications",
                 timestamp: new Date(
                   Date.now() - 7 * 24 * 60 * 60 * 1000
                 ).toISOString(),
-                notes: "Influenciador se inscreveu na campanha",
+                notes: "Influencer enrolled in campaign",
               },
               {
                 id: "2",
                 status: currentMappedStatus,
                 timestamp: new Date().toISOString(),
-                notes: "Status atualizado",
+                notes: "Status updated",
               },
             ],
           };
@@ -576,7 +596,7 @@ export function ManagementTab({
     if (inf.status) {
       const mappedStatus = mapUserStatusToKanbanColumn(inf.status);
       if (
-        mappedStatus !== "inscriptions" ||
+        mappedStatus !== "applications" ||
         !inf.statusHistory ||
         inf.statusHistory.length === 0
       ) {
@@ -584,7 +604,7 @@ export function ManagementTab({
       }
     }
 
-    // Se não houver status ou for "inscriptions", verificar o statusHistory
+    // Se não houver status ou for "applications", verificar o statusHistory
     if (inf.statusHistory && inf.statusHistory.length > 0) {
       // Get the most recent status from history
       const sortedHistory = [...inf.statusHistory].sort(
@@ -595,7 +615,7 @@ export function ManagementTab({
     }
 
     // Fallback final
-    return "inscriptions";
+    return "applications";
   };
 
   const getInfluencersByStatus = (status: string) => {
@@ -604,7 +624,7 @@ export function ManagementTab({
       return currentStatus === status;
     });
 
-    // Filtrar por fase se selecionado
+    // Filter by phase if selected
     if (selectedPhaseFilter !== "all") {
       filtered = filtered.filter((inf) => inf.phase === selectedPhaseFilter);
     }
@@ -696,7 +716,7 @@ export function ManagementTab({
     updateStatus(
       {
         influencer_id: influencer.id,
-        status: "curadoria",
+        status: "curation",
         feedback: "Movido para curadoria",
       },
       {
@@ -721,32 +741,32 @@ export function ManagementTab({
 
   const getAvailableActions = (status: string) => {
     switch (status) {
-      case "inscriptions":
+      case "applications":
         return [
           {
             label: "Aprovar",
             action: "approve",
-            targetStatus: "approved_progress",
+            targetStatus: "approved",
           },
           { label: "Recusar", action: "reject" },
-          { label: "Colocar em Curadoria", action: "curation" },
+          { label: "Mover para Curadoria", action: "curation" },
         ];
       case "curation":
         return [
           {
             label: "Aprovar",
             action: "approve",
-            targetStatus: "approved_progress",
+            targetStatus: "approved",
           },
           { label: "Recusar", action: "reject" },
         ];
       case "invited":
-        // Influenciador já foi convidado, aguardando resposta dele no app
+        // Influencer already invited, waiting for response in app
         return [];
-      case "approved_progress":
-        // Aguardando upload do conteúdo pelo influenciador
+      case "approved":
+        // Waiting for content upload by influencer
         return [];
-      case "awaiting_approval":
+      case "pending_approval":
         return [
           {
             label: "Aprovar Conteúdo",
@@ -756,16 +776,16 @@ export function ManagementTab({
           { label: "Recusar Conteúdo", action: "reject" },
         ];
       case "in_correction":
-        // Aguardando novo upload do influenciador
+        // Waiting for new upload from influencer
         return [];
       case "content_approved":
-        // Aguardando publicação e identificação pelo bot
+        // Waiting for publication and identification by bot
         return [];
       case "published":
-        // Fase concluída
+        // Phase completed
         return [];
       case "rejected":
-        // Não há ações disponíveis para recusados
+        // No actions available for rejected
         return [];
       default:
         return [];
@@ -933,13 +953,13 @@ export function ManagementTab({
       }
       const apiStatus =
         targetStatus === "curation"
-          ? "curadoria"
-          : targetStatus === "approved_progress"
-            ? "aprovado"
+          ? "curation"
+          : targetStatus === "approved" || targetStatus === "approved_progress"
+            ? "approved"
             : targetStatus === "rejected"
-              ? "recusado"
-              : targetStatus === "inscriptions"
-                ? "inscricoes"
+              ? "rejected"
+              : targetStatus === "applications" || targetStatus === "inscriptions"
+                ? "applications"
                 : targetStatus;
 
       // Atualiza o status do influenciador via API
@@ -980,17 +1000,21 @@ export function ManagementTab({
     fromStatus: string,
     toStatus: string
   ): boolean => {
-    // Regras de transição válidas
+    // Regras de transição válidas (usando valores do enum do backend)
     const validTransitions: { [key: string]: string[] } = {
-      inscriptions: ["approved_progress", "rejected", "curation"],
-      curation: ["approved_progress", "rejected"],
-      invited: ["approved_progress", "rejected"], // Quando influenciador aceita/recusa no app
-      approved_progress: ["awaiting_approval"], // Quando faz upload
-      awaiting_approval: ["content_approved", "in_correction"], // Aprovar ou recusar conteúdo
-      in_correction: ["awaiting_approval"], // Novo upload
-      content_approved: ["published"], // Bot identifica publicação
-      published: [], // Estado final
-      rejected: [], // Estado final
+      applications: ["approved", "rejected", "curation"],
+      curation: ["approved", "rejected"],
+      invited: ["approved", "rejected"], // When influencer accepts/rejects in app
+      approved: ["pending_approval"], // When uploads content
+      pending_approval: ["content_approved", "in_correction"], // Approve or reject content
+      in_correction: ["pending_approval"], // New upload
+      content_approved: ["published"], // Bot identifies publication
+      published: [], // Final state
+      rejected: [], // Final state
+      // Compatibilidade com valores antigos
+      inscriptions: ["approved", "rejected", "curation"],
+      approved_progress: ["pending_approval"],
+      awaiting_approval: ["content_approved", "in_correction"],
     };
 
     const allowedStatuses = validTransitions[fromStatus] || [];
@@ -1002,12 +1026,14 @@ export function ManagementTab({
     fromStatus: string,
     toStatus: string
   ): boolean => {
-    // Usuários podem ser movidos entre: inscrições, aprovado, curadoria, recusado
+    // Users can be moved between: applications, approved, curation, rejected
     const userValidTransitions: { [key: string]: string[] } = {
-      inscriptions: ["approved_progress", "rejected", "curation"],
-      curation: ["approved_progress", "rejected", "inscriptions"],
-      approved_progress: ["curation", "rejected", "inscriptions"],
-      rejected: ["inscriptions", "curation"], // Permitir reativar recusados
+      applications: ["approved", "rejected", "curation"],
+      curation: ["approved", "rejected", "applications"],
+      approved: ["curation", "rejected", "applications"],
+      rejected: ["applications", "curation"],
+      inscriptions: ["approved", "rejected", "curation"],
+      approved_progress: ["curation", "rejected", "applications"],
     };
 
     const allowedStatuses = userValidTransitions[fromStatus] || [];
@@ -1016,19 +1042,31 @@ export function ManagementTab({
 
   const getTransitionNote = (fromStatus: string, toStatus: string): string => {
     const notes: { [key: string]: string } = {
+      "applications->approved": "Aprovado pelo usuário",
+      "applications->rejected": "Recusado pelo usuário",
+      "applications->curation": "Movido para curadoria",
+      "curation->approved": "Aprovado após curadoria",
+      "curation->rejected": "Recusado após curadoria",
+      "invited->approved": "Aceitou o convite",
+      "invited->rejected": "Recusou o convite",
+      "approved->pending_approval": "Conteúdo enviado para aprovação",
+      "pending_approval->content_approved": "Conteúdo aprovado",
+      "pending_approval->in_correction":
+        "Conteúdo recusado, aguardando correção",
+      "in_correction->pending_approval": "Novo conteúdo enviado",
+      "content_approved->published": "Publicação identificada pelo bot",
+      // Compatibilidade com valores antigos
+      "inscriptions->approved": "Aprovado pelo usuário",
       "inscriptions->approved_progress": "Aprovado pelo usuário",
       "inscriptions->rejected": "Recusado pelo usuário",
       "inscriptions->curation": "Movido para curadoria",
       "curation->approved_progress": "Aprovado após curadoria",
-      "curation->rejected": "Recusado após curadoria",
       "invited->approved_progress": "Aceitou o convite",
-      "invited->rejected": "Recusou o convite",
+      "approved_progress->pending_approval": "Conteúdo enviado para aprovação",
       "approved_progress->awaiting_approval": "Conteúdo enviado para aprovação",
       "awaiting_approval->content_approved": "Conteúdo aprovado",
-      "awaiting_approval->in_correction":
-        "Conteúdo recusado, aguardando correção",
+      "awaiting_approval->in_correction": "Conteúdo recusado, aguardando correção",
       "in_correction->awaiting_approval": "Novo conteúdo enviado",
-      "content_approved->published": "Publicação identificada pelo bot",
     };
 
     return (
@@ -1197,7 +1235,7 @@ export function ManagementTab({
                     influencer.statusHistory.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-neutral-200">
                         <p className="text-xs font-medium text-neutral-600 mb-2">
-                          Log histórico:
+                          Histórico:
                         </p>
                         <div className="flex flex-col gap-1 max-h-24 overflow-y-auto">
                           {influencer.statusHistory.map((history) => (

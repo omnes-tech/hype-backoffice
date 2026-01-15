@@ -71,7 +71,7 @@ export function Dropdown({
               selectedOption ? "text-neutral-700" : "text-neutral-400"
             )}
           >
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption?.label ?? placeholder}
           </span>
 
           <Icon

@@ -12,6 +12,47 @@ export interface CampaignUser {
 }
 
 /**
+ * Normaliza status de português para inglês
+ * Garante que todos os status sejam sempre em inglês, usando os valores do enum do backend
+ * Baseado em CampaignUserStatusEnum do backend
+ */
+function normalizeStatus(status: string | undefined): string {
+  if (!status) return "applications";
+  
+  const statusMap: { [key: string]: string } = {
+    // Valores corretos do enum do backend (mantém como está)
+    applications: "applications",
+    curation: "curation",
+    invited: "invited",
+    approved: "approved",
+    pending_approval: "pending_approval",
+    in_correction: "in_correction",
+    content_approved: "content_approved",
+    published: "published",
+    rejected: "rejected",
+    // Valores antigos do frontend (mapeia para valores corretos)
+    inscriptions: "applications",
+    approved_progress: "approved",
+    awaiting_approval: "pending_approval",
+    selected: "applications",
+    active: "approved",
+    // Status em português (converte para inglês usando valores do enum)
+    inscricoes: "applications",
+    aprovado: "approved",
+    curadoria: "curation",
+    recusado: "rejected",
+    convidados: "invited",
+    aprovados: "approved",
+    rejeitados: "rejected",
+    conteudo_submetido: "pending_approval",
+    conteudo_aprovado: "content_approved",
+    conteudo_rejeitado: "in_correction",
+  };
+  
+  return statusMap[status.toLowerCase()] || status;
+}
+
+/**
  * Lista usuários inscritos na campanha
  */
 export async function getCampaignUsers(
@@ -41,11 +82,15 @@ export async function getCampaignUsers(
   }
 
   const response = await request.json();
-  return response.data;
+  // Normalizar status de todos os usuários para inglês
+  return response.data.map((user: CampaignUser) => ({
+    ...user,
+    status: normalizeStatus(user.status),
+  }));
 }
 
 export interface UpdateUserStatusData {
-  action: "aprovado" | "curadoria" | "recusado" | "inscricoes";
+  action: "approved" | "curation" | "rejected" | "applications";
 }
 
 /**

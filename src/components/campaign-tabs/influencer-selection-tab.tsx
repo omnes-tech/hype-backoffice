@@ -14,8 +14,7 @@ import type { Influencer } from "@/shared/types";
 import { useCampaignRecommendations } from "@/hooks/use-catalog";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
-import { useInviteInfluencer } from "@/hooks/use-campaign-influencers";
-import { moveToCuration } from "@/shared/services/influencer";
+import { useInviteInfluencer, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 import { ListSelector } from "@/components/influencer-lists/list-selector";
 
@@ -75,6 +74,7 @@ export function InfluencerSelectionTab({
     city: filterLocationCity || undefined,
   });
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
+  const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
 
   const isMuralActive = muralStatus?.active || false;
   const muralEndDate = muralStatus?.end_date || "";
@@ -272,13 +272,22 @@ export function InfluencerSelectionTab({
         }
       );
     } else if (modalType === "curation") {
-      try {
-        await moveToCuration(campaignId, selectedInfluencer.id, curationNotes || undefined);
-        toast.success("Influenciador adicionado para curadoria!");
-        handleCloseModal();
-      } catch (error: any) {
-        toast.error(error?.message || "Erro ao adicionar influenciador para curadoria");
-      }
+      updateStatus(
+        {
+          influencer_id: selectedInfluencer.id,
+          status: "curation",
+          feedback: curationNotes || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Influenciador adicionado para curadoria!");
+            handleCloseModal();
+          },
+          onError: (error: any) => {
+            toast.error(error?.message || "Erro ao adicionar influenciador para curadoria");
+          },
+        }
+      );
     } else {
       // Outras ações (discover) podem ser implementadas aqui
       handleCloseModal();
@@ -697,8 +706,14 @@ export function InfluencerSelectionTab({
                 <Button variant="outline" onClick={handleCloseModal} className="flex-1">
                   Cancelar
                 </Button>
-                <Button onClick={handleConfirm} className="flex-1" disabled={isInviting}>
-                  {isInviting ? "Enviando..." : modalType === "invite" ? "Enviar convite" : "Confirmar"}
+                <Button onClick={handleConfirm} className="flex-1" disabled={isInviting || isUpdatingStatus}>
+                  {isInviting || isUpdatingStatus 
+                    ? "Processando..." 
+                    : modalType === "invite" 
+                      ? "Enviar convite" 
+                      : modalType === "curation"
+                        ? "Adicionar para curadoria"
+                        : "Confirmar"}
                 </Button>
               </div>
             )}

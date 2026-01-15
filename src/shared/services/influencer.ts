@@ -13,6 +13,47 @@ export interface InfluencerInviteData {
 }
 
 /**
+ * Normaliza status de português para inglês
+ * Garante que todos os status sejam sempre em inglês, usando os valores do enum do backend
+ * Baseado em CampaignUserStatusEnum do backend
+ */
+function normalizeStatus(status: string | undefined): string {
+  if (!status) return "applications";
+  
+  const statusMap: { [key: string]: string } = {
+    // Valores corretos do enum do backend (mantém como está)
+    applications: "applications",
+    curation: "curation",
+    invited: "invited",
+    approved: "approved",
+    pending_approval: "pending_approval",
+    in_correction: "in_correction",
+    content_approved: "content_approved",
+    published: "published",
+    rejected: "rejected",
+    // Valores antigos do frontend (mapeia para valores corretos)
+    inscriptions: "applications",
+    approved_progress: "approved",
+    awaiting_approval: "pending_approval",
+    selected: "applications",
+    active: "approved",
+    // Status em português (converte para inglês usando valores do enum)
+    inscricoes: "applications",
+    aprovado: "approved",
+    curadoria: "curation",
+    recusado: "rejected",
+    convidados: "invited",
+    aprovados: "approved",
+    rejeitados: "rejected",
+    conteudo_submetido: "pending_approval",
+    conteudo_aprovado: "content_approved",
+    conteudo_rejeitado: "in_correction",
+  };
+  
+  return statusMap[status.toLowerCase()] || status;
+}
+
+/**
  * Lista influenciadores de uma campanha
  */
 export async function getCampaignInfluencers(
@@ -42,7 +83,11 @@ export async function getCampaignInfluencers(
   }
 
   const response = await request.json();
-  return response.data;
+  // Normalizar status de todos os influenciadores para inglês
+  return response.data.map((influencer: Influencer) => ({
+    ...influencer,
+    status: normalizeStatus(influencer.status),
+  }));
 }
 
 /**
@@ -111,40 +156,6 @@ export async function inviteInfluencer(
   if (!request.ok) {
     const error = await request.json();
     throw error || "Failed to invite influencer";
-  }
-}
-
-/**
- * Move um influenciador para a fase de curadoria
- */
-export async function moveToCuration(
-  campaignId: string,
-  influencerId: string,
-  notes?: string
-): Promise<void> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
-  const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencers/${influencerId}/curation`),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Client-Type": "backoffice",
-        Authorization: `Bearer ${getAuthToken()}`,
-        "Workspace-Id": workspaceId,
-      },
-      body: JSON.stringify({ notes }),
-    }
-  );
-
-  if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to move influencer to curation";
   }
 }
 

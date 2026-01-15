@@ -14,12 +14,15 @@ export function Badge({
   textColor,
   ...props
 }: BadgeProps) {
+  // Garantir que text seja sempre uma string
+  const displayText = typeof text === 'string' ? text : String(text || '');
+  
   return (
     <div
       className={clsx("w-fit px-2 py-1 rounded-3xl", backgroundColor)}
       {...props}
     >
-      <span className={clsx("text-sm font-medium", textColor)}>{text}</span>
+      <span className={clsx("text-sm font-medium", textColor)}>{displayText}</span>
     </div>
   );
 }

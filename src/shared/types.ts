@@ -151,7 +151,7 @@ export interface Influencer {
   followers: number;
   engagement: number;
   niche: string;
-  status?: "convidados" | "aprovados" | "rejeitados" | "curadoria" | "conteudo_submetido" | "conteudo_aprovado" | "conteudo_rejeitado" | "selected" | "invited" | "active" | "published" | "curation" | "rejected";
+  status?: "applications" | "curation" | "invited" | "approved" | "pending_approval" | "in_correction" | "content_approved" | "published" | "rejected";
   phase?: string;
 }
 

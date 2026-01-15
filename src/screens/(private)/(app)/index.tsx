@@ -13,8 +13,12 @@ function RouteComponent() {
 
   const stats = useMemo(() => {
     const total = campaignsData.length;
-    const active = campaignsData.filter((c: any) => c.status === "active").length;
-    const finished = campaignsData.filter((c: any) => c.status === "finished").length;
+    const active = campaignsData.filter(
+      (c: any) => c.status === "active"
+    ).length;
+    const finished = campaignsData.filter(
+      (c: any) => c.status === "finished"
+    ).length;
     const draft = campaignsData.filter((c: any) => c.status === "draft").length;
 
     return { total, active, finished, draft };
@@ -51,7 +55,9 @@ function RouteComponent() {
               Erro ao carregar dashboard
             </p>
             <span className="text-neutral-600 text-center">
-              {error instanceof Error ? error.message : "Ocorreu um erro ao buscar os dados. Tente novamente."}
+              {error instanceof Error
+                ? error.message
+                : "Ocorreu um erro ao buscar os dados. Tente novamente."}
             </span>
           </div>
           <Button onClick={() => window.location.reload()}>
@@ -84,30 +90,10 @@ function RouteComponent() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total de Campanhas"
-          value={stats.total}
-          icon="Megaphone"
-          color="primary"
-        />
-        <StatCard
-          title="Campanhas Ativas"
-          value={stats.active}
-          icon="Activity"
-          color="secondary"
-        />
-        <StatCard
-          title="Campanhas Finalizadas"
-          value={stats.finished}
-          icon="Check"
-          color="success"
-        />
-        <StatCard
-          title="Rascunhos"
-          value={stats.draft}
-          icon="FileText"
-          color="tertiary"
-        />
+        <StatCard title="Total de Campanhas" value={stats.total} />
+        <StatCard title="Campanhas Ativas" value={stats.active} />
+        <StatCard title="Campanhas Finalizadas" value={stats.finished} />
+        <StatCard title="Rascunhos" value={stats.draft} />
       </div>
 
       {/* Recent Campaigns */}
@@ -176,27 +162,11 @@ function RouteComponent() {
 interface StatCardProps {
   title: string;
   value: number;
-  icon: keyof typeof import("lucide-react").icons;
-  color: "primary" | "secondary" | "success" | "tertiary";
 }
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
-  const colorClasses = {
-    primary: { bg: "bg-primary-100", text: "text-primary-600", iconColor: "#9e2cfa" },
-    secondary: { bg: "bg-secondary-100", text: "text-secondary-600", iconColor: "#8db500" },
-    success: { bg: "bg-success-50", text: "text-success-600", iconColor: "#16a34a" },
-    tertiary: { bg: "bg-tertiary-100", text: "text-tertiary-600", iconColor: "#aa38c1" },
-  };
-
-  const config = colorClasses[color];
-
+function StatCard({ title, value }: StatCardProps) {
   return (
     <div className="bg-neutral-50 rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${config.bg} ${config.text} flex items-center justify-center`}>
-          <Icon name={icon} color={config.iconColor} size={24} />
-        </div>
-      </div>
       <div>
         <p className="text-3xl font-bold text-neutral-950">{value}</p>
         <p className="text-sm text-neutral-600 mt-1">{title}</p>
@@ -212,16 +182,26 @@ function StatusBadge({ status }: { status: string }) {
     draft: { label: "Rascunho", color: "bg-neutral-200 text-neutral-700" },
   };
 
-  const config = statusConfig[status as keyof typeof statusConfig] || {
-    label: status,
+  // Garantir que status seja uma string (não um objeto)
+  const statusString =
+    typeof status === "string" ? status : String(status || "");
+
+  const config = statusConfig[statusString as keyof typeof statusConfig] || {
+    label: statusString,
     color: "bg-neutral-200 text-neutral-700",
   };
+
+  // Garantir que label seja sempre uma string
+  const labelText =
+    typeof config.label === "string"
+      ? config.label
+      : String(config.label || "");
 
   return (
     <span
       className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}
     >
-      {config.label}
+      {labelText}
     </span>
   );
 }
