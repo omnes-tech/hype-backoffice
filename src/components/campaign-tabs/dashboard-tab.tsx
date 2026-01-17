@@ -101,12 +101,8 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
             <div className="p-4 bg-neutral-50 rounded-2xl">
               <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
               <p className="text-2xl font-semibold text-neutral-950">
-                {metrics.engagement}%
+                {metrics.engagement.toFixed(2)}%
               </p>
-            </div>
-            <div className="p-4 bg-neutral-50 rounded-2xl">
-              <p className="text-sm text-neutral-600 mb-1">Taxa de conversão</p>
-              <p className="text-2xl font-semibold text-neutral-950">3.2%</p>
             </div>
           </div>
         </div>

@@ -28,6 +28,9 @@ export function useApproveContent(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "contents"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
+      });
     },
   });
 }
@@ -40,6 +43,9 @@ export function useRejectContent(campaignId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "contents"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
       });
     },
   });

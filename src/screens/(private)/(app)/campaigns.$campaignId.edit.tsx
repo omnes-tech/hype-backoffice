@@ -23,6 +23,7 @@ import { unformatNumber, unformatCurrency } from "@/shared/utils/masks";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
+import { useNiches } from "@/hooks/use-niches";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId/edit")({
   component: RouteComponent,
@@ -49,11 +50,15 @@ function RouteComponent() {
 
   const phases = dashboardData?.phases || [];
   const updateCampaignMutation = useUpdateCampaign();
+  
+  // Buscar nichos para determinar o nicho principal na edição
+  const { data: niches = [] } = useNiches();
 
   // Inicializar formData com dados da campanha
   const [formData, setFormData] = useState<CampaignFormData>({
     title: "",
     description: "",
+    mainNiche: "",
     subniches: "",
     influencersCount: "",
     minFollowers: "",
@@ -80,20 +85,34 @@ function RouteComponent() {
 
   // Carregar dados da campanha no formData quando disponível
   useEffect(() => {
-    if (campaign && phases) {
+    if (campaign && phases && niches.length > 0) {
+      // Processar subnichos
+      const subnicheIds = Array.isArray(campaign.secondary_niches)
+        ? campaign.secondary_niches
+            .map((n: any) => {
+              const name = typeof n === 'object' ? n.name : String(n);
+              return getSubnicheValueByLabel(name);
+            })
+            .filter(Boolean)
+        : campaign.secondary_niches 
+          ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
+          : [];
+      
+      // Determinar o nicho principal a partir do primeiro subnicho selecionado
+      let mainNicheId = "";
+      if (subnicheIds.length > 0) {
+        const firstSubnicheId = parseInt(subnicheIds[0], 10);
+        const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
+        if (firstSubniche?.parent_id) {
+          mainNicheId = firstSubniche.parent_id.toString();
+        }
+      }
+      
       setFormData({
         title: campaign.title || "",
         description: campaign.description || "",
-        subniches: Array.isArray(campaign.secondary_niches)
-          ? campaign.secondary_niches
-              .map((n: any) => {
-                const name = typeof n === 'object' ? n.name : String(n);
-                return getSubnicheValueByLabel(name);
-              })
-              .join(",")
-          : campaign.secondary_niches 
-            ? getSubnicheValueByLabel(String(campaign.secondary_niches))
-            : "",
+        mainNiche: mainNicheId,
+        subniches: subnicheIds.join(","),
         influencersCount: campaign.max_influencers?.toString() || "0",
         minFollowers: campaign.segment_min_followers?.toString() || "0",
         state: Array.isArray(campaign.segment_state) 
@@ -127,7 +146,20 @@ function RouteComponent() {
         paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
           ? campaign.payment_method_details.amount.toString()
           : "",
-        benefits: campaign.benefits || "",
+        benefits: campaign.benefits
+          ? (() => {
+              const lines = campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line);
+              // Se tiver marcadores (., -, •), usar a lógica de parsing
+              if (lines.some(line => line.startsWith('.') || line.startsWith('-') || line.startsWith('•'))) {
+                return lines
+                  .filter(line => line.startsWith('.') || line.startsWith('-') || line.startsWith('•'))
+                  .map(line => line.replace(/^[.\-•]\s*/, '').trim())
+                  .filter(line => line);
+              }
+              // Caso contrário, retornar como array simples (cada linha é um item)
+              return lines.length > 0 ? lines : [""];
+            })()
+          : [""],
         generalObjective: campaign.objective || "",
       whatToDo: Array.isArray(campaign.rules_does) 
         ? campaign.rules_does 
@@ -159,7 +191,7 @@ function RouteComponent() {
         })),
       });
     }
-  }, [campaign, phases]);
+  }, [campaign, phases, niches]);
 
   const totalSteps = 7;
   const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
@@ -220,7 +252,9 @@ function RouteComponent() {
       max_influencers: parseInt(unformatNumber(formData.influencersCount)) || 0,
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
-      benefits: formData.benefits || "",
+      benefits: Array.isArray(formData.benefits)
+        ? formData.benefits.filter(item => item.trim() !== "").join("\n")
+        : (typeof formData.benefits === "string" ? formData.benefits : "") || "",
       rules_does: Array.isArray(formData.whatToDo) 
         ? formData.whatToDo.filter(item => item.trim() !== "")
         : formData.whatToDo 

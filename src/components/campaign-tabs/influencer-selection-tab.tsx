@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export function InfluencerSelectionTab({
   campaignPhases: _campaignPhases = [],
 }: InfluencerSelectionTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
   const [filterSocialNetwork, setFilterSocialNetwork] = useState("");
@@ -263,6 +265,16 @@ export function InfluencerSelectionTab({
         },
         {
           onSuccess: () => {
+            // Invalidar queries para atualizar os dados automaticamente
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "influencers"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "dashboard"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "users"],
+            });
             toast.success("Influenciador convidado com sucesso!");
             handleCloseModal();
           },
@@ -272,6 +284,7 @@ export function InfluencerSelectionTab({
         }
       );
     } else if (modalType === "curation") {
+      // Tenta atualizar o status primeiro (caso o influenciador já esteja na campanha)
       updateStatus(
         {
           influencer_id: selectedInfluencer.id,
@@ -280,11 +293,72 @@ export function InfluencerSelectionTab({
         },
         {
           onSuccess: () => {
+            // Invalidar queries para atualizar os dados automaticamente
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "influencers"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "dashboard"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "users"],
+            });
             toast.success("Influenciador adicionado para curadoria!");
             handleCloseModal();
           },
           onError: (error: any) => {
-            toast.error(error?.message || "Erro ao adicionar influenciador para curadoria");
+            // Se o erro for que o influenciador não está na campanha, adiciona primeiro
+            const errorMessage = error?.message || "";
+            if (
+              errorMessage.includes("não encontrado") ||
+              errorMessage.includes("not found") ||
+              errorMessage.includes("não está") ||
+              errorMessage.includes("not in")
+            ) {
+              // Adiciona o influenciador à campanha primeiro
+              inviteInfluencer(
+                {
+                  influencer_id: selectedInfluencer.id,
+                  message: undefined,
+                },
+                {
+                  onSuccess: () => {
+                    // Após adicionar, atualiza o status para "curation"
+                    updateStatus(
+                      {
+                        influencer_id: selectedInfluencer.id,
+                        status: "curation",
+                        feedback: curationNotes || undefined,
+                      },
+                      {
+                        onSuccess: () => {
+                          // Invalidar queries para atualizar os dados automaticamente
+                          queryClient.invalidateQueries({
+                            queryKey: ["campaigns", campaignId, "influencers"],
+                          });
+                          queryClient.invalidateQueries({
+                            queryKey: ["campaigns", campaignId, "dashboard"],
+                          });
+                          queryClient.invalidateQueries({
+                            queryKey: ["campaigns", campaignId, "users"],
+                          });
+                          toast.success("Influenciador adicionado para curadoria!");
+                          handleCloseModal();
+                        },
+                        onError: (updateError: any) => {
+                          toast.error(updateError?.message || "Erro ao atualizar status para curadoria");
+                        },
+                      }
+                    );
+                  },
+                  onError: (inviteError: any) => {
+                    toast.error(inviteError?.message || "Erro ao adicionar influenciador à campanha");
+                  },
+                }
+              );
+            } else {
+              toast.error(errorMessage || "Erro ao adicionar influenciador para curadoria");
+            }
           },
         }
       );

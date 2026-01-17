@@ -305,8 +305,18 @@ export function CreateCampaignStepSeven({
                 <p className="text-sm text-neutral-600 mb-1">
                   Benefícios inclusos na campanha
                 </p>
-                <div className="text-base text-neutral-950 whitespace-pre-line">
-                  {formData.benefits || "-"}
+                <div className="text-base text-neutral-950">
+                  {Array.isArray(formData.benefits)
+                    ? formData.benefits.length > 0
+                      ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {formData.benefits.filter(item => item.trim() !== "").map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        )
+                      : "-"
+                    : formData.benefits || "-"}
                 </div>
               </div>
             </div>

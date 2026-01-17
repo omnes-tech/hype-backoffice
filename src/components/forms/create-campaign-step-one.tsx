@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
 import { useNiches } from "@/hooks/use-niches";
@@ -24,21 +25,41 @@ export function CreateCampaignStepOne({
   const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
   const { user } = useAuth();
 
-  // Filtrar apenas subnichos (nichos com parent_id não nulo)
-  const subnicheOptions = useMemo(() => {
+  // Filtrar apenas nichos principais (nichos sem parent_id)
+  const mainNicheOptions = useMemo(() => {
     return niches
-      .filter((niche) => !!niche.parent_id)
+      .filter((niche) => niche.parent_id === null)
       .map((niche) => ({
         value: niche.id.toString(),
         label: niche.name,
       }));
   }, [niches]);
 
+  // Filtrar subnichos baseado no nicho principal selecionado
+  const subnicheOptions = useMemo(() => {
+    if (!formData.mainNiche) {
+      return [];
+    }
+    const mainNicheId = parseInt(formData.mainNiche, 10);
+    return niches
+      .filter((niche) => niche.parent_id === mainNicheId)
+      .map((niche) => ({
+        value: niche.id.toString(),
+        label: niche.name,
+      }));
+  }, [niches, formData.mainNiche]);
+
   const selectedSubniches = useMemo(() => {
     return formData.subniches
       ? formData.subniches.split(",").filter(Boolean)
       : [];
   }, [formData.subniches]);
+
+  const handleMainNicheChange = (value: string) => {
+    updateFormData("mainNiche", value);
+    // Limpar subnichos selecionados quando o nicho principal mudar
+    updateFormData("subniches", "");
+  };
 
   const handleSubnichesChange = (values: string[]) => {
     updateFormData("subniches", values.join(","));
@@ -73,19 +94,37 @@ export function CreateCampaignStepOne({
           onChange={(e) => updateFormData("description", e.target.value)}
         />
 
-        <MultiSelect
-          label="Subnichos da Campanha"
+        <Select
+          label="Nicho Principal"
           placeholder={
             isLoadingNiches
-              ? "Carregando subnichos..."
-              : "Selecione os subnichos que representam o foco da campanha"
+              ? "Carregando nichos..."
+              : "Selecione o nicho principal da campanha"
           }
-          options={subnicheOptions}
-          value={selectedSubniches}
-          onChange={handleSubnichesChange}
-          menuPlacement="top"
+          options={mainNicheOptions}
+          value={formData.mainNiche}
+          onChange={handleMainNicheChange}
           disabled={isLoadingNiches}
+          openUp={true}
         />
+
+        {formData.mainNiche && (
+          <MultiSelect
+            label="Subnichos da Campanha"
+            placeholder={
+              isLoadingNiches
+                ? "Carregando subnichos..."
+                : subnicheOptions.length === 0
+                ? "Nenhum subnicho disponível para este nicho"
+                : "Selecione os subnichos que representam o foco da campanha"
+            }
+            options={subnicheOptions}
+            value={selectedSubniches}
+            onChange={handleSubnichesChange}
+            menuPlacement="top"
+            disabled={isLoadingNiches || subnicheOptions.length === 0}
+          />
+        )}
       </div>
 
       <div className="w-fit self-end">

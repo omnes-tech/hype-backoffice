@@ -95,6 +95,7 @@ function RouteComponent() {
   const [formData, setFormData] = useState<CampaignFormData>({
     title: "",
     description: "",
+    mainNiche: "",
     subniches: "",
     influencersCount: "",
     minFollowers: "",
@@ -241,7 +242,9 @@ function RouteComponent() {
       max_influencers: parseInt(unformatNumber(formData.influencersCount)) || 0,
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
-      benefits: formData.benefits || "",
+      benefits: Array.isArray(formData.benefits)
+        ? formData.benefits.filter(item => item.trim() !== "").join("\n")
+        : formData.benefits || "",
       rules_does: Array.isArray(formData.whatToDo) 
         ? formData.whatToDo.filter(item => item.trim() !== "")
         : formData.whatToDo 
@@ -372,6 +375,7 @@ function RouteComponent() {
       const resetFormData: CampaignFormData = {
         title: "",
         description: "",
+        mainNiche: "",
         subniches: "",
         influencersCount: "",
         minFollowers: "",

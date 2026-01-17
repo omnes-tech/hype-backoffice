@@ -117,6 +117,7 @@ export interface CampaignPhase {
 export interface CampaignFormData {
   title: string;
   description: string;
+  mainNiche: string;
   subniches: string;
   influencersCount: string;
   minFollowers: string;
@@ -131,7 +132,7 @@ export interface CampaignFormData {
   paymentCpaActions: string; // Quais ações geram CPA
   paymentCpaValue: string; // Valor do CPA
   paymentCpmValue: string; // Valor do CPM
-  benefits: string;
+  benefits: string | string[]; // Aceita string (compatibilidade) ou array de strings
   generalObjective: string;
   whatToDo: string | string[]; // Aceita string (compatibilidade) ou array de strings
   whatNotToDo: string | string[]; // Aceita string (compatibilidade) ou array de strings

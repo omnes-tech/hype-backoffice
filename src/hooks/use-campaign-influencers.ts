@@ -25,6 +25,12 @@ export function useUpdateInfluencerStatus(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "influencers"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "users"],
+      });
     },
   });
 }
@@ -38,6 +44,12 @@ export function useInviteInfluencer(campaignId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "influencers"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "users"],
       });
     },
   });

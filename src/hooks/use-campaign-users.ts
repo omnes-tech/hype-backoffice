@@ -23,6 +23,12 @@ export function useUpdateCampaignUserStatus(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "users"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "influencers"],
+      });
     },
   });
 }
