@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 
 import { clsx } from "clsx";
+import { getUploadUrl } from "@/lib/utils/api";
 
 interface AvatarProps extends Omit<ComponentProps<"img">, "src"> {
   src?: string;
@@ -20,6 +21,9 @@ const sizeStyles = {
 };
 
 export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
+  // Normalizar a URL da imagem usando getUploadUrl
+  const normalizedSrc = src ? getUploadUrl(src) : undefined;
+
   return (
     <div
       className={clsx(
@@ -27,9 +31,9 @@ export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
         sizeStyles[size]
       )}
     >
-      {src ? (
+      {normalizedSrc ? (
         <img
-          src={src}
+          src={normalizedSrc}
           alt={alt}
           {...props}
           className="w-full h-full object-cover"

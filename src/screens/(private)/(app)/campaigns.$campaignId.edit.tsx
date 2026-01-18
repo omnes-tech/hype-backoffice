@@ -148,6 +148,13 @@ function RouteComponent() {
           : "",
         benefits: campaign.benefits
           ? (() => {
+              // Se já for um array, retornar diretamente
+              if (Array.isArray(campaign.benefits)) {
+                return campaign.benefits.filter(item => item.trim() !== "").length > 0 
+                  ? campaign.benefits.filter(item => item.trim() !== "") 
+                  : [""];
+              }
+              // Se for string, fazer parsing (compatibilidade com dados antigos)
               const lines = campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line);
               // Se tiver marcadores (., -, •), usar a lógica de parsing
               if (lines.some(line => line.startsWith('.') || line.startsWith('-') || line.startsWith('•'))) {
@@ -253,8 +260,10 @@ function RouteComponent() {
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
       benefits: Array.isArray(formData.benefits)
-        ? formData.benefits.filter(item => item.trim() !== "").join("\n")
-        : (typeof formData.benefits === "string" ? formData.benefits : "") || "",
+        ? formData.benefits.filter(item => item.trim() !== "")
+        : formData.benefits
+          ? [formData.benefits].filter(item => item.trim() !== "")
+          : [],
       rules_does: Array.isArray(formData.whatToDo) 
         ? formData.whatToDo.filter(item => item.trim() !== "")
         : formData.whatToDo 

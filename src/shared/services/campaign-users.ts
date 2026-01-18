@@ -1,7 +1,8 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 
 export interface CampaignUser {
-  id: string;
+  id: number | string; // campaignUserId (ID da tabela campaign_users) - usar este para WebSocket
+  user_id?: number | string; // userId/influencerId (user_id do usuário) - NÃO usar como campaignUserId
   name: string;
   username: string;
   avatar: string;
@@ -82,7 +83,22 @@ export async function getCampaignUsers(
   }
 
   const response = await request.json();
+  
+  // Log para debug: verificar estrutura dos dados retornados
+  console.log("📋 API Response - Campaign Users:", {
+    total: response.data?.length || 0,
+    sample: response.data?.slice(0, 3).map((u: any) => ({
+      id: u.id,
+      idType: typeof u.id,
+      user_id: u.user_id,
+      user_idType: typeof u.user_id,
+      name: u.name,
+      note: "id é campaignUserId, user_id é userId/influencerId",
+    })),
+  });
+  
   // Normalizar status de todos os usuários para inglês
+  // A API agora retorna: id="21" (campaignUserId) e user_id="74" (userId)
   return response.data.map((user: CampaignUser) => ({
     ...user,
     status: normalizeStatus(user.status),

@@ -34,7 +34,7 @@ export interface Campaign {
     currency?: string;
     description?: string;
   };
-  benefits?: string;
+  benefits?: string | string[]; // Aceita string (compatibilidade) ou array de strings
   rules_does?: string | string[]; // Aceita string (compatibilidade) ou array de strings
   rules_does_not?: string | string[]; // Aceita string (compatibilidade) ou array de strings
   segment_min_followers?: number;
@@ -158,17 +158,31 @@ export interface Influencer {
 
 export interface CampaignContent {
   id: string;
+  campaign_id?: string;
+  influencer_id?: string;
   influencerId: string;
+  influencer_name?: string;
   influencerName: string;
+  influencer_avatar?: string;
   influencerAvatar: string;
+  social_network?: string;
   socialNetwork: string;
+  content_type?: string;
   contentType: string;
+  preview_url?: string;
   previewUrl: string;
+  preview_urls?: string[]; // Array com todas as URLs de preview
+  previewUrls?: string[]; // Alias para compatibilidade
+  post_url?: string;
   postUrl: string;
-  status: "pending" | "approved" | "rejected" | "published";
+  status: "pending" | "approved" | "adjustment_requested" | "rejected" | "published";
+  phase_id?: string | null;
+  submitted_at?: string;
   submittedAt: string;
+  published_at?: string | null;
   publishedAt?: string;
-  feedback?: string;
+  feedback?: string | null;
+  ai_evaluation?: any | null;
 }
 
 export interface ContentMetrics {
@@ -190,12 +204,22 @@ export interface InfluencerList {
 
 export interface ChatMessage {
   id: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
-  message: string;
-  timestamp: string;
-  isFromInfluencer: boolean;
+  campaign_id: string;
+  campaign_user_id?: number; // ID do campaign_users (apenas em WebSocket)
+  influencer_id?: string; // ID do influenciador (apenas em REST API)
+  sender_id: string; // ID do usuário remetente
+  sender_name: string; // Nome do remetente
+  sender_avatar: string | null; // URL do avatar ou null
+  message: string; // Texto da mensagem
+  attachments: string[]; // Array de URLs de arquivos anexados
+  read_at: string | null; // ISO 8601 timestamp quando foi lida, ou null
+  created_at: string; // ISO 8601 timestamp de criação
+  // Campos legados para compatibilidade
+  senderId?: string;
+  senderName?: string;
+  senderAvatar?: string;
+  timestamp?: string;
+  isFromInfluencer?: boolean;
 }
 
 export interface AIEvaluation {

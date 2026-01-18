@@ -14,12 +14,12 @@ function RouteComponent() {
   const stats = useMemo(() => {
     const total = campaignsData.length;
     const active = campaignsData.filter(
-      (c: any) => c.status === "active"
+      (c: any) => c.status.value === "active"
     ).length;
     const finished = campaignsData.filter(
-      (c: any) => c.status === "finished"
+      (c: any) => c.status.value === "finished"
     ).length;
-    const draft = campaignsData.filter((c: any) => c.status === "draft").length;
+    const draft = campaignsData.filter((c: any) => c.status.value === "draft").length;
 
     return { total, active, finished, draft };
   }, [campaignsData]);
@@ -133,7 +133,7 @@ function RouteComponent() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <StatusBadge status={campaign.status} />
+                  <StatusBadge status={campaign.status.value} />
                   <Icon name="ChevronRight" color="#525252" size={20} />
                 </div>
               </Link>

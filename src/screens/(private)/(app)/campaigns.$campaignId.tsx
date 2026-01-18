@@ -19,6 +19,7 @@ import { useCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
+import { useNiches } from "@/hooks/use-niches";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { formatCurrency } from "@/shared/utils/masks";
 
@@ -70,6 +71,9 @@ function RouteComponent() {
     data: campaignUsers = [],
   } = useCampaignUsers(campaignId);
 
+  // Buscar nichos para determinar o nicho principal
+  const { data: niches = [] } = useNiches();
+
   // Extrair dados do dashboard
   const phases = dashboardData?.phases || [];
   const influencers = dashboardData?.influencers || [];
@@ -79,20 +83,33 @@ function RouteComponent() {
   const campaignFormData = useMemo(() => {
     if (!campaign) return null;
 
+    // Processar subnichos
+    const subnicheIds = Array.isArray(campaign.secondary_niches)
+      ? campaign.secondary_niches
+          .map((n: any) => {
+            const name = typeof n === 'object' ? n.name : String(n);
+            return getSubnicheValueByLabel(name);
+          })
+          .filter(Boolean)
+      : campaign.secondary_niches 
+        ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
+        : [];
+    
+    // Determinar o nicho principal a partir do primeiro subnicho selecionado
+    let mainNicheId = "";
+    if (subnicheIds.length > 0 && niches.length > 0) {
+      const firstSubnicheId = parseInt(subnicheIds[0], 10);
+      const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
+      if (firstSubniche?.parent_id) {
+        mainNicheId = firstSubniche.parent_id.toString();
+      }
+    }
+
     return {
       title: campaign.title || "",
       description: campaign.description || "",
-      subniches: Array.isArray(campaign.secondary_niches)
-        ? campaign.secondary_niches
-            .map((n: any) => {
-              const name = typeof n === 'object' ? n.name : String(n);
-              // Tentar encontrar o valor correspondente ao nome, ou usar o nome como fallback
-              return getSubnicheValueByLabel(name);
-            })
-            .join(",")
-        : campaign.secondary_niches 
-          ? getSubnicheValueByLabel(String(campaign.secondary_niches))
-          : "",
+      mainNiche: mainNicheId,
+      subniches: subnicheIds.join(","),
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
       state: Array.isArray(campaign.segment_state) 
@@ -126,7 +143,13 @@ function RouteComponent() {
       paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
         ? formatCurrency(campaign.payment_method_details.amount.toString())
         : "",
-      benefits: campaign.benefits || "",
+      benefits: campaign.benefits
+        ? (Array.isArray(campaign.benefits)
+            ? campaign.benefits
+            : campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line).length > 0
+              ? campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line)
+              : [""])
+        : [""],
       generalObjective: campaign.objective || "",
       whatToDo: Array.isArray(campaign.rules_does) 
         ? campaign.rules_does 
@@ -144,7 +167,7 @@ function RouteComponent() {
       phasesCount: phases.length.toString(),
       phases: phases, // Já vem transformado do hook useCampaignDashboard
     };
-  }, [campaign, phases]);
+  }, [campaign, phases, niches]);
 
   // Calcular progresso
   const progressPercentage = useMemo(() => {
@@ -274,7 +297,6 @@ function RouteComponent() {
       case "approval":
         return (
           <ContentApprovalTab
-            contents={contents}
             campaignPhases={phases}
           />
         );

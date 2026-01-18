@@ -31,17 +31,15 @@ import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import type { Influencer, CampaignPhase } from "@/shared/types";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
-import {
-  useInfluencerMessages,
-  useSendMessage,
-} from "@/hooks/use-campaign-chat";
-import { useUpdateCampaignUserStatus } from "@/hooks/use-campaign-users";
+import { useChat } from "@/hooks/use-chat";
+import { useCampaignUsers } from "@/hooks/use-campaign-users";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface ManagementTabProps {
   influencers: Influencer[];
   campaignPhases?: CampaignPhase[];
   campaignUsers?: Array<{
-    id: string;
+    id: string | number;
     name: string;
     username: string;
     avatar: string;
@@ -59,10 +57,16 @@ interface StatusHistory {
   notes?: string;
 }
 
-interface ExtendedInfluencer extends Influencer {
+interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
+  id: string | number;
   socialNetwork?: string;
   statusHistory?: StatusHistory[];
 }
+
+// Helper para converter ID para string
+const idToString = (id: string | number): string => {
+  return typeof id === 'number' ? String(id) : id;
+};
 
 const kanbanColumns = [
   { id: "applications", label: "Inscrições", color: "bg-neutral-50" },
@@ -70,7 +74,7 @@ const kanbanColumns = [
   { id: "invited", label: "Convidados", color: "bg-yellow-50" },
   {
     id: "approved",
-    label: "Aprovados/Em Andamento",
+    label: "Aprovado/Em Andamento",
     color: "bg-green-50",
   },
   {
@@ -78,16 +82,16 @@ const kanbanColumns = [
     label: "Aguardando Aprovação",
     color: "bg-orange-50",
   },
-  { id: "in_correction", label: "Em Correção", color: "bg-yellow-100" },
+  { id: "in_correction", label: "Correção", color: "bg-yellow-100" },
   {
     id: "content_approved",
-    label: "Conteúdo Aprovado/Aguardando Publicação",
+    label: "Conteúdo aprovado",
     color: "bg-purple-50",
   },
   { id: "published", label: "Publicado", color: "bg-success-50" },
   {
     id: "rejected",
-    label: "Recusados",
+    label: "Recusado",
     color: "bg-danger-50",
     highlight: true,
   },
@@ -213,6 +217,12 @@ function SortableInfluencerCard({
                   setIsRejectModalOpen(true);
                 } else if (action.action === "curation") {
                   onMoveToCuration(influencer);
+                } else if (action.action === "invite" && action.targetStatus) {
+                  // Convidar influenciador - usar onApprove com status invited
+                  onApprove(influencer, action.targetStatus);
+                } else if (action.action === "applications" && action.targetStatus) {
+                  // Reativar - mover para applications
+                  onApprove(influencer, action.targetStatus);
                 }
               }}
               style={{ fontSize: "10px", height: "24px", padding: "0 8px" }}
@@ -265,9 +275,8 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`${column.color} rounded-xl p-2.5 min-w-[200px] max-w-[200px] min-h-[300px] shrink-0 transition-colors ${
-        isOver ? "ring-2 ring-primary-500 ring-offset-2" : ""
-      }`}
+      className={`${column.color} rounded-xl p-2.5 min-w-[200px] max-w-[200px] min-h-[300px] shrink-0 transition-colors ${isOver ? "ring-2 ring-primary-500 ring-offset-2" : ""
+        }`}
     >
       <div className="flex items-center justify-between mb-2">
         <h4
@@ -378,7 +387,6 @@ export function ManagementTab({
   // Hooks para mutations
   const { mutate: updateStatus, isPending: isUpdatingStatus } =
     useUpdateInfluencerStatus(campaignId);
-  const { mutate: updateUserStatus } = useUpdateCampaignUserStatus(campaignId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -422,24 +430,6 @@ export function ManagementTab({
       conteudo_rejeitado: "in_correction",
     };
     return statusMap[status.toLowerCase()] || "applications";
-  };
-
-  // Função para mapear coluna do Kanban para action da API
-  const mapKanbanColumnToUserAction = (
-    columnId: string
-  ): "approved" | "curation" | "rejected" | "applications" | null => {
-    const columnMap: {
-      [key: string]: "approved" | "curation" | "rejected" | "applications";
-    } = {
-      applications: "applications",
-      approved: "approved",
-      curation: "curation",
-      rejected: "rejected",
-      // Compatibilidade com valores antigos
-      inscriptions: "applications",
-      approved_progress: "approved",
-    };
-    return columnMap[columnId] || null;
   };
 
   // Verificar se um ID pertence a um usuário da campanha
@@ -560,36 +550,36 @@ export function ManagementTab({
     influencersState.length > 0
       ? influencersState
       : influencers.map((inf, index) => {
-          const currentMappedStatus = mapUserStatusToKanbanColumn(
-            inf.status || ""
-          );
-          return {
-            ...inf,
-            socialNetwork: [
-              "instagram",
-              "tiktok",
-              "youtube",
-              "instagram",
-              "tiktok",
-            ][index % 5],
-            statusHistory: [
-              {
-                id: "1",
-                status: "applications",
-                timestamp: new Date(
-                  Date.now() - 7 * 24 * 60 * 60 * 1000
-                ).toISOString(),
-                notes: "Influencer enrolled in campaign",
-              },
-              {
-                id: "2",
-                status: currentMappedStatus,
-                timestamp: new Date().toISOString(),
-                notes: "Status updated",
-              },
-            ],
-          };
-        });
+        const currentMappedStatus = mapUserStatusToKanbanColumn(
+          inf.status || ""
+        );
+        return {
+          ...inf,
+          socialNetwork: [
+            "instagram",
+            "tiktok",
+            "youtube",
+            "instagram",
+            "tiktok",
+          ][index % 5],
+          statusHistory: [
+            {
+              id: "1",
+              status: "applications",
+              timestamp: new Date(
+                Date.now() - 7 * 24 * 60 * 60 * 1000
+              ).toISOString(),
+              notes: "Influencer enrolled in campaign",
+            },
+            {
+              id: "2",
+              status: currentMappedStatus,
+              timestamp: new Date().toISOString(),
+              notes: "Status updated",
+            },
+          ],
+        };
+      });
 
   const getCurrentStatus = (inf: ExtendedInfluencer): string => {
     // Priorizar o status direto do objeto (mais confiável e atualizado)
@@ -662,14 +652,14 @@ export function ManagementTab({
   ) => {
     updateStatus(
       {
-        influencer_id: influencer.id,
+        influencer_id: idToString(influencer.id),
         status: targetStatus,
         feedback: "Aprovado pelo usuário",
       },
       {
         onSuccess: () => {
           updateInfluencerStatus(
-            influencer.id,
+            idToString(influencer.id),
             targetStatus,
             "Aprovado pelo usuário"
           );
@@ -692,13 +682,13 @@ export function ManagementTab({
 
     updateStatus(
       {
-        influencer_id: influencer.id,
+        influencer_id: idToString(influencer.id),
         status: "rejected",
         feedback,
       },
       {
         onSuccess: () => {
-          updateInfluencerStatus(influencer.id, "rejected", feedback);
+          updateInfluencerStatus(idToString(influencer.id), "rejected", feedback);
           toast.success("Influenciador recusado");
           setIsRejectModalOpen(false);
           setRejectFeedback("");
@@ -715,14 +705,14 @@ export function ManagementTab({
   const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
     updateStatus(
       {
-        influencer_id: influencer.id,
+        influencer_id: idToString(influencer.id),
         status: "curation",
         feedback: "Movido para curadoria",
       },
       {
         onSuccess: () => {
           updateInfluencerStatus(
-            influencer.id,
+            idToString(influencer.id),
             "curation",
             "Movido para curadoria"
           );
@@ -740,53 +730,65 @@ export function ManagementTab({
   };
 
   const getAvailableActions = (status: string) => {
+    // Ações disponíveis conforme documentação de status
     switch (status) {
       case "applications":
+        // Pode mover para curadoria, convidar ou rejeitar
         return [
-          {
-            label: "Aprovar",
-            action: "approve",
-            targetStatus: "approved",
-          },
-          { label: "Recusar", action: "reject" },
-          { label: "Mover para Curadoria", action: "curation" },
+          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
+          { label: "Convidar", action: "invite", targetStatus: "invited" },
+          { label: "Recusar", action: "reject", targetStatus: "rejected" },
         ];
       case "curation":
+        // Pode aprovar ou rejeitar (não pode convidar, pois já está em curadoria)
         return [
           {
             label: "Aprovar",
             action: "approve",
             targetStatus: "approved",
           },
-          { label: "Recusar", action: "reject" },
+          { label: "Recusar", action: "reject", targetStatus: "rejected" },
         ];
       case "invited":
-        // Influencer already invited, waiting for response in app
-        return [];
-      case "approved":
-        // Waiting for content upload by influencer
-        return [];
-      case "pending_approval":
+        // Influenciador já foi convidado, aguardando resposta no app
+        // Backoffice pode aprovar diretamente ou rejeitar
         return [
           {
-            label: "Aprovar Conteúdo",
+            label: "Aprovar",
             action: "approve",
-            targetStatus: "content_approved",
+            targetStatus: "approved",
           },
-          { label: "Recusar Conteúdo", action: "reject" },
+          { label: "Recusar", action: "reject", targetStatus: "rejected" },
         ];
+      case "approved":
+        // Aguardando upload de conteúdo pelo influenciador
+        // Backoffice pode mover para curadoria ou rejeitar
+        return [
+          { label: "Recusar", action: "reject", targetStatus: "rejected" },
+        ];
+      case "pending_approval":
+        // Conteúdo aguardando aprovação
+        // Nota: Aprovação/rejeição de conteúdo deve ser feita na aba "Aprovação de Conteúdo"
+        // O status muda automaticamente quando o conteúdo é aprovado/rejeitado
+        return [];
       case "in_correction":
-        // Waiting for new upload from influencer
+        // Aguardando novo upload do influenciador após correção
+        // Não há ações disponíveis - aguarda reenvio automático
         return [];
       case "content_approved":
-        // Waiting for publication and identification by bot
+        // Conteúdo aprovado, aguardando publicação e identificação pelo bot
+        // Não há ações disponíveis - processo automático
         return [];
       case "published":
-        // Phase completed
+        // Conteúdo publicado - fase concluída
+        // Não há ações disponíveis
         return [];
       case "rejected":
-        // No actions available for rejected
-        return [];
+        // Rejeitado - pode ser reativado movendo para applications ou curation
+        return [
+          { label: "Reativar (Applications)", action: "applications", targetStatus: "applications" },
+          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
+        ];
       default:
         return [];
     }
@@ -799,13 +801,13 @@ export function ManagementTab({
 
   const getSocialNetworkIcon = (network?: string) => {
     const icons: { [key: string]: keyof typeof import("lucide-react").icons } =
-      {
-        instagram: "Instagram",
-        youtube: "Youtube",
-        tiktok: "Music",
-        facebook: "Facebook",
-        twitter: "Twitter",
-      };
+    {
+      instagram: "Instagram",
+      youtube: "Youtube",
+      tiktok: "Music",
+      facebook: "Facebook",
+      twitter: "Twitter",
+    };
     return icons[network || ""] || "Share2";
   };
 
@@ -894,7 +896,7 @@ export function ManagementTab({
       const targetStatus = targetColumn.id;
 
       // Verifica se é um usuário da campanha
-      const isUser = isCampaignUser(draggedInfluencer.id);
+      const isUser = isCampaignUser(idToString(draggedInfluencer.id));
 
       if (isUser) {
         // Para usuários da campanha, validar transição
@@ -910,26 +912,17 @@ export function ManagementTab({
           return;
         }
 
-        // Mapear coluna para action da API
-        const action = mapKanbanColumnToUserAction(targetStatus);
-
-        if (!action) {
-          toast.error(
-            `Não é possível mover para "${getStatusLabel(targetStatus)}"`
-          );
-          return;
-        }
-
-        // Atualizar status do usuário via API
-        updateUserStatus(
+        // Atualizar status do influenciador via API usando a rota correta
+        const notes = getTransitionNote(currentStatus, targetStatus);
+        updateStatus(
           {
-            userId: draggedInfluencer.id,
-            data: { action },
+            influencer_id: idToString(draggedInfluencer.id),
+            status: targetStatus,
+            feedback: notes,
           },
           {
             onSuccess: () => {
-              const notes = getTransitionNote(currentStatus, targetStatus);
-              updateInfluencerStatus(draggedInfluencer.id, targetStatus, notes);
+              updateInfluencerStatus(idToString(draggedInfluencer.id), targetStatus, notes);
               toast.success("Status do usuário atualizado com sucesso!");
             },
             onError: (error: any) => {
@@ -966,13 +959,13 @@ export function ManagementTab({
       const notes = getTransitionNote(currentStatus, targetStatus);
       updateStatus(
         {
-          influencer_id: draggedInfluencer.id,
+          influencer_id: idToString(draggedInfluencer.id),
           status: apiStatus,
           feedback: notes,
         },
         {
           onSuccess: () => {
-            updateInfluencerStatus(draggedInfluencer.id, targetStatus, notes);
+            updateInfluencerStatus(idToString(draggedInfluencer.id), targetStatus, notes);
             toast.success("Status atualizado com sucesso!");
           },
           onError: (error: any) => {
@@ -1000,20 +993,30 @@ export function ManagementTab({
     fromStatus: string,
     toStatus: string
   ): boolean => {
-    // Regras de transição válidas (usando valores do enum do backend)
+    // Regras de transição válidas conforme documentação de status
+    // Baseado em: API_ENDPOINTS_BACKOFFICE_CHAT.md e Untitled.md
     const validTransitions: { [key: string]: string[] } = {
-      applications: ["approved", "rejected", "curation"],
-      curation: ["approved", "rejected"],
-      invited: ["approved", "rejected"], // When influencer accepts/rejects in app
-      approved: ["pending_approval"], // When uploads content
-      pending_approval: ["content_approved", "in_correction"], // Approve or reject content
-      in_correction: ["pending_approval"], // New upload
-      content_approved: ["published"], // Bot identifies publication
-      published: [], // Final state
-      rejected: [], // Final state
+      // applications → curation, invited, rejected
+      applications: ["curation", "invited", "rejected"],
+      // curation → invited, approved, rejected
+      curation: ["invited", "approved", "rejected"],
+      // invited → approved, rejected
+      invited: ["approved", "rejected"],
+      // approved → pending_approval, rejected
+      approved: ["pending_approval", "rejected"],
+      // pending_approval → content_approved, in_correction
+      pending_approval: ["content_approved", "in_correction"],
+      // in_correction → pending_approval
+      in_correction: ["pending_approval"],
+      // content_approved → published
+      content_approved: ["published"],
+      // published → nenhum (status final)
+      published: [],
+      // rejected → nenhum (status final)
+      rejected: [],
       // Compatibilidade com valores antigos
-      inscriptions: ["approved", "rejected", "curation"],
-      approved_progress: ["pending_approval"],
+      inscriptions: ["curation", "invited", "rejected"],
+      approved_progress: ["pending_approval", "rejected"],
       awaiting_approval: ["content_approved", "in_correction"],
     };
 
@@ -1021,19 +1024,41 @@ export function ManagementTab({
     return allowedStatuses.includes(toStatus);
   };
 
-  // Para usuários da campanha, permitir transições mais flexíveis
+  // Para usuários da campanha, permitir transições conforme documentação
+  // O backoffice pode mover manualmente entre: applications, curation, invited, approved, rejected
+  // Os status pending_approval, in_correction, content_approved, published são automáticos
   const validateUserStatusTransition = (
     fromStatus: string,
     toStatus: string
   ): boolean => {
-    // Users can be moved between: applications, approved, curation, rejected
+    // Status automáticos não podem ser movidos manualmente
+    const automaticStatuses = [
+      "pending_approval",
+      "in_correction",
+      "content_approved",
+      "published",
+    ];
+
+    // Se o status de destino é automático, não permitir movimento manual
+    if (automaticStatuses.includes(toStatus)) {
+      return false;
+    }
+
+    // Transições válidas para movimento manual pelo backoffice
     const userValidTransitions: { [key: string]: string[] } = {
-      applications: ["approved", "rejected", "curation"],
-      curation: ["approved", "rejected", "applications"],
-      approved: ["curation", "rejected", "applications"],
+      // applications → curation, invited, rejected
+      applications: ["curation", "invited", "rejected"],
+      // curation → invited, approved, rejected
+      curation: ["invited", "approved", "rejected"],
+      // invited → approved, rejected
+      invited: ["approved", "rejected"],
+      // approved → curation, rejected (não pode voltar para applications ou invited)
+      approved: ["curation", "rejected"],
+      // rejected → applications, curation (pode ser reativado)
       rejected: ["applications", "curation"],
-      inscriptions: ["approved", "rejected", "curation"],
-      approved_progress: ["curation", "rejected", "applications"],
+      // Compatibilidade com valores antigos
+      inscriptions: ["curation", "invited", "rejected"],
+      approved_progress: ["curation", "rejected"],
     };
 
     const allowedStatuses = userValidTransitions[fromStatus] || [];
@@ -1041,24 +1066,37 @@ export function ManagementTab({
   };
 
   const getTransitionNote = (fromStatus: string, toStatus: string): string => {
+    // Notas de transição conforme documentação de status
     const notes: { [key: string]: string } = {
-      "applications->approved": "Aprovado pelo usuário",
-      "applications->rejected": "Recusado pelo usuário",
+      // Transições de applications
       "applications->curation": "Movido para curadoria",
+      "applications->invited": "Convidado para participar",
+      "applications->rejected": "Recusado",
+      // Transições de curation
+      "curation->invited": "Convidado após curadoria",
       "curation->approved": "Aprovado após curadoria",
       "curation->rejected": "Recusado após curadoria",
+      // Transições de invited
       "invited->approved": "Aceitou o convite",
       "invited->rejected": "Recusou o convite",
+      // Transições de approved
       "approved->pending_approval": "Conteúdo enviado para aprovação",
+      "approved->rejected": "Removido da campanha",
+      "approved->curation": "Movido para curadoria",
+      // Transições de pending_approval
       "pending_approval->content_approved": "Conteúdo aprovado",
-      "pending_approval->in_correction":
-        "Conteúdo recusado, aguardando correção",
-      "in_correction->pending_approval": "Novo conteúdo enviado",
+      "pending_approval->in_correction": "Conteúdo recusado, aguardando correção",
+      // Transições de in_correction
+      "in_correction->pending_approval": "Novo conteúdo enviado após correção",
+      // Transições de content_approved
       "content_approved->published": "Publicação identificada pelo bot",
+      // Transições de rejected (reativação)
+      "rejected->applications": "Reativado - movido para inscrições",
+      "rejected->curation": "Reativado - movido para curadoria",
       // Compatibilidade com valores antigos
-      "inscriptions->approved": "Aprovado pelo usuário",
-      "inscriptions->approved_progress": "Aprovado pelo usuário",
-      "inscriptions->rejected": "Recusado pelo usuário",
+      "inscriptions->approved": "Aprovado",
+      "inscriptions->approved_progress": "Aprovado",
+      "inscriptions->rejected": "Recusado",
       "inscriptions->curation": "Movido para curadoria",
       "curation->approved_progress": "Aprovado após curadoria",
       "invited->approved_progress": "Aceitou o convite",
@@ -1081,9 +1119,14 @@ export function ManagementTab({
         {/* Controles */}
         <div className="bg-white rounded-3xl p-6 border border-neutral-200">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="outline">
-              <span>Todas as Fases</span>
-            </Button>
+            <div className="w-48">
+              <Select
+                placeholder="Filtrar por fase"
+                options={phaseOptions}
+                value={selectedPhaseFilter}
+                onChange={setSelectedPhaseFilter}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant={viewMode === "kanban" ? "default" : "outline"}
@@ -1099,16 +1142,6 @@ export function ManagementTab({
               </Button>
             </div>
           </div>
-          {campaignPhases.length > 0 && (
-            <div className="w-48">
-              <Select
-                placeholder="Filtrar por fase"
-                options={phaseOptions}
-                value={selectedPhaseFilter}
-                onChange={setSelectedPhaseFilter}
-              />
-            </div>
-          )}
         </div>
 
         {/* Kanban Board */}
@@ -1124,7 +1157,7 @@ export function ManagementTab({
               <div className="flex gap-4 min-w-max">
                 {kanbanColumns.map((column) => {
                   const columnInfluencers = getInfluencersByStatus(column.id);
-                  const influencerIds = columnInfluencers.map((inf) => inf.id);
+                  const influencerIds = columnInfluencers.map((inf) => idToString(inf.id));
                   return (
                     <KanbanColumn
                       key={column.id}
@@ -1527,31 +1560,183 @@ function ChatModal({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
 
-  // Hooks para chat
-  const { data: messagesData = [], isLoading: isLoadingMessages } =
-    useInfluencerMessages(campaignId, influencer.id);
-  const { mutate: sendMessage, isPending: isSending } = useSendMessage(
+  // Obter usuário atual para identificar mensagens do backoffice
+  const { user: currentUser } = useCurrentUser();
+  const currentUserId = currentUser?.id ? String(currentUser.id) : null;
+
+  // Obter lista de usuários da campanha para encontrar campaignUserId
+  const { data: campaignUsers = [], isLoading: isLoadingUsers } = useCampaignUsers(campaignId);
+
+  // Encontrar o campaignUserId a partir do influencerId
+  // O influencer.id pode ser o user_id ou o próprio campaign_user id
+  const influencerIdStr = String(influencer.id);
+  const influencerIdNum = isNaN(parseInt(influencerIdStr, 10)) ? null : parseInt(influencerIdStr, 10);
+
+  // Tentar encontrar o usuário de diferentes formas
+  let campaignUser: typeof campaignUsers[0] | undefined;
+
+  if (influencerIdNum !== null) {
+    // 1. PRIMEIRO: Tentar encontrar por user_id (influencerId é o user_id do usuário)
+    // Este é o caso mais comum: influencer.id = user_id (74), precisamos encontrar campaignUserId (21)
+    campaignUser = campaignUsers.find((u) => {
+      if (!u.user_id) return false;
+      const userId = typeof u.user_id === "string"
+        ? parseInt(u.user_id, 10)
+        : u.user_id;
+      return userId === influencerIdNum;
+    });
+
+    // Log detalhado da busca
+    if (!campaignUser) {
+      console.warn("⚠️ Não encontrado por user_id. Tentando outras formas...", {
+        influencerIdNum,
+        availableUsers: campaignUsers.map(u => ({
+          id: u.id,
+          user_id: u.user_id,
+          name: u.name,
+        })),
+      });
+    }
+
+    // 2. Se não encontrou por user_id, tentar pelo próprio id (influencer.id já é o campaignUserId)
+    // Isso pode acontecer se o influencer.id já for o campaignUserId
+    if (!campaignUser) {
+      campaignUser = campaignUsers.find((u) => {
+        const campaignUserId = typeof u.id === "string"
+          ? parseInt(String(u.id), 10)
+          : Number(u.id);
+        return campaignUserId === influencerIdNum;
+      });
+    }
+  }
+
+  // 3. Tentar correspondência por string também
+  if (!campaignUser) {
+    campaignUser = campaignUsers.find((u) => {
+      return String(u.id) === influencerIdStr ||
+        (u.user_id && String(u.user_id) === influencerIdStr);
+    });
+  }
+
+  // Log final do resultado
+  if (campaignUser) {
+    console.log("✅ CampaignUser encontrado:", {
+      id: campaignUser.id,
+      user_id: campaignUser.user_id,
+      name: campaignUser.name,
+      influencerIdProcurado: influencerIdNum,
+      matchType: campaignUser.user_id === influencerIdNum
+        ? "por user_id"
+        : campaignUser.id === influencerIdNum
+          ? "por id"
+          : "por string",
+    });
+  } else {
+    console.error("❌ CampaignUser NÃO encontrado para influencerId:", influencerIdNum);
+  }
+
+  // IMPORTANTE: campaignUserId é o id do CampaignUser, não o user_id
+  // A API agora retorna: id="21" (campaignUserId) e user_id="74" (userId/influencerId)
+  // Devemos usar o campo 'id' como campaignUserId para o WebSocket
+  const campaignUserId = campaignUser
+    ? (typeof campaignUser.id === "string"
+      ? parseInt(String(campaignUser.id), 10)
+      : Number(campaignUser.id))
+    : null;
+
+  // Validação crítica: garantir que não estamos usando user_id por engano
+  if (campaignUser) {
+    const extractedCampaignUserId = campaignUserId;
+    const extractedUserId = campaignUser.user_id
+      ? (typeof campaignUser.user_id === "string"
+        ? parseInt(String(campaignUser.user_id), 10)
+        : Number(campaignUser.user_id))
+      : null;
+
+    if (extractedCampaignUserId === extractedUserId) {
+      console.error("❌ ERRO CRÍTICO: campaignUserId está igual ao user_id!");
+      console.error("Isso significa que estamos usando o campo errado.");
+      console.error("campaignUser completo:", campaignUser);
+      console.error("campaignUser.id (deve ser campaignUserId):", campaignUser.id, typeof campaignUser.id);
+      console.error("campaignUser.user_id (é o influencerId/userId):", campaignUser.user_id, typeof campaignUser.user_id);
+    } else {
+      console.log("✅ Validação OK - Usando campo correto:", {
+        campaignUserId: extractedCampaignUserId,
+        userId: extractedUserId,
+        note: `campaignUserId=${extractedCampaignUserId} será usado no WebSocket (correto)`,
+      });
+    }
+  }
+
+  // Debug: log para verificar
+  useEffect(() => {
+    if (!isLoadingUsers && campaignUsers.length > 0) {
+      console.log("🔍 Debug Chat - Dados completos:", {
+        influencerId: influencer.id,
+        influencerIdStr,
+        influencerIdNum,
+        campaignUsersCount: campaignUsers.length,
+        campaignUsers: campaignUsers.map(u => ({
+          id: u.id,
+          idType: typeof u.id,
+          user_id: u.user_id,
+          user_idType: typeof u.user_id,
+          name: u.name,
+          // Verificar se id e user_id são iguais (problema!)
+          idsAreEqual: u.id === u.user_id || String(u.id) === String(u.user_id),
+        })),
+        foundCampaignUser: campaignUser ? {
+          id: campaignUser.id,
+          user_id: campaignUser.user_id,
+          name: campaignUser.name,
+          // CRÍTICO: Verificar se estamos usando o campo correto
+          warning: campaignUser.id === campaignUser.user_id
+            ? "⚠️ PROBLEMA: id e user_id são iguais! A API pode estar retornando dados incorretos."
+            : "OK: id e user_id são diferentes",
+        } : null,
+        campaignUserId,
+        willConnect: !!campaignUserId,
+      });
+    }
+  }, [campaignUsers, influencer.id, influencerIdStr, influencerIdNum, campaignUser, campaignUserId, isLoadingUsers]);
+
+  // Hook de chat com WebSocket
+  const {
+    messages,
+    isConnected,
+    isLoading: isLoadingMessages,
+    error: chatError,
+    sendMessage,
+    messagesEndRef,
+  } = useChat({
     campaignId,
-    influencer.id
-  );
+    influencerId: influencerIdNum || 0,
+    campaignUserId: campaignUserId || 0,
+    enabled: !!campaignUserId && influencerIdNum !== null,
+  });
+
+  // Log final para confirmar valores corretos
+  useEffect(() => {
+    if (campaignUserId && campaignUser) {
+      console.log("🎯 Valores finais para WebSocket:", {
+        campaignId,
+        influencerId: influencerIdNum,
+        campaignUserId, // Deve ser 21 (id da tabela campaign_users)
+        userId: campaignUser.user_id
+          ? (typeof campaignUser.user_id === "string"
+            ? parseInt(String(campaignUser.user_id), 10)
+            : Number(campaignUser.user_id))
+          : null, // Deve ser 74 (user_id)
+        note: "campaignUserId será usado no join_room do WebSocket",
+      });
+    }
+  }, [campaignId, influencerIdNum, campaignUserId, campaignUser]);
 
   const [newMessage, setNewMessage] = useState("");
   const [attachments, setAttachments] = useState<
     Array<{ id: string; name: string; file: File }>
   >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Transformar mensagens da API para formato do componente
-  const messages = messagesData.map((msg: any) => ({
-    id: msg.id,
-    senderId: msg.sender_id,
-    senderName: msg.sender_name,
-    senderAvatar: msg.sender_avatar || "",
-    message: msg.message,
-    timestamp: msg.created_at,
-    isFromInfluencer: msg.sender_id === influencer.id,
-    attachments: msg.attachments || [],
-  }));
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1571,6 +1756,10 @@ function ChatModal({
 
   const handleSendMessage = () => {
     if (!newMessage.trim() && attachments.length === 0) return;
+    if (!isConnected) {
+      toast.error("Não conectado ao servidor");
+      return;
+    }
 
     // TODO: Upload de arquivos precisa ser implementado
     // Por enquanto, apenas URLs são suportadas
@@ -1578,103 +1767,162 @@ function ChatModal({
       URL.createObjectURL(att.file)
     );
 
-    sendMessage(
-      {
-        message: newMessage,
-        attachments: attachmentUrls,
-      },
-      {
-        onSuccess: () => {
-          setNewMessage("");
-          setAttachments([]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        },
-        onError: (error: any) => {
-          toast.error(error?.message || "Erro ao enviar mensagem");
-        },
-      }
-    );
+    sendMessage(newMessage.trim(), attachmentUrls);
+
+    setNewMessage("");
+    setAttachments([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Determinar se mensagem é do influenciador ou do backoffice
+  // Influenciador: sender_id === influencerId (user_id) → ESQUERDA
+  // Backoffice: sender_id === currentUserId → DIREITA
+  const isFromInfluencer = (senderId: string) => {
+    const senderIdStr = String(senderId);
+    const influencerIdStr = String(influencerIdNum);
+
+    // Se o sender_id for igual ao influencerId, é do influenciador (esquerda)
+    if (senderIdStr === influencerIdStr) {
+      return true;
+    }
+
+    // Se o sender_id for igual ao currentUserId, é do backoffice (direita)
+    if (currentUserId && senderIdStr === currentUserId) {
+      return false;
+    }
+
+    // Por padrão, se não for o usuário atual, assume que é do influenciador
+    return senderIdStr !== currentUserId;
   };
 
   return (
     <Modal title={`Chat com ${influencer.name}`} onClose={onClose}>
       <div className="flex flex-col h-[600px]">
-        {isLoadingMessages ? (
+
+        {/* Erro */}
+        {chatError && (
+          <div className="mb-2 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs">
+            ⚠️ {chatError}
+          </div>
+        )}
+
+        {isLoadingUsers ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-neutral-600">Carregando informações do chat...</p>
+          </div>
+        ) : !campaignUserId ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-neutral-600 mb-2">Não foi possível encontrar o usuário na campanha.</p>
+              <p className="text-xs text-neutral-500">
+                Influencer ID: {influencer.id}
+              </p>
+            </div>
+          </div>
+        ) : isLoadingMessages ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-neutral-600">Carregando mensagens...</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto flex flex-col gap-4 mb-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 ${
-                  msg.isFromInfluencer ? "justify-start" : "justify-end"
-                }`}
-              >
-                {msg.isFromInfluencer && (
-                  <Avatar
-                    src={msg.senderAvatar}
-                    alt={msg.senderName}
-                    size="sm"
-                  />
-                )}
-                <div
-                  className={`max-w-[70%] rounded-2xl p-3 ${
-                    msg.isFromInfluencer
-                      ? "bg-neutral-100 text-neutral-950"
-                      : "bg-primary-600 text-neutral-50"
-                  }`}
-                >
-                  <p className="text-sm font-medium mb-1">{msg.senderName}</p>
-                  {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="flex flex-col gap-2 mb-2">
-                      {msg.attachments.map((att: any) => (
-                        <div
-                          key={att.id}
-                          className={`flex items-center gap-2 p-2 rounded-lg ${
-                            msg.isFromInfluencer
-                              ? "bg-neutral-200"
-                              : "bg-primary-500"
-                          }`}
-                        >
-                          <Icon
-                            name="Paperclip"
-                            color={msg.isFromInfluencer ? "#404040" : "#FAFAFA"}
-                            size={16}
-                          />
-                          <a
-                            href={att.url}
-                            download={att.name}
-                            className="text-xs underline truncate flex-1"
-                          >
-                            {att.name}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p
-                    className={`text-xs ${msg.isFromInfluencer ? "text-neutral-600" : "opacity-70"} mt-1`}
-                  >
-                    {new Date(msg.timestamp).toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-                {!msg.isFromInfluencer && (
-                  <Avatar
-                    src={msg.senderAvatar}
-                    alt={msg.senderName}
-                    size="sm"
-                  />
-                )}
+            {messages.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-neutral-600">Nenhuma mensagem ainda. Inicie a conversa!</p>
               </div>
-            ))}
+            ) : (
+              messages.map((msg) => {
+                const fromInfluencer = isFromInfluencer(msg.sender_id);
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 items-end ${fromInfluencer ? "justify-start" : "justify-end"
+                      }`}
+                  >
+                    {/* Avatar do influenciador (ESQUERDA) */}
+                    {fromInfluencer && (
+                      <Avatar
+                        src={msg.sender_avatar || influencer.avatar || ""}
+                        alt={msg.sender_name || influencer.name}
+                        size="sm"
+                        className="shrink-0"
+                      />
+                    )}
+
+                    {/* Mensagem */}
+                    <div
+                      className={`max-w-[70%] rounded-2xl p-3 ${fromInfluencer
+                        ? "bg-neutral-100 text-neutral-950 rounded-bl-sm"
+                        : "bg-primary-600 text-neutral-50 rounded-br-sm"
+                        }`}
+                    >
+
+                      {/* Texto da mensagem */}
+                      {msg.message && (
+                        <p className={`text-sm mb-2 ${fromInfluencer ? "text-neutral-950" : "text-neutral-50"}`}>
+                          {msg.message}
+                        </p>
+                      )}
+
+                      {/* Anexos */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-col gap-2 mb-2">
+                          {msg.attachments.map((attUrl: string, idx: number) => (
+                            <div
+                              key={idx}
+                              className={`flex items-center gap-2 p-2 rounded-lg ${fromInfluencer
+                                ? "bg-neutral-200"
+                                : "bg-primary-500"
+                                }`}
+                            >
+                              <Icon
+                                name="Paperclip"
+                                color={fromInfluencer ? "#404040" : "#FAFAFA"}
+                                size={16}
+                              />
+                              <a
+                                href={attUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`text-xs underline truncate flex-1 ${fromInfluencer ? "text-neutral-700" : "text-neutral-50"
+                                  }`}
+                              >
+                                Anexo {idx + 1}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Timestamp */}
+                      <p
+                        className={`text-xs mt-1 ${fromInfluencer
+                          ? "text-neutral-500"
+                          : "text-neutral-200 opacity-80"
+                          }`}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+
+                    {/* Avatar do backoffice (DIREITA) */}
+                    {!fromInfluencer && (
+                      <Avatar
+                        src={msg.sender_avatar || ""}
+                        alt={msg.sender_name || "Você"}
+                        size="sm"
+                        className="shrink-0"
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
           </div>
         )}
 
@@ -1722,13 +1970,17 @@ function ChatModal({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-            placeholder="Digite sua mensagem..."
-            className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70"
+            placeholder={isConnected ? "Digite sua mensagem..." : "Conectando..."}
+            disabled={!isConnected || !campaignUserId}
+            className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
           />
           <Button
             onClick={handleSendMessage}
+            className="w-min"
             disabled={
-              isSending || (!newMessage.trim() && attachments.length === 0)
+              !isConnected ||
+              !campaignUserId ||
+              (!newMessage.trim() && attachments.length === 0)
             }
           >
             <Icon name="Send" color="#FAFAFA" size={16} />

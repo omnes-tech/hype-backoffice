@@ -553,36 +553,6 @@ export function CreateCampaignStepSeven({
           )}
         </div>
 
-        {/* Sidebar - Análise e sugestões da IA */}
-        <div className="w-80 shrink-0">
-          <div className="bg-tertiary-50 rounded-3xl p-6 border border-tertiary-200 sticky top-6">
-            <h3 className="text-lg font-semibold text-primary-900 mb-4">
-              Análise e sugestões da IA
-            </h3>
-            <div className="flex flex-col gap-3">
-              {parseInt(formData.influencersCount || "0") < 3 && (
-                <p className="text-sm text-primary-900">
-                  • Para potencializar os resultados da campanha, recomendamos
-                  aumentar o número de influenciadores para pelo menos 3, de
-                  acordo com o seu objetivo.
-                </p>
-              )}
-              {formData.phases && formData.phases.length > 1 && (
-                <p className="text-sm text-primary-900">
-                  • O cronograma das fases está muito próximo. Recomendamos
-                  aumentar o intervalo entre elas para permitir a análise dos
-                  dados e a otimização da campanha.
-                </p>
-              )}
-              {(!formData.phases || formData.phases.length === 0) && (
-                <p className="text-sm text-primary-900">
-                  • Adicione pelo menos uma fase para organizar melhor sua
-                  campanha.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Footer Navigation */}

@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { WorkspaceDropdown } from "./workspace-dropdown";
+import { NotificationsDropdown } from "./notifications-dropdown";
 import { useWorkspaces } from "@/hooks/use-workspaces";
 
 interface HeaderProps extends ComponentProps<"header"> {
@@ -45,7 +46,7 @@ export function Header({ title, ...props }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <Icon name="Bell" size={20} color="#0A0A0A" />
+          <NotificationsDropdown />
           <Icon name="MessageSquare" size={20} color="#0A0A0A" />
         </div>
       </div>

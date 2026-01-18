@@ -8,6 +8,7 @@ export interface ApproveContentData {
 export interface RejectContentData {
   content_id: string;
   feedback: string;
+  new_submission_deadline?: string; // ISO 8601 timestamp
 }
 
 /**
@@ -109,6 +110,9 @@ export async function rejectContent(
       },
       body: JSON.stringify({
         feedback: data.feedback,
+        ...(data.new_submission_deadline && {
+          new_submission_deadline: data.new_submission_deadline,
+        }),
       }),
     }
   );

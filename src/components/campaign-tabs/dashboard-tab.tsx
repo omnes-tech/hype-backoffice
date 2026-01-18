@@ -416,7 +416,9 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           <div>
             <p className="text-sm text-neutral-600 mb-1">Benefícios</p>
             <div className="text-base text-neutral-950 whitespace-pre-line">
-              {campaign.benefits}
+              {Array.isArray(campaign.benefits)
+                ? campaign.benefits.filter(item => item.trim() !== "").join("\n")
+                : campaign.benefits || "-"}
             </div>
           </div>
         </div>

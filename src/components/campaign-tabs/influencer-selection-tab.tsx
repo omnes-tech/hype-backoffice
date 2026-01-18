@@ -16,6 +16,7 @@ import { useCampaignRecommendations } from "@/hooks/use-catalog";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
 import { useInviteInfluencer, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
+import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 import { ListSelector } from "@/components/influencer-lists/list-selector";
 
@@ -77,9 +78,40 @@ export function InfluencerSelectionTab({
   });
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
+  const { data: campaignUsers = [] } = useCampaignUsers(campaignId);
 
   const isMuralActive = muralStatus?.active || false;
   const muralEndDate = muralStatus?.end_date || "";
+
+  // Função para verificar se um influenciador está em curadoria
+  const isInfluencerInCuration = (influencerId: string | number): boolean => {
+    const influencerIdStr = String(influencerId);
+    const influencerIdNum = typeof influencerId === "string" ? parseInt(influencerId, 10) : influencerId;
+    
+    const campaignUser = campaignUsers.find((user) => {
+      // Verificar por user_id (influencerId)
+      if (user.user_id) {
+        const userId = typeof user.user_id === "string" ? parseInt(user.user_id, 10) : user.user_id;
+        if (userId === influencerIdNum) {
+          return true;
+        }
+      }
+      // Verificar por id (campaignUserId) - caso o influencer.id seja o campaignUserId
+      const campaignUserId = typeof user.id === "string" ? parseInt(String(user.id), 10) : Number(user.id);
+      if (campaignUserId === influencerIdNum || String(user.id) === influencerIdStr) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!campaignUser) {
+      return false;
+    }
+
+    // Normalizar status para comparação
+    const status = campaignUser.status?.toLowerCase() || "";
+    return status === "curation" || status === "curadoria";
+  };
 
   // Transformar recomendações para formato ExtendedInfluencer
   const recommendedInfluencers: ExtendedInfluencer[] = useMemo(() => {
@@ -501,13 +533,15 @@ export function InfluencerSelectionTab({
                   </div>
                 )}
                 <div className="flex flex-col gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAction(influencer, "invite")}
-                    >
-                      <span>Convidar</span>
-                    </Button>
+                  <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {!isInfluencerInCuration(influencer.id) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleAction(influencer, "invite")}
+                      >
+                        <span>Convidar</span>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       onClick={() => handleAction(influencer, "curation")}
@@ -684,13 +718,15 @@ export function InfluencerSelectionTab({
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAction(influencer, "invite")}
-                    >
-                      <span>Convidar</span>
-                    </Button>
+                  <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {!isInfluencerInCuration(influencer.id) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleAction(influencer, "invite")}
+                      >
+                        <span>Convidar</span>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       onClick={() => handleAction(influencer, "curation")}

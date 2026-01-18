@@ -137,6 +137,7 @@ function RouteComponent() {
     setFormData({
       title: "",
       description: "",
+      mainNiche: "",
       subniches: "",
       influencersCount: "",
       minFollowers: "",
@@ -190,7 +191,9 @@ function RouteComponent() {
         currency?: string;
         description?: string;
       } = {
-        description: formData.benefits || "",
+        description: Array.isArray(formData.benefits)
+          ? formData.benefits.filter(item => item.trim() !== "").join("\n")
+          : formData.benefits || "",
       };
 
       switch (formData.paymentType) {
@@ -243,8 +246,10 @@ function RouteComponent() {
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
       benefits: Array.isArray(formData.benefits)
-        ? formData.benefits.filter(item => item.trim() !== "").join("\n")
-        : formData.benefits || "",
+        ? formData.benefits.filter(item => item.trim() !== "")
+        : formData.benefits
+          ? [formData.benefits].filter(item => item.trim() !== "")
+          : [],
       rules_does: Array.isArray(formData.whatToDo) 
         ? formData.whatToDo.filter(item => item.trim() !== "")
         : formData.whatToDo 

@@ -45,7 +45,7 @@ export interface CreateCampaignData {
     currency?: string;
     description?: string;
   };
-  benefits?: string;
+  benefits?: string[]; // Array de itens
   rules_does: string[]; // Array de itens
   rules_does_not: string[]; // Array de itens
   segment_min_followers?: number;
