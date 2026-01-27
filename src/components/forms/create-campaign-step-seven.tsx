@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import type { CampaignFormData } from "@/shared/types";
-import { getSubnicheLabel as getSubnicheLabelUtil } from "@/shared/data/subniches";
+import { useNiches } from "@/hooks/use-niches";
+import { useMemo } from "react";
 
 interface CreateCampaignStepSevenProps {
   formData: CampaignFormData;
@@ -11,18 +12,6 @@ interface CreateCampaignStepSevenProps {
   onSubmitCampaign: () => void;
   isLoading?: boolean;
 }
-
-const getSubnicheLabel = (value: string) => {
-  // Se for múltiplos valores separados por vírgula, processar cada um
-  if (value.includes(",")) {
-    return value
-      .split(",")
-      .map((v) => getSubnicheLabelUtil(v.trim()))
-      .filter(Boolean)
-      .join(", ");
-  }
-  return getSubnicheLabelUtil(value) || value;
-};
 
 const getGenderLabel = (value: string) => {
   const genders: { [key: string]: string } = {
@@ -92,6 +81,21 @@ export function CreateCampaignStepSeven({
   onSubmitCampaign,
   isLoading = false,
 }: CreateCampaignStepSevenProps) {
+  const { data: niches = [] } = useNiches();
+
+  // Mapear IDs dos nichos para nomes
+  const subnicheNames = useMemo(() => {
+    if (!formData.subniches) return "";
+    
+    const nicheIds = formData.subniches.split(",").filter(Boolean);
+    const names = nicheIds.map((id) => {
+      const niche = niches.find((n) => n.id.toString() === id.trim());
+      return niche?.name || id;
+    });
+    
+    return names.join(", ");
+  }, [formData.subniches, niches]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex gap-6">
@@ -136,9 +140,7 @@ export function CreateCampaignStepSeven({
                   Subnichos da campanha
                 </p>
                 <p className="text-base text-neutral-950">
-                  {formData.subniches
-                    ? getSubnicheLabel(formData.subniches)
-                    : "-"}
+                  {subnicheNames || "-"}
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,17 +29,43 @@ export function CreateCampaignStepSix({
     formData.phases && formData.phases.length > 0
       ? formData.phases
       : [
-          {
-            id: "1",
-            objective: "",
-            postDate: "",
-            formats: [],
-            files: "",
-          },
-        ]
+        {
+          id: "1",
+          objective: "",
+          postDate: "",
+          formats: [],
+          files: "",
+        },
+      ]
   );
 
   const phaseFilesInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+  useEffect(() => {
+    if (formData.phases && formData.phases.length > 0) {
+      // Verificar se formData.phases tem fases com dados reais (objective, postDate ou formats)
+      const hasPhasesWithData = formData.phases.some(
+        (phase) => phase.objective || phase.postDate || (phase.formats && phase.formats.length > 0)
+      );
+      
+      // Verificar se o estado local está vazio ou só tem fases temporárias sem dados
+      const localPhasesEmpty = phases.length === 0 || 
+        (phases.length === 1 && 
+         phases[0].id === "1" && 
+         !phases[0].objective && 
+         !phases[0].postDate && 
+         (!phases[0].formats || phases[0].formats.length === 0));
+      
+      // Se formData tem fases com dados e o estado local está vazio, atualizar
+      if (hasPhasesWithData && localPhasesEmpty) {
+        setPhases(formData.phases);
+        // Atualizar o phasesCount
+        if (formData.phasesCount !== formData.phases.length.toString()) {
+          updateFormData("phasesCount", formData.phases.length.toString());
+        }
+      }
+    }
+  }, [formData.phases, formData.phasesCount, updateFormData]);
 
   const handlePhasesCountChange = (count: string) => {
     const countNum = parseInt(count) || 1;
@@ -209,7 +235,7 @@ export function CreateCampaignStepSix({
   const validateAllPhases = (): boolean => {
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
-      
+
       // Verificar se o objetivo está preenchido
       if (!phase.objective || phase.objective.trim() === "") {
         toast.error(`A Fase ${i + 1} precisa ter um objetivo selecionado.`);
@@ -239,7 +265,7 @@ export function CreateCampaignStepSix({
       const incompleteFormats = phase.formats.filter(
         (format) => !format.socialNetwork || !format.contentType
       );
-      
+
       if (incompleteFormats.length > 0) {
         toast.error(`A Fase ${i + 1} tem formato(s) incompleto(s). Preencha a rede social e o tipo de conteúdo.`);
         return false;

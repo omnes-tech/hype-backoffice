@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Influencer } from "@/shared/types";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
+import { useNiches } from "@/hooks/use-niches";
 
 interface CurationTabProps {
   influencers: Influencer[];
@@ -20,6 +21,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
+  const { data: niches = [] } = useNiches();
   const [selectedInfluencer, setSelectedInfluencer] =
     useState<Influencer | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -256,7 +258,12 @@ export function CurationTab({ influencers }: CurationTabProps) {
                     </div>
                     <div className="mb-3">
                       <Badge
-                        text={influencer.niche}
+                        text={(() => {
+                          const nicheId = influencer.niche;
+                          if (!nicheId) return "-";
+                          const niche = niches.find((n) => n.id.toString() === nicheId.toString());
+                          return niche?.name || nicheId;
+                        })()}
                         backgroundColor="bg-tertiary-50"
                         textColor="text-tertiary-900"
                       />

@@ -34,12 +34,14 @@ import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useChat } from "@/hooks/use-chat";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useNiches } from "@/hooks/use-niches";
 
 interface ManagementTabProps {
   influencers: Influencer[];
   campaignPhases?: CampaignPhase[];
   campaignUsers?: Array<{
     id: string | number;
+    user_id?: string | number;
     name: string;
     username: string;
     avatar: string;
@@ -48,6 +50,7 @@ interface ManagementTabProps {
     niche?: string;
     status: string;
   }>;
+  openChatInfluencerId?: string;
 }
 
 interface StatusHistory {
@@ -366,10 +369,12 @@ export function ManagementTab({
   influencers,
   campaignPhases = [],
   campaignUsers = [],
+  openChatInfluencerId,
 }: ManagementTabProps) {
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
+  const { data: niches = [] } = useNiches();
   const [influencersState, setInfluencersState] = useState<
     ExtendedInfluencer[]
   >([]);
@@ -377,6 +382,56 @@ export function ManagementTab({
     useState<ExtendedInfluencer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  
+  // Abrir chat automaticamente quando openChatInfluencerId for fornecido (vindo de notificação)
+  useEffect(() => {
+    if (openChatInfluencerId && influencersState.length > 0 && campaignUsers.length > 0) {
+      const influencerIdStr = String(openChatInfluencerId);
+      const influencerIdNum = parseInt(influencerIdStr, 10);
+      
+      // Buscar o influenciador de forma mais robusta
+      // Primeiro, tentar encontrar pelo campaignUserId (campaignUsers.id)
+      // Depois, tentar encontrar pelo userId (campaignUsers.user_id)
+      let influencerToOpen: ExtendedInfluencer | undefined;
+      
+      if (!isNaN(influencerIdNum)) {
+        // 1. Tentar encontrar por user_id primeiro (caso mais comum)
+        const campaignUser = campaignUsers.find((u) => {
+          if (!u.user_id) return false;
+          const userId = typeof u.user_id === "string"
+            ? parseInt(u.user_id, 10)
+            : u.user_id;
+          return userId === influencerIdNum;
+        });
+        
+        if (campaignUser) {
+          influencerToOpen = influencersState.find(
+            (inf) => String(inf.id) === String(campaignUser.id)
+          );
+        }
+        
+        // 2. Se não encontrou, tentar pelo próprio id (influencer.id já é o campaignUserId)
+        if (!influencerToOpen) {
+          influencerToOpen = influencersState.find(
+            (inf) => {
+              const infId = typeof inf.id === "string" ? parseInt(inf.id, 10) : Number(inf.id);
+              return infId === influencerIdNum || String(inf.id) === influencerIdStr;
+            }
+          );
+        }
+      } else {
+        // Busca por string
+        influencerToOpen = influencersState.find(
+          (inf) => String(inf.id) === influencerIdStr
+        );
+      }
+      
+      if (influencerToOpen && !isChatModalOpen) {
+        setSelectedInfluencer(influencerToOpen);
+        setIsChatModalOpen(true);
+      }
+    }
+  }, [openChatInfluencerId, influencersState, campaignUsers, isChatModalOpen]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
@@ -733,10 +788,10 @@ export function ManagementTab({
     // Ações disponíveis conforme documentação de status
     switch (status) {
       case "applications":
-        // Pode mover para curadoria, convidar ou rejeitar
+        // Pode mover para curadoria, aprovar ou rejeitar
         return [
           { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
-          { label: "Convidar", action: "invite", targetStatus: "invited" },
+          { label: "Aprovar", action: "approve", targetStatus: "approved" },
           { label: "Recusar", action: "reject", targetStatus: "rejected" },
         ];
       case "curation":
@@ -1368,7 +1423,12 @@ export function ManagementTab({
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <p className="text-lg font-semibold text-neutral-950">
-                  {selectedInfluencer.niche}
+                  {(() => {
+                    const nicheId = selectedInfluencer.niche;
+                    if (!nicheId) return "-";
+                    const niche = niches.find((n) => n.id.toString() === nicheId.toString());
+                    return niche?.name || nicheId;
+                  })()}
                 </p>
               </div>
               <div>

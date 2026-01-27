@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, useNavigate, useParams, Outlet, useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -29,8 +29,8 @@ export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
 
 const tabs = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "management", label: "Gerenciamento" },
   { id: "selection", label: "Seleção de influenciadores" },
+  { id: "management", label: "Gerenciamento" },
   { id: "curation", label: "Curadoria" },
   { id: "approval", label: "Aprovações de conteúdo" },
   { id: "metrics", label: "Métricas e conteúdos" },
@@ -42,6 +42,28 @@ function RouteComponent() {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  
+  // Ler search params da URL para navegação de notificações
+  const searchParams = new URLSearchParams(location.search);
+  const tabFromUrl = searchParams.get("tab");
+  const openChatInfluencerId = searchParams.get("openChat");
+
+  // Mudar para a aba correta se especificada na URL
+  useEffect(() => {
+    if (tabFromUrl && tabs.some(tab => tab.id === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+      // Limpar os parâmetros da URL após usar (tab e openChat)
+      const newSearchParams = new URLSearchParams(location.search);
+      newSearchParams.delete("tab");
+      newSearchParams.delete("openChat");
+      const remainingParams = Object.fromEntries(newSearchParams);
+      navigate({
+        to: location.pathname,
+        search: Object.keys(remainingParams).length > 0 ? remainingParams : undefined,
+        replace: true,
+      });
+    }
+  }, [tabFromUrl, location.search, location.pathname, navigate]);
 
   // Se estiver na rota de edição, renderizar apenas o Outlet
   if (location.pathname.includes("/edit")) {
@@ -279,6 +301,7 @@ function RouteComponent() {
             influencers={influencers}
             campaignPhases={phases}
             campaignUsers={campaignUsers}
+            openChatInfluencerId={openChatInfluencerId || undefined}
           />
         );
       case "selection":

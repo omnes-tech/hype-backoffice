@@ -2,7 +2,7 @@ import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 
 export interface Notification {
   id: string;
-  type: "content_approved" | "content_adjustment_requested" | "content_submitted" | "new_content_submission";
+  type: "content_approved" | "content_adjustment_requested" | "content_submitted" | "new_content_submission" | "new_message";
   title: string;
   message: string;
   boldText: string | null;
@@ -14,6 +14,7 @@ export interface Notification {
     campaign_title?: string;
     feedback?: string;
     influencer_id?: number;
+    campaign_user_id?: number;
   };
 }
 

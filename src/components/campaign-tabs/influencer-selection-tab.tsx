@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,8 @@ import { useInviteInfluencer, useUpdateInfluencerStatus } from "@/hooks/use-camp
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 import { ListSelector } from "@/components/influencer-lists/list-selector";
+import { getInfluencerProfiles } from "@/shared/services/influencer";
+import { useNiches } from "@/hooks/use-niches";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -42,6 +44,7 @@ export function InfluencerSelectionTab({
 }: InfluencerSelectionTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const queryClient = useQueryClient();
+  const { data: niches = [] } = useNiches();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
   const [filterSocialNetwork, setFilterSocialNetwork] = useState("");
@@ -60,6 +63,17 @@ export function InfluencerSelectionTab({
   const [inviteMessage, setInviteMessage] = useState("");
   const [curationNotes, setCurationNotes] = useState("");
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
+
+  // Buscar perfis do influenciador quando o modal de convite for aberto
+  const { data: influencerProfilesData, isLoading: isLoadingProfiles } = useQuery({
+    queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
+    queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
+    enabled: !!selectedInfluencer && modalType === "invite",
+  });
+
+  // Garantir que influencerProfiles seja sempre um array
+  const influencerProfiles = Array.isArray(influencerProfilesData) ? influencerProfilesData : [];
 
   // Hooks para dados reais
   const { data: muralStatus } = useMuralStatus(campaignId);
@@ -87,7 +101,7 @@ export function InfluencerSelectionTab({
   const isInfluencerInCuration = (influencerId: string | number): boolean => {
     const influencerIdStr = String(influencerId);
     const influencerIdNum = typeof influencerId === "string" ? parseInt(influencerId, 10) : influencerId;
-    
+
     const campaignUser = campaignUsers.find((user) => {
       // Verificar por user_id (influencerId)
       if (user.user_id) {
@@ -170,7 +184,7 @@ export function InfluencerSelectionTab({
   }, [catalogInfluencers, searchTerm]);
 
   // Extrair opções de filtros dos dados do catálogo
-  const niches = useMemo(() => {
+  const catalogNiches = useMemo(() => {
     const allNiches = new Set<string>();
     catalogInfluencers.forEach((inf) => {
       if (inf.niche) allNiches.add(inf.niche);
@@ -284,16 +298,31 @@ export function InfluencerSelectionTab({
     setSelectedInfluencer(null);
     setInviteMessage("");
     setCurationNotes("");
+    setSelectedProfileIds([]);
   };
+
+  // Quando os perfis forem carregados, selecionar todos por padrão
+  useEffect(() => {
+    if (influencerProfiles.length > 0 && modalType === "invite") {
+      setSelectedProfileIds(influencerProfiles.map((p) => p.id));
+    }
+  }, [influencerProfiles, modalType]);
 
   const handleConfirm = async () => {
     if (!selectedInfluencer) return;
 
     if (modalType === "invite") {
+      // Validar se pelo menos um perfil foi selecionado
+      if (selectedProfileIds.length === 0) {
+        toast.error("Selecione pelo menos um perfil para convidar");
+        return;
+      }
+
       inviteInfluencer(
         {
           influencer_id: selectedInfluencer.id,
           message: inviteMessage || undefined,
+          profile_ids: selectedProfileIds,
         },
         {
           onSuccess: () => {
@@ -403,36 +432,68 @@ export function InfluencerSelectionTab({
   return (
     <>
       <div className="flex flex-col gap-6">
+        {/* Card destacado: Publicar no Descobrir */}
+        <div className={`rounded-3xl p-6 border-2 ${isMuralActive
+            ? "bg-gradient-to-br from-primary-50 to-primary-100 border-primary-300"
+            : "bg-gradient-to-br from-neutral-50 to-neutral-100 border-neutral-300"
+          }`}>
+          <div className="flex items-start gap-4">
+            <div className={`p-3 rounded-2xl ${isMuralActive ? "bg-primary-500" : "bg-neutral-300"
+              }`}>
+              <Icon 
+                name={isMuralActive ? "Check" : "Megaphone"} 
+                color="#FFFFFF" 
+                size={24} 
+              />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-lg font-semibold text-neutral-950">
+                  Publicar no Descobrir
+                </h3>
+                <Badge
+                  text={
+                    isMuralActive
+                      ? muralEndDate
+                        ? `Ativo até ${new Date(muralEndDate).toLocaleDateString("pt-BR")}`
+                        : "Ativo"
+                      : "Inativo"
+                  }
+                  backgroundColor={isMuralActive ? "bg-success-500" : "bg-neutral-300"}
+                  textColor="text-white"
+                />
+              </div>
+              <p className="text-sm text-neutral-700 mb-4">
+                Ao ativar o Descobrir, sua campanha ficará visível para influenciadores que buscam oportunidades.
+                Eles poderão se inscrever diretamente na campanha, facilitando o processo de seleção e aumentando
+                o alcance da sua campanha.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={isMuralActive}
+                    onCheckedChange={(checked) => handleMuralToggle(checked === true)}
+                    disabled={isMuralActive && muralEndDate ? new Date(muralEndDate) > new Date() : false}
+                  />
+                  <label className="text-sm font-medium text-neutral-950 cursor-pointer">
+                    {isMuralActive ? "Desativar Descobrir" : "Ativar Descobrir"}
+                  </label>
+                </div>
+                {isMuralActive && muralEndDate && new Date(muralEndDate) > new Date() && (
+                  <p className="text-xs text-neutral-600">
+                    O Descobrir não pode ser desativado até {new Date(muralEndDate).toLocaleDateString("pt-BR")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Controles principais */}
         <div className="bg-white rounded-3xl p-6 border border-neutral-200">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={isMuralActive}
-                  onCheckedChange={(checked) => handleMuralToggle(checked === true)}
-                  disabled={isMuralActive && muralEndDate ? new Date(muralEndDate) > new Date() : false}
-                />
-                <label className="text-sm font-medium text-neutral-950">
-                  Ativar Mural
-                </label>
-              </div>
-              <Badge
-                text={
-                  isMuralActive
-                    ? muralEndDate
-                      ? `Mural Ativo até ${new Date(muralEndDate).toLocaleDateString("pt-BR")}`
-                      : "Mural Ativo"
-                    : "Mural Inativo"
-                }
-                backgroundColor={isMuralActive ? "bg-success-50" : "bg-neutral-100"}
-                textColor={isMuralActive ? "text-success-900" : "text-neutral-600"}
-              />
-              {isMuralActive && muralEndDate && new Date(muralEndDate) > new Date() && (
-                <p className="text-xs text-neutral-600">
-                  O mural não pode ser desativado até a data limite
-                </p>
-              )}
+              {/* Removido o checkbox antigo do mural - agora está no card destacado acima */}
             </div>
             <Button
               variant="outline"
@@ -456,7 +517,7 @@ export function InfluencerSelectionTab({
             <Select
               label="Filtrar por nicho"
               placeholder="Todos os nichos"
-              options={niches.map((niche) => ({ value: niche, label: niche }))}
+              options={catalogNiches.map((niche) => ({ value: niche, label: niche }))}
               value={filterNiche}
               onChange={setFilterNiche}
             />
@@ -482,81 +543,86 @@ export function InfluencerSelectionTab({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredRecommended.map((influencer) => (
-              <div
-                key={influencer.id}
-                className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar
-                    src={influencer.avatar}
-                    alt={influencer.name}
-                    size="lg"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-semibold text-neutral-950 truncate">
-                      {influencer.name}
-                    </p>
-                    <p className="text-sm text-neutral-600 truncate">
-                      @{influencer.username}
-                    </p>
+                <div
+                  key={influencer.id}
+                  className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar
+                      src={influencer.avatar}
+                      alt={influencer.name}
+                      size="lg"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-semibold text-neutral-950 truncate">
+                        {influencer.name}
+                      </p>
+                      <p className="text-sm text-neutral-600 truncate">
+                        @{influencer.username}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon
-                    name={getSocialNetworkIcon(influencer.socialNetwork)}
-                    color="#404040"
-                    size={16}
-                  />
-                  <span className="text-sm text-neutral-600">
-                    {getSocialNetworkLabel(influencer.socialNetwork)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mb-3">
-                  <span className="text-neutral-600">
-                    {influencer.followers.toLocaleString("pt-BR")} seguidores
-                  </span>
-                  <span className="text-neutral-600">
-                    {influencer.engagement}% engajamento
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <Badge
-                    text={influencer.niche}
-                    backgroundColor="bg-tertiary-50"
-                    textColor="text-tertiary-900"
-                  />
-                </div>
-                {influencer.recommendationReason && (
-                  <div className="mb-3 bg-primary-50 rounded-xl p-3">
-                    <p className="text-xs font-medium text-primary-900 mb-1">Por que recomendamos:</p>
-                    <p className="text-xs text-primary-900">{influencer.recommendationReason}</p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon
+                      name={getSocialNetworkIcon(influencer.socialNetwork)}
+                      color="#404040"
+                      size={16}
+                    />
+                    <span className="text-sm text-neutral-600">
+                      {getSocialNetworkLabel(influencer.socialNetwork)}
+                    </span>
                   </div>
-                )}
-                <div className="flex flex-col gap-2">
-                  <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
-                    {!isInfluencerInCuration(influencer.id) && (
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <span className="text-neutral-600">
+                      {influencer.followers.toLocaleString("pt-BR")} seguidores
+                    </span>
+                    <span className="text-neutral-600">
+                      {influencer.engagement}% engajamento
+                    </span>
+                  </div>
+                  <div className="mb-3">
+                    <Badge
+                      text={(() => {
+                        const nicheId = influencer.niche;
+                        if (!nicheId) return "-";
+                        const niche = niches.find((n) => n.id.toString() === nicheId.toString());
+                        return niche?.name || nicheId;
+                      })()}
+                      backgroundColor="bg-tertiary-50"
+                      textColor="text-tertiary-900"
+                    />
+                  </div>
+                  {influencer.recommendationReason && (
+                    <div className="mb-3 bg-primary-50 rounded-xl p-3">
+                      <p className="text-xs font-medium text-primary-900 mb-1">Por que recomendamos:</p>
+                      <p className="text-xs text-primary-900">{influencer.recommendationReason}</p>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
+                      {!isInfluencerInCuration(influencer.id) && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleAction(influencer, "invite")}
+                        >
+                          <span>Convidar</span>
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
-                        onClick={() => handleAction(influencer, "invite")}
+                        onClick={() => handleAction(influencer, "curation")}
                       >
-                        <span>Convidar</span>
+                        <span>Curadoria</span>
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAction(influencer, "curation")}
-                    >
-                      <span>Curadoria</span>
+                    </div>
+                    <Button variant="ghost" className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <Icon name="ExternalLink" color="#404040" size={14} />
+                        <span>Ver perfil completo</span>
+                      </div>
                     </Button>
                   </div>
-                  <Button variant="ghost" className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <Icon name="ExternalLink" color="#404040" size={14} />
-                      <span>Ver perfil completo</span>
-                    </div>
-                  </Button>
                 </div>
-              </div>
               ))}
             </div>
           )}
@@ -579,7 +645,7 @@ export function InfluencerSelectionTab({
               textColor="text-primary-900"
             />
           </div>
-          
+
           {/* Filtros do catálogo */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <Select
@@ -630,7 +696,7 @@ export function InfluencerSelectionTab({
             <Select
               label="Nicho"
               placeholder="Todos os nichos"
-              options={niches.map((niche) => ({ value: niche, label: niche }))}
+              options={catalogNiches.map((niche) => ({ value: niche, label: niche }))}
               value={filterNiche}
               onChange={setFilterNiche}
             />
@@ -673,75 +739,80 @@ export function InfluencerSelectionTab({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCatalog.map((influencer) => (
-              <div
-                key={influencer.id}
-                className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar
-                    src={influencer.avatar}
-                    alt={influencer.name}
-                    size="lg"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-semibold text-neutral-950 truncate">
-                      {influencer.name}
-                    </p>
-                    <p className="text-sm text-neutral-600 truncate">
-                      @{influencer.username}
-                    </p>
+                <div
+                  key={influencer.id}
+                  className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar
+                      src={influencer.avatar}
+                      alt={influencer.name}
+                      size="lg"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-semibold text-neutral-950 truncate">
+                        {influencer.name}
+                      </p>
+                      <p className="text-sm text-neutral-600 truncate">
+                        @{influencer.username}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon
-                    name={getSocialNetworkIcon(influencer.socialNetwork)}
-                    color="#404040"
-                    size={16}
-                  />
-                  <span className="text-sm text-neutral-600">
-                    {getSocialNetworkLabel(influencer.socialNetwork)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mb-3">
-                  <span className="text-neutral-600">
-                    {influencer.followers.toLocaleString("pt-BR")} seguidores
-                  </span>
-                  <span className="text-neutral-600">
-                    {influencer.engagement}% engajamento
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <Badge
-                    text={influencer.niche}
-                    backgroundColor="bg-tertiary-50"
-                    textColor="text-tertiary-900"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
-                    {!isInfluencerInCuration(influencer.id) && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon
+                      name={getSocialNetworkIcon(influencer.socialNetwork)}
+                      color="#404040"
+                      size={16}
+                    />
+                    <span className="text-sm text-neutral-600">
+                      {getSocialNetworkLabel(influencer.socialNetwork)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <span className="text-neutral-600">
+                      {influencer.followers.toLocaleString("pt-BR")} seguidores
+                    </span>
+                    <span className="text-neutral-600">
+                      {influencer.engagement}% engajamento
+                    </span>
+                  </div>
+                  <div className="mb-3">
+                    <Badge
+                      text={(() => {
+                        const nicheId = influencer.niche;
+                        if (!nicheId) return "-";
+                        const niche = niches.find((n) => n.id.toString() === nicheId.toString());
+                        return niche?.name || nicheId;
+                      })()}
+                      backgroundColor="bg-tertiary-50"
+                      textColor="text-tertiary-900"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className={`grid gap-2 ${isInfluencerInCuration(influencer.id) ? "grid-cols-1" : "grid-cols-2"}`}>
+                      {!isInfluencerInCuration(influencer.id) && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleAction(influencer, "invite")}
+                        >
+                          <span>Convidar</span>
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
-                        onClick={() => handleAction(influencer, "invite")}
+                        onClick={() => handleAction(influencer, "curation")}
                       >
-                        <span>Convidar</span>
+                        <span>Curadoria</span>
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAction(influencer, "curation")}
-                    >
-                      <span>Curadoria</span>
+                    </div>
+                    <Button variant="ghost" className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <Icon name="ExternalLink" color="#404040" size={14} />
+                        <span>Ver perfil completo</span>
+                      </div>
                     </Button>
                   </div>
-                  <Button variant="ghost" className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <Icon name="ExternalLink" color="#404040" size={14} />
-                      <span>Ver perfil completo</span>
-                    </div>
-                  </Button>
                 </div>
-              </div>
               ))}
             </div>
           )}
@@ -760,8 +831,8 @@ export function InfluencerSelectionTab({
             modalType === "discover"
               ? "Ativar Discover"
               : modalType === "invite"
-              ? "Convidar para campanha"
-              : "Adicionar para curadoria"
+                ? "Convidar para campanha"
+                : "Adicionar para curadoria"
           }
           onClose={handleCloseModal}
         >
@@ -791,8 +862,90 @@ export function InfluencerSelectionTab({
 
             {modalType === "invite" && (
               <div className="flex flex-col gap-4">
+                {/* Seleção de perfis */}
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-medium text-neutral-950">
+                    Selecione os perfis para convidar
+                  </label>
+                  {isLoadingProfiles ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-neutral-600">Carregando perfis...</p>
+                    </div>
+                  ) : influencerProfiles.length === 0 ? (
+                    <div className="bg-neutral-50 rounded-2xl p-4 text-center">
+                      <p className="text-sm text-neutral-600">
+                        Nenhum perfil encontrado para este influenciador
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                      {influencerProfiles.map((profile) => {
+                        const isSelected = selectedProfileIds.includes(profile.id);
+
+                        return (
+                          <div
+                            key={profile.id}
+                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                              isSelected
+                                ? "border-primary-500 bg-primary-50"
+                                : "border-neutral-200 bg-white hover:border-neutral-300"
+                            }`}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedProfileIds(
+                                  selectedProfileIds.filter((id) => id !== profile.id)
+                                );
+                              } else {
+                                setSelectedProfileIds([...selectedProfileIds, profile.id]);
+                              }
+                            }}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedProfileIds([...selectedProfileIds, profile.id]);
+                                } else {
+                                  setSelectedProfileIds(
+                                    selectedProfileIds.filter((id) => id !== profile.id)
+                                  );
+                                }
+                              }}
+                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <Icon
+                                name={getSocialNetworkIcon(profile.type)}
+                                color={isSelected ? "#9e2cfa" : "#404040"}
+                                size={20}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-neutral-950">
+                                  {profile.type_label || getSocialNetworkLabel(profile.type)}
+                                </p>
+                                <p className="text-xs text-neutral-600 truncate">
+                                  {profile.username}
+                                </p>
+                                {profile.name && profile.name !== profile.username && (
+                                  <p className="text-xs text-neutral-500 truncate">
+                                    {profile.name}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-neutral-600">
+                                  {profile.members.toLocaleString("pt-BR")} {profile.members === 1 ? "seguidor" : "seguidores"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <Textarea
-                  label="Mensagem de convite"
+                  label="Mensagem de convite (opcional)"
                   placeholder="Escreva uma mensagem personalizada para o influenciador..."
                   value={inviteMessage}
                   onChange={(e) => setInviteMessage(e.target.value)}
@@ -817,10 +970,10 @@ export function InfluencerSelectionTab({
                   Cancelar
                 </Button>
                 <Button onClick={handleConfirm} className="flex-1" disabled={isInviting || isUpdatingStatus}>
-                  {isInviting || isUpdatingStatus 
-                    ? "Processando..." 
-                    : modalType === "invite" 
-                      ? "Enviar convite" 
+                  {isInviting || isUpdatingStatus
+                    ? "Processando..."
+                    : modalType === "invite"
+                      ? "Enviar convite"
                       : modalType === "curation"
                         ? "Adicionar para curadoria"
                         : "Confirmar"}
@@ -842,7 +995,7 @@ export function InfluencerSelectionTab({
       {/* Modal de data limite do mural */}
       {showMuralDateModal && (() => {
         const phase1Date = _campaignPhases?.[0]?.publish_date || "";
-        const validation = tempMuralEndDate 
+        const validation = tempMuralEndDate
           ? validateMuralEndDate(tempMuralEndDate, phase1Date)
           : { valid: true };
         const today = new Date();
@@ -852,15 +1005,25 @@ export function InfluencerSelectionTab({
 
         return (
           <Modal
-            title="Definir data limite do mural (Ativar Descobrir)"
+            title="Ativar Descobrir - Definir data limite"
             onClose={() => {
               setShowMuralDateModal(false);
               setTempMuralEndDate("");
             }}
           >
             <div className="flex flex-col gap-6">
+              <div className="bg-primary-50 rounded-2xl p-4 mb-2">
+                <p className="text-sm font-medium text-primary-900 mb-2">
+                  O que é o Descobrir?
+                </p>
+                <p className="text-sm text-primary-800">
+                  O Descobrir permite que influenciadores encontrem e se inscrevam na sua campanha.
+                  Ao ativar, sua campanha ficará visível na seção de descoberta do app, aumentando
+                  o alcance e facilitando o processo de seleção de influenciadores.
+                </p>
+              </div>
               <p className="text-sm text-neutral-600">
-                Defina até quando o mural ficará visível para os influenciadores. A data limite precisa ser maior que a data atual e pelo menos 7 dias menor que a data prevista da fase 1.
+                Defina até quando o Descobrir ficará ativo para receber inscrições. A data limite precisa ser maior que a data atual e pelo menos 7 dias menor que a data prevista da fase 1.
               </p>
               <Input
                 label="Data limite para receber inscrições"
@@ -873,14 +1036,14 @@ export function InfluencerSelectionTab({
               />
               {phase1Date && (
                 <p className="text-xs text-neutral-500">
-                  Data da fase 1: {new Date(phase1Date).toLocaleDateString("pt-BR")} | 
+                  Data da fase 1: {new Date(phase1Date).toLocaleDateString("pt-BR")} |
                   Data máxima permitida: {maxDate ? new Date(maxDate).toLocaleDateString("pt-BR") : "N/A"}
                 </p>
               )}
               {tempMuralEndDate && validation.valid && (
                 <div className="bg-primary-50 rounded-2xl p-4">
                   <p className="text-sm text-primary-900">
-                    O mural ficará ativo até{" "}
+                    O Descobrir ficará ativo até{" "}
                     <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
                   </p>
                 </div>
@@ -902,7 +1065,7 @@ export function InfluencerSelectionTab({
                   disabled={!tempMuralEndDate || isActivatingMural || !validation.valid}
                   className="flex-1"
                 >
-                  {isActivatingMural ? "Ativando..." : "Ativar mural"}
+                  {isActivatingMural ? "Ativando..." : "Ativar Descobrir"}
                 </Button>
               </div>
             </div>

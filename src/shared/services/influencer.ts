@@ -7,9 +7,20 @@ export interface InfluencerStatusUpdate {
   feedback?: string;
 }
 
+export interface InfluencerProfile {
+  id: string;
+  type: string; // "tiktok", "youtube", "instagram", etc.
+  type_label: string; // "TikTok", "YouTube", "Instagram", etc.
+  name: string;
+  username: string;
+  members: number; // Número de seguidores/membros
+  created_at: string;
+}
+
 export interface InfluencerInviteData {
   influencer_id: string;
   message?: string;
+  profile_ids?: string[]; // IDs dos perfis selecionados
 }
 
 /**
@@ -19,7 +30,7 @@ export interface InfluencerInviteData {
  */
 function normalizeStatus(status: string | undefined): string {
   if (!status) return "applications";
-  
+
   const statusMap: { [key: string]: string } = {
     // Valores corretos do enum do backend (mantém como está)
     applications: "applications",
@@ -49,7 +60,7 @@ function normalizeStatus(status: string | undefined): string {
     conteudo_aprovado: "content_approved",
     conteudo_rejeitado: "in_correction",
   };
-  
+
   return statusMap[status.toLowerCase()] || status;
 }
 
@@ -124,6 +135,50 @@ export async function updateInfluencerStatus(
     const error = await request.json();
     throw error || "Failed to update influencer status";
   }
+}
+
+/**
+ * Busca os perfis (contas sociais) de um influenciador
+ */
+export async function getInfluencerProfiles(
+  influencerId: string
+): Promise<InfluencerProfile[]> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/influencers/${influencerId}/profiles`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to get influencer profiles";
+  }
+
+  const response = await request.json();
+  const profiles = response.data?.profiles;
+
+  if (!profiles) {
+    return [];
+  }
+
+  if (!Array.isArray(profiles)) {
+    console.warn("getInfluencerProfiles: profiles não é um array", profiles);
+    return [];
+  }
+
+  return profiles;
 }
 
 /**

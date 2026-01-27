@@ -50,13 +50,32 @@ export function NotificationsDropdown() {
 
     // Navegar baseado no tipo de notificação
     switch (notification.type) {
+      case "new_message":
+        // Navegar para a campanha e abrir o chat com o influenciador
+        if (notification.metadata.campaign_id && notification.metadata.influencer_id) {
+          navigate({
+            to: "/campaigns/$campaignId",
+            params: { campaignId: notification.metadata.campaign_id },
+            search: {
+              tab: "management",
+              openChat: String(notification.metadata.influencer_id),
+            },
+          });
+          setIsOpen(false);
+        }
+        break;
       case "content_approved":
       case "content_adjustment_requested":
       case "content_submitted":
+        // Navegar para a campanha e abrir a aba de aprovações de conteúdo
         if (notification.metadata.campaign_id) {
           navigate({
             to: "/campaigns/$campaignId",
             params: { campaignId: notification.metadata.campaign_id },
+            search: {
+              tab: "approval",
+              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
+            },
           });
           setIsOpen(false);
         }
@@ -67,6 +86,10 @@ export function NotificationsDropdown() {
           navigate({
             to: "/campaigns/$campaignId",
             params: { campaignId: notification.metadata.campaign_id },
+            search: {
+              tab: "approval",
+              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
+            },
           });
           setIsOpen(false);
         }
@@ -80,6 +103,7 @@ export function NotificationsDropdown() {
       content_adjustment_requested: "AlertCircle",
       content_submitted: "Upload",
       new_content_submission: "Bell",
+      new_message: "MessageCircle",
     };
     return icons[type] || "Bell";
   };
@@ -90,6 +114,7 @@ export function NotificationsDropdown() {
       content_adjustment_requested: { bg: "bg-warning-50", text: "text-warning-900" },
       content_submitted: { bg: "bg-info-50", text: "text-info-900" },
       new_content_submission: { bg: "bg-primary-50", text: "text-primary-900" },
+      new_message: { bg: "bg-blue-50", text: "text-blue-900" },
     };
     return colors[type] || { bg: "bg-neutral-50", text: "text-neutral-900" };
   };
@@ -197,6 +222,8 @@ export function NotificationsDropdown() {
                                 ? "#ea580c"
                                 : colors.text === "text-info-900"
                                 ? "#0284c7"
+                                : colors.text === "text-blue-900"
+                                ? "#1e40af"
                                 : "#9e2cfa"
                             }
                           />

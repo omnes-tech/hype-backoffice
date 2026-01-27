@@ -19,7 +19,7 @@ import { useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber, unformatCurrency } from "@/shared/utils/masks";
+import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -219,7 +219,7 @@ function RouteComponent() {
       switch (formData.paymentType) {
         case "fixed":
           if (formData.paymentFixedAmount) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentFixedAmount)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentFixedAmount);
             baseDetails.currency = "BRL";
             baseDetails.description = "Pagamento fixo por influenciador";
           }
@@ -227,20 +227,20 @@ function RouteComponent() {
         case "swap":
           if (formData.paymentSwapItem && formData.paymentSwapMarketValue) {
             baseDetails.description = `${formData.paymentSwapItem} - Valor de mercado: ${formData.paymentSwapMarketValue}`;
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentSwapMarketValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentSwapMarketValue);
             baseDetails.currency = "BRL";
           }
           break;
         case "cpa":
           if (formData.paymentCpaActions && formData.paymentCpaValue) {
             baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions} - Valor: ${formData.paymentCpaValue}`;
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpaValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentCpaValue);
             baseDetails.currency = "BRL";
           }
           break;
         case "cpm":
           if (formData.paymentCpmValue) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpmValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentCpmValue);
             baseDetails.currency = "BRL";
           }
           break;

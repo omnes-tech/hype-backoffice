@@ -22,7 +22,7 @@ import { useCampaigns, useCreateCampaign } from "@/hooks/use-campaigns";
 import type { CreateCampaignData } from "@/shared/services/campaign";
 import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber, unformatCurrency } from "@/shared/utils/masks";
+import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
@@ -199,7 +199,7 @@ function RouteComponent() {
       switch (formData.paymentType) {
         case "fixed":
           if (formData.paymentFixedAmount) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentFixedAmount)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentFixedAmount);
             baseDetails.currency = "BRL";
           }
           break;
@@ -210,7 +210,7 @@ function RouteComponent() {
               : ""
           }`;
           if (formData.paymentSwapMarketValue) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentSwapMarketValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentSwapMarketValue);
             baseDetails.currency = "BRL";
           }
           break;
@@ -219,13 +219,13 @@ function RouteComponent() {
             formData.paymentCpaValue ? ` - Valor: R$ ${formData.paymentCpaValue}` : ""
           }`;
           if (formData.paymentCpaValue) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpaValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentCpaValue);
             baseDetails.currency = "BRL";
           }
           break;
         case "cpm":
           if (formData.paymentCpmValue) {
-            baseDetails.amount = parseInt(unformatCurrency(formData.paymentCpmValue)) || 0;
+            baseDetails.amount = currencyToNumber(formData.paymentCpmValue);
             baseDetails.currency = "BRL";
           }
           break;

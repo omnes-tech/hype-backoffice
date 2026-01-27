@@ -103,6 +103,20 @@ export const unformatCurrency = (value: string): string => {
 };
 
 /**
+ * Converte um valor monetário formatado no padrão brasileiro (1.234,56) para número decimal (1234.56)
+ * Útil para enviar valores monetários à API que espera números decimais
+ */
+export const currencyToNumber = (value: string): number => {
+  if (!value) return 0;
+  
+  // Remove pontos (separadores de milhar) e substitui vírgula por ponto (separador decimal)
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  
+  const numValue = parseFloat(normalized);
+  return isNaN(numValue) ? 0 : numValue;
+};
+
+/**
  * Aplica máscara de valor monetário brasileiro em um input
  * Formato: R$ 1.234,56
  * O valor é armazenado formatado (1.234,56) mas pode ser convertido para centavos com unformatCurrency
