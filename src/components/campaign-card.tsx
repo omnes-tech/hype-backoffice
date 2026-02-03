@@ -36,12 +36,18 @@ export function CampaignCard({
       className="w-full h-auto rounded-3xl border border-neutral-200 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
       onClick={handleClick}
     >
-      <div className="w-full h-48 relative">
-        <img 
-          src={getUploadUrl(banner) || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0"} 
-          alt={title} 
-          className="w-full h-full object-cover" 
-        />
+      <div className="w-full h-48 relative bg-neutral-200">
+        {banner ? (
+          <img 
+            src={getUploadUrl(banner)} 
+            alt={title} 
+            className="w-full h-full object-cover" 
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-neutral-200">
+            <span className="text-neutral-400 text-sm">Sem banner</span>
+          </div>
+        )}
 
         <div className="absolute top-3 right-4">
           <Badge

@@ -165,6 +165,7 @@ function RouteComponent() {
                 }))}
               error={errors.niche?.message}
               disabled={isCreatingWorkspace || isLoadingNiches}
+              isSearchable={true}
             />
           )}
         />

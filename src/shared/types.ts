@@ -185,6 +185,24 @@ export interface CampaignContent {
   ai_evaluation?: any | null;
 }
 
+export interface CampaignScript {
+  id: string;
+  campaign_id?: string;
+  influencer_id?: string;
+  influencerId: string;
+  influencer_name?: string;
+  influencerName: string;
+  influencer_avatar?: string;
+  influencerAvatar: string;
+  script_text?: string;
+  scriptText: string;
+  status: "pending" | "approved" | "adjustment_requested" | "rejected";
+  phase_id?: string | null;
+  submitted_at?: string;
+  submittedAt: string;
+  feedback?: string | null;
+}
+
 export interface ContentMetrics {
   contentId: string;
   views: number;
@@ -255,4 +273,30 @@ export interface IdentifiedPost {
   phaseHashtag: string;
   publishedAt: string;
   metrics?: ContentMetrics;
+}
+
+export interface CampaignContract {
+  id: string;
+  campaign_id: string;
+  influencer_id: string;
+  influencerId: string;
+  influencer_name?: string;
+  influencerName: string;
+  influencer_avatar?: string;
+  influencerAvatar: string;
+  template_id?: string;
+  templateId?: string;
+  contract_url?: string;
+  contractUrl?: string;
+  status: "pending" | "sent" | "viewed" | "signed" | "rejected" | "expired";
+  sent_at?: string;
+  sentAt?: string;
+  viewed_at?: string;
+  viewedAt?: string;
+  signed_at?: string;
+  signedAt?: string;
+  expires_at?: string;
+  expiresAt?: string;
+  rejection_reason?: string;
+  rejectionReason?: string;
 }

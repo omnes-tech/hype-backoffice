@@ -10,8 +10,11 @@ import { Tabs } from "@/components/ui/tabs";
 import { DashboardTab } from "@/components/campaign-tabs/dashboard-tab";
 import { ManagementTab } from "@/components/campaign-tabs/management-tab";
 import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-selection-tab";
+import { ApplicationsTab } from "@/components/campaign-tabs/applications-tab";
 import { CurationTab } from "@/components/campaign-tabs/curation-tab";
 import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-tab";
+import { ScriptApprovalTab } from "@/components/campaign-tabs/script-approval-tab";
+import { ContractsTab } from "@/components/campaign-tabs/contracts-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 import { ShareCampaignModal } from "@/components/share-campaign-modal";
 
@@ -31,8 +34,11 @@ const tabs = [
   { id: "dashboard", label: "Dashboard" },
   { id: "selection", label: "Seleção de influenciadores" },
   { id: "management", label: "Gerenciamento" },
+  { id: "applications", label: "Inscrições" },
   { id: "curation", label: "Curadoria" },
   { id: "approval", label: "Aprovações de conteúdo" },
+  { id: "script-approval", label: "Aprovações de roteiro" },
+  { id: "contracts", label: "Contratos" },
   { id: "metrics", label: "Métricas e conteúdos" },
 ];
 
@@ -313,14 +319,34 @@ function RouteComponent() {
               label: `Fase ${index + 1}`,
               publish_date: phase.publish_date,
             }))}
+            maxInfluencers={campaign?.max_influencers || 0}
+            phasesWithFormats={phases}
           />
         );
+      case "applications":
+        return <ApplicationsTab influencers={influencers} />;
       case "curation":
         return <CurationTab influencers={influencers} />;
       case "approval":
         return (
           <ContentApprovalTab
             campaignPhases={phases}
+          />
+        );
+      case "script-approval":
+        return (
+          <ScriptApprovalTab
+            campaignPhases={phases}
+          />
+        );
+      case "contracts":
+        return (
+          <ContractsTab
+            influencers={influencers.map((inf: any) => ({
+              id: inf.id,
+              name: inf.name,
+              avatar: inf.avatar,
+            }))}
           />
         );
       case "metrics":

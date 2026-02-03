@@ -15,11 +15,11 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 
-interface CurationTabProps {
+interface ApplicationsTabProps {
   influencers: Influencer[];
 }
 
-export function CurationTab({ influencers }: CurationTabProps) {
+export function ApplicationsTab({ influencers }: ApplicationsTabProps) {
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
@@ -33,7 +33,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
   );
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<
-    "approve" | "reject" | null
+    "curation" | "approve" | "reject" | null
   >(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
   
@@ -52,15 +52,15 @@ export function CurationTab({ influencers }: CurationTabProps) {
     isApproving,
     isRejecting,
   } = useBulkInfluencerActions({ campaignId });
-  const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
+  const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
 
-  const curationInfluencers = influencers.filter(
-    (inf) => inf.status === "curation"
+  const applicationsInfluencers = influencers.filter(
+    (inf) => inf.status === "applications"
   );
 
   // Filtrar influenciadores baseado nos filtros
   const filteredInfluencers = useMemo(() => {
-    return curationInfluencers.filter((inf) => {
+    return applicationsInfluencers.filter((inf) => {
       // Filtro de busca por nome/username
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -98,7 +98,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
       return true;
     });
   }, [
-    curationInfluencers,
+    applicationsInfluencers,
     searchTerm,
     filterNiche,
     filterFollowersMin,
@@ -110,7 +110,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
   // Opções de nichos disponíveis
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
-    curationInfluencers.forEach((inf) => {
+    applicationsInfluencers.forEach((inf) => {
       if (inf.niche) {
         const niche = niches.find((n) => n.id.toString() === inf.niche.toString());
         if (niche) uniqueNiches.add(niche.id.toString());
@@ -120,7 +120,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
       const niche = niches.find((n) => n.id.toString() === id);
       return { value: id, label: niche?.name || id };
     });
-  }, [curationInfluencers, niches]);
+  }, [applicationsInfluencers, niches]);
 
   const handleSelectInfluencer = (influencerId: string) => {
     setSelectedInfluencers((prev) => {
@@ -142,6 +142,34 @@ export function CurationTab({ influencers }: CurationTabProps) {
     }
   };
 
+  const handleBulkMoveToCuration = () => {
+    const influencerIds = Array.from(selectedInfluencers);
+    const promises = influencerIds.map((id) =>
+      updateStatus(
+        {
+          influencer_id: id,
+          status: "curation",
+          feedback: undefined,
+        },
+        {
+          onSuccess: () => {
+            // Sucesso individual
+          },
+          onError: (error: any) => {
+            toast.error(`Erro ao mover influenciador ${id}: ${error?.message || "Erro desconhecido"}`);
+          },
+        }
+      )
+    );
+
+    Promise.all(promises).then(() => {
+      setSelectedInfluencers(new Set());
+      setIsBulkActionModalOpen(false);
+      setBulkActionType(null);
+      toast.success(`${influencerIds.length} influenciador(es) movido(s) para curadoria`);
+    });
+  };
+
   const handleBulkApprove = () => {
     const influencerIds = Array.from(selectedInfluencers);
     bulkApprove(
@@ -150,6 +178,7 @@ export function CurationTab({ influencers }: CurationTabProps) {
         onSuccess: () => {
           setSelectedInfluencers(new Set());
           setIsBulkActionModalOpen(false);
+          setBulkActionType(null);
         },
       }
     );
@@ -170,6 +199,24 @@ export function CurationTab({ influencers }: CurationTabProps) {
         }
       );
     }
+  };
+
+  const handleMoveToCuration = (influencer: Influencer) => {
+    updateStatus(
+      {
+        influencer_id: influencer.id,
+        status: "curation",
+        feedback: undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Influenciador movido para curadoria!");
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao mover influenciador");
+        },
+      }
+    );
   };
 
   const handleApprove = (influencer: Influencer) => {
@@ -218,6 +265,16 @@ export function CurationTab({ influencers }: CurationTabProps) {
     }
   };
 
+  const handleBulkAction = () => {
+    if (bulkActionType === "curation") {
+      handleBulkMoveToCuration();
+    } else if (bulkActionType === "approve") {
+      handleBulkApprove();
+    } else if (bulkActionType === "reject") {
+      handleBulkReject();
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -225,10 +282,10 @@ export function CurationTab({ influencers }: CurationTabProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <h3 className="text-lg font-semibold text-neutral-950">
-                Influenciadores em curadoria
+                Inscrições
               </h3>
               <Badge
-                text={`${curationInfluencers.length} perfis`}
+                text={`${filteredInfluencers.length} de ${applicationsInfluencers.length} perfis`}
                 backgroundColor="bg-primary-50"
                 textColor="text-primary-900"
               />
@@ -242,6 +299,18 @@ export function CurationTab({ influencers }: CurationTabProps) {
             </div>
             {selectedInfluencers.size > 0 && (
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBulkActionType("curation");
+                    setIsBulkActionModalOpen(true);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="ArrowRight" color="#404040" size={16} />
+                    <span>Mover para Curadoria</span>
+                  </div>
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -329,11 +398,11 @@ export function CurationTab({ influencers }: CurationTabProps) {
             </div>
           </div>
 
-          {curationInfluencers.length === 0 ? (
+          {applicationsInfluencers.length === 0 ? (
             <div className="text-center py-12">
               <Icon name="Users" color="#A3A3A3" size={48} />
               <p className="text-neutral-600 mt-4">
-                Nenhum influenciador em curadoria no momento
+                Nenhuma inscrição no momento
               </p>
             </div>
           ) : (
@@ -410,27 +479,42 @@ export function CurationTab({ influencers }: CurationTabProps) {
                         textColor="text-tertiary-900"
                       />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => handleApprove(influencer)}
-                        className="flex-1"
+                        onClick={() => handleMoveToCuration(influencer)}
+                        className="w-full"
+                        disabled={isUpdatingStatus}
                       >
                         <div className="flex items-center gap-2">
-                          <Icon name="Check" color="#16a34a" size={16} />
-                          <span>Aprovar</span>
+                          <Icon name="ArrowRight" color="#404040" size={16} />
+                          <span>Mover para Curadoria</span>
                         </div>
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleReject(influencer)}
-                        className="flex-1"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon name="X" color="#dc2626" size={16} />
-                          <span>Reprovar</span>
-                        </div>
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleApprove(influencer)}
+                          className="flex-1"
+                          disabled={isUpdatingStatus}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon name="Check" color="#16a34a" size={16} />
+                            <span>Aprovar</span>
+                          </div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleReject(influencer)}
+                          className="flex-1"
+                          disabled={isUpdatingStatus}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon name="X" color="#dc2626" size={16} />
+                            <span>Reprovar</span>
+                          </div>
+                        </Button>
+                      </div>
                     </div>
                     <Button variant="ghost" className="w-full mt-2 text-sm">
                       <div className="flex items-center gap-2">
@@ -522,7 +606,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
       {isBulkActionModalOpen && bulkActionType && (
         <Modal
           title={
-            bulkActionType === "approve"
+            bulkActionType === "curation"
+              ? "Mover influenciadores para curadoria"
+              : bulkActionType === "approve"
               ? "Aprovar influenciadores selecionados"
               : "Reprovar influenciadores selecionados"
           }
@@ -534,7 +620,9 @@ export function CurationTab({ influencers }: CurationTabProps) {
         >
           <div className="flex flex-col gap-6">
             <p className="text-sm text-neutral-600">
-              {bulkActionType === "approve"
+              {bulkActionType === "curation"
+                ? `Você está prestes a mover ${selectedInfluencers.size} influenciador(es) para curadoria.`
+                : bulkActionType === "approve"
                 ? `Você está prestes a aprovar ${selectedInfluencers.size} influenciador(es).`
                 : `Você está prestes a reprovar ${selectedInfluencers.size} influenciador(es).`}
             </p>
@@ -575,20 +663,19 @@ export function CurationTab({ influencers }: CurationTabProps) {
                 Cancelar
               </Button>
               <Button
-                onClick={
-                  bulkActionType === "approve"
-                    ? handleBulkApprove
-                    : handleBulkReject
-                }
+                onClick={handleBulkAction}
                 disabled={
                   (bulkActionType === "reject" &&
                     !bulkRejectionFeedback.trim()) ||
                   isApproving ||
-                  isRejecting
+                  isRejecting ||
+                  isUpdatingStatus
                 }
                 className="flex-1"
               >
-                {isApproving || isRejecting ? "Processando..." : "Confirmar"}
+                {isApproving || isRejecting || isUpdatingStatus
+                  ? "Processando..."
+                  : "Confirmar"}
               </Button>
             </div>
           </div>

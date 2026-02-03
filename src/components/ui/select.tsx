@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ComponentProps } from "react";
+import { useState, useRef, useEffect, useMemo, type ComponentProps } from "react";
 
 import { clsx } from "clsx";
 
@@ -13,6 +13,7 @@ interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   error?: string;
   disabled?: boolean;
   openUp?: boolean;
+  isSearchable?: boolean;
 }
 
 export function Select({
@@ -24,12 +25,26 @@ export function Select({
   error,
   disabled = false,
   openUp = false,
+  isSearchable = false,
   ...props
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = options.find((option) => option.value === value);
+
+  // Filtrar opções baseado no termo de busca
+  const filteredOptions = useMemo(() => {
+    if (!isSearchable || !searchTerm.trim()) {
+      return options;
+    }
+    const term = searchTerm.toLowerCase();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(term)
+    );
+  }, [options, searchTerm, isSearchable]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -38,21 +53,29 @@ export function Select({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
+        setSearchTerm("");
       }
     };
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      // Focar no input de busca quando o dropdown abrir
+      if (isSearchable && searchInputRef.current) {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 100);
+      }
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, isSearchable]);
 
   const handleSelect = (optionValue: string) => {
     onChange?.(optionValue);
     setIsOpen(false);
+    setSearchTerm("");
   };
 
   return (
@@ -96,23 +119,52 @@ export function Select({
         {isOpen && (
           <div
             className={clsx(
-              "absolute z-50 w-full rounded-3xl bg-neutral-100 border border-neutral-200 shadow-lg overflow-hidden max-h-60 overflow-y-auto",
+              "absolute z-50 w-full rounded-3xl bg-neutral-100 border border-neutral-200 shadow-lg overflow-hidden max-h-60 flex flex-col",
               openUp ? "bottom-full mb-1" : "top-full mt-1"
             )}
           >
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => handleSelect(option.value)}
-                className={clsx(
-                  "w-full text-left text-neutral-950 py-2 px-4 hover:bg-neutral-200/70 transition-colors duration-150",
-                  value === option.value && "bg-neutral-200/70"
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
+            {isSearchable && (
+              <div className="p-2 border-b border-neutral-200">
+                <div className="relative">
+                  <Icon
+                    name="Search"
+                    color="#737373"
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                  />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar..."
+                    className="w-full h-9 pl-9 pr-3 bg-white rounded-2xl border border-neutral-200 text-sm text-neutral-950 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="overflow-y-auto max-h-[calc(240px-60px)]">
+              {filteredOptions.length === 0 ? (
+                <div className="py-4 px-4 text-center text-sm text-neutral-500">
+                  Nenhuma opção encontrada
+                </div>
+              ) : (
+                filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleSelect(option.value)}
+                    className={clsx(
+                      "w-full text-left text-neutral-950 py-2 px-4 hover:bg-neutral-200/70 transition-colors duration-150",
+                      value === option.value && "bg-neutral-200/70"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>

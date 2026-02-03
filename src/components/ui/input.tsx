@@ -16,10 +16,10 @@ export function Input({
   ...props
 }: InputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
     // Prevenir números negativos em inputs do tipo number
     if (type === "number") {
-      const value = e.target.value;
-      
       // Permite campo vazio ou apenas o sinal de menos sendo removido
       if (value === "" || value === "-") {
         if (onChange) {
@@ -34,6 +34,30 @@ export function Input({
       // Se for negativo ou NaN, não atualiza
       if (isNaN(numValue) || numValue < 0) {
         return;
+      }
+    }
+    
+    // Validar datas para inputs do tipo date ou datetime-local
+    if ((type === "date" || type === "datetime-local") && value) {
+      const min = props.min;
+      const max = props.max;
+      
+      if (min) {
+        // Comparar strings diretamente (formato ISO: YYYY-MM-DD ou YYYY-MM-DDTHH:mm)
+        if (value < min) {
+          // Data menor que o mínimo - não permite a mudança
+          // A mensagem de erro será exibida através da prop error
+          return;
+        }
+      }
+      
+      if (max) {
+        // Comparar strings diretamente (formato ISO: YYYY-MM-DD ou YYYY-MM-DDTHH:mm)
+        if (value > max) {
+          // Data maior que o máximo - não permite a mudança
+          // A mensagem de erro será exibida através da prop error
+          return;
+        }
       }
     }
     

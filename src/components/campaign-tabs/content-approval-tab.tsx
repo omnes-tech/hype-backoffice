@@ -27,6 +27,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   // Estados de filtros
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("pending");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
+  const [searchInfluencer, setSearchInfluencer] = useState("");
+  const [filterSocialNetwork, setFilterSocialNetwork] = useState("");
   
   // Estados de UI
   const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
@@ -104,8 +106,45 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       filtered = filtered.filter((content) => content.phase_id === selectedPhaseFilter);
     }
 
+    // Filtro por busca de influenciador
+    if (searchInfluencer) {
+      const searchLower = searchInfluencer.toLowerCase();
+      filtered = filtered.filter((content) =>
+        content.influencerName.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filtro por rede social
+    if (filterSocialNetwork) {
+      filtered = filtered.filter((content) => {
+        const contentNetwork = (content.socialNetwork || content.social_network || "").toLowerCase();
+        return contentNetwork === filterSocialNetwork.toLowerCase();
+      });
+    }
+
     return filtered;
-  }, [normalizedContents, selectedPhaseFilter]);
+  }, [normalizedContents, selectedPhaseFilter, searchInfluencer, filterSocialNetwork]);
+
+  // Opções de redes sociais disponíveis
+  const socialNetworkOptions = useMemo(() => {
+    const networks = new Set<string>();
+    normalizedContents.forEach((content) => {
+      const network = content.socialNetwork || content.social_network;
+      if (network) {
+        networks.add(network);
+      }
+    });
+    const networkLabels: { [key: string]: string } = {
+      instagram: "Instagram",
+      tiktok: "TikTok",
+      youtube: "YouTube",
+      ugc: "UGC",
+    };
+    return Array.from(networks).map((network) => ({
+      value: network.toLowerCase(),
+      label: networkLabels[network.toLowerCase()] || network,
+    }));
+  }, [normalizedContents]);
 
   // Hooks para mutations
   const { mutate: approveContent, isPending: isApproving } = useApproveContent(campaignId || "");
@@ -563,7 +602,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                 Conteúdos da campanha
               </h3>
               <Badge
-                text={`${filteredContents.length} conteúdo(s)`}
+                text={`${filteredContents.length} de ${normalizedContents.length} conteúdo(s)`}
                 backgroundColor="bg-tertiary-50"
                 textColor="text-tertiary-900"
               />
@@ -576,9 +615,19 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               )}
             </div>
             <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  label="Buscar por influenciador"
+                  placeholder="Nome do influenciador..."
+                  value={searchInfluencer}
+                  onChange={(e) => setSearchInfluencer(e.target.value)}
+                  icon={<Icon name="Search" color="#737373" size={16} />}
+                />
+              </div>
               <div className="w-48">
                 <Select
-                  placeholder="Filtrar por status"
+                  label="Filtrar por status"
+                  placeholder="Todos os status"
                   options={statusOptions}
                   value={selectedStatusFilter}
                   onChange={setSelectedStatusFilter}
@@ -587,10 +636,22 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               {campaignPhases.length > 0 && (
                 <div className="w-48">
                   <Select
-                    placeholder="Filtrar por fase"
+                    label="Filtrar por fase"
+                    placeholder="Todas as fases"
                     options={phaseOptions}
                     value={selectedPhaseFilter}
                     onChange={setSelectedPhaseFilter}
+                  />
+                </div>
+              )}
+              {socialNetworkOptions.length > 0 && (
+                <div className="w-48">
+                  <Select
+                    label="Filtrar por rede social"
+                    placeholder="Todas as redes"
+                    options={[{ value: "", label: "Todas as redes" }, ...socialNetworkOptions]}
+                    value={filterSocialNetwork}
+                    onChange={setFilterSocialNetwork}
                   />
                 </div>
               )}
@@ -858,6 +919,16 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               value={newSubmissionDeadline}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSubmissionDeadline(e.target.value)}
               placeholder="Selecione uma data limite para o reenvio"
+              min={(() => {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() + 1); // Mínimo: 1 minuto a partir de agora
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, "0");
+                const day = String(now.getDate()).padStart(2, "0");
+                const hours = String(now.getHours()).padStart(2, "0");
+                const minutes = String(now.getMinutes()).padStart(2, "0");
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+              })()}
             />
 
             <div className="flex gap-3">

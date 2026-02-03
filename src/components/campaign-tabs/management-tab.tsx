@@ -85,6 +85,16 @@ const kanbanColumns = [
     label: "Aguardando Aprovação",
     color: "bg-orange-50",
   },
+  {
+    id: "script_pending",
+    label: "Roteiro Pendente",
+    color: "bg-indigo-50",
+  },
+  {
+    id: "contract_pending",
+    label: "Contrato Pendente",
+    color: "bg-teal-50",
+  },
   { id: "in_correction", label: "Correção", color: "bg-yellow-100" },
   {
     id: "content_approved",
@@ -435,8 +445,6 @@ export function ManagementTab({
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Hooks para mutations
@@ -786,41 +794,22 @@ export function ManagementTab({
 
   const getAvailableActions = (status: string) => {
     // Ações disponíveis conforme documentação de status
+    // Nota: Aprovar/Recusar foram removidos - essas ações devem ser feitas nas guias específicas
     switch (status) {
       case "applications":
-        // Pode mover para curadoria, aprovar ou rejeitar
+        // Pode mover para curadoria
         return [
           { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
-          { label: "Aprovar", action: "approve", targetStatus: "approved" },
-          { label: "Recusar", action: "reject", targetStatus: "rejected" },
         ];
       case "curation":
-        // Pode aprovar ou rejeitar (não pode convidar, pois já está em curadoria)
-        return [
-          {
-            label: "Aprovar",
-            action: "approve",
-            targetStatus: "approved",
-          },
-          { label: "Recusar", action: "reject", targetStatus: "rejected" },
-        ];
+        // Sem ações - aprovação/recusa deve ser feita na guia de Curadoria
+        return [];
       case "invited":
-        // Influenciador já foi convidado, aguardando resposta no app
-        // Backoffice pode aprovar diretamente ou rejeitar
-        return [
-          {
-            label: "Aprovar",
-            action: "approve",
-            targetStatus: "approved",
-          },
-          { label: "Recusar", action: "reject", targetStatus: "rejected" },
-        ];
+        // Sem ações - aprovação/recusa deve ser feita nas guias específicas
+        return [];
       case "approved":
-        // Aguardando upload de conteúdo pelo influenciador
-        // Backoffice pode mover para curadoria ou rejeitar
-        return [
-          { label: "Recusar", action: "reject", targetStatus: "rejected" },
-        ];
+        // Sem ações - aprovação/recusa deve ser feita nas guias específicas
+        return [];
       case "pending_approval":
         // Conteúdo aguardando aprovação
         // Nota: Aprovação/rejeição de conteúdo deve ser feita na aba "Aprovação de Conteúdo"
@@ -876,12 +865,6 @@ export function ManagementTab({
     };
     return labels[network || ""] || network || "N/A";
   };
-
-  const filteredAllInfluencers = extendedInfluencers.filter((inf) => {
-    if (statusFilter === "all") return true;
-    const currentStatus = getCurrentStatus(inf);
-    return currentStatus === statusFilter;
-  });
 
   const phaseOptions = [
     { value: "all", label: "Todas as fases" },
@@ -1182,26 +1165,12 @@ export function ManagementTab({
                 onChange={setSelectedPhaseFilter}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={viewMode === "kanban" ? "default" : "outline"}
-                onClick={() => setViewMode("kanban")}
-              >
-                <span>Kanban</span>
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "outline"}
-                onClick={() => setViewMode("list")}
-              >
-                <span>Lista</span>
-              </Button>
-            </div>
+            {/* Removido botão "Lista" - apenas Kanban é usado agora */}
           </div>
         </div>
 
         {/* Kanban Board */}
-        {viewMode === "kanban" && (
-          <DndContext
+        <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
@@ -1245,127 +1214,6 @@ export function ManagementTab({
               ) : null}
             </DragOverlay>
           </DndContext>
-        )}
-
-        {/* Cards de influenciadores */}
-        <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-neutral-950">
-              Todos os influenciadores
-            </h3>
-            <div className="w-48">
-              <Select
-                placeholder="Filtrar por status"
-                options={[
-                  { value: "all", label: "Todos os status" },
-                  ...kanbanColumns.map((col) => ({
-                    value: col.id,
-                    label: col.label,
-                  })),
-                ]}
-                value={statusFilter}
-                onChange={setStatusFilter}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAllInfluencers.map((influencer) => {
-              const mappedStatus = getCurrentStatus(influencer);
-              return (
-                <div
-                  key={influencer.id}
-                  onClick={() => handleInfluencerClick(influencer)}
-                  className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200 cursor-pointer hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar
-                      src={influencer.avatar}
-                      alt={influencer.name}
-                      size="lg"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-neutral-950 truncate">
-                        {influencer.name}
-                      </p>
-                      <p className="text-sm text-neutral-600 truncate">
-                        @{influencer.username}
-                      </p>
-                    </div>
-                  </div>
-                  {influencer.socialNetwork && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <Icon
-                        name={getSocialNetworkIcon(influencer.socialNetwork)}
-                        color="#404040"
-                        size={16}
-                      />
-                      <span className="text-sm text-neutral-600">
-                        {getSocialNetworkLabel(influencer.socialNetwork)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-neutral-600">
-                      {influencer.followers.toLocaleString("pt-BR")} seguidores
-                    </span>
-                    <span className="text-neutral-600">
-                      {influencer.engagement}% engajamento
-                    </span>
-                  </div>
-                  <div className="mb-3">
-                    <Badge
-                      text={getStatusLabel(mappedStatus)}
-                      backgroundColor="bg-primary-50"
-                      textColor="text-primary-900"
-                    />
-                  </div>
-                  {influencer.statusHistory &&
-                    influencer.statusHistory.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-neutral-200">
-                        <p className="text-xs font-medium text-neutral-600 mb-2">
-                          Histórico:
-                        </p>
-                        <div className="flex flex-col gap-1 max-h-24 overflow-y-auto">
-                          {influencer.statusHistory.map((history) => (
-                            <div
-                              key={history.id}
-                              className="text-xs text-neutral-500"
-                            >
-                              <span className="font-medium">
-                                {new Date(history.timestamp).toLocaleDateString(
-                                  "pt-BR",
-                                  {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                  }
-                                )}
-                              </span>{" "}
-                              <span>
-                                {new Date(history.timestamp).toLocaleTimeString(
-                                  "pt-BR",
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
-                              </span>
-                              {" - "}
-                              <span>{getStatusLabel(history.status)}</span>
-                              {history.notes && (
-                                <span className="block text-neutral-400 mt-0.5">
-                                  {history.notes}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Modal do influenciador */}

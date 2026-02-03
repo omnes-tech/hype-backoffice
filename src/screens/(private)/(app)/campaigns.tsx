@@ -35,6 +35,7 @@ function RouteComponent() {
   const [currentStep, setCurrentStep] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all_campaigns");
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
 
   const { data: campaignsData = [], isLoading, error } = useCampaigns();
   const createCampaignMutation = useCreateCampaign();
@@ -304,9 +305,12 @@ function RouteComponent() {
   // Handler para submissão do formulário
   const handleSubmitCampaign = async () => {
     try {
+      setIsCreatingCampaign(true);
+      
       // Validar dados obrigatórios
       if (!formData.title || !formData.description) {
         toast.error("Por favor, preencha todos os campos obrigatórios");
+        setIsCreatingCampaign(false);
         return;
       }
 
@@ -367,6 +371,8 @@ function RouteComponent() {
       if (bannerFile instanceof File) {
         try {
           await uploadCampaignBanner(createdCampaign.id, bannerFile);
+          // Invalidar cache de campanhas para atualizar o banner
+          queryClient.invalidateQueries({ queryKey: ["campaigns"] });
         } catch (error: any) {
           console.error("Erro ao fazer upload do banner:", error);
           // Não bloquear o fluxo se o upload do banner falhar
@@ -374,7 +380,11 @@ function RouteComponent() {
         }
       }
 
+      // Invalidar cache de campanhas para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      
       toast.success("Campanha criada com sucesso!");
+      setIsCreatingCampaign(false);
       setIsModalOpen(false);
       setCurrentStep(1);
       const resetFormData: CampaignFormData = {
@@ -420,6 +430,7 @@ function RouteComponent() {
       toast.error(
         error?.message || "Erro ao criar campanha. Tente novamente."
       );
+      setIsCreatingCampaign(false);
     }
   };
 
@@ -645,7 +656,7 @@ function RouteComponent() {
                 setCurrentStep(step);
               }}
               onSubmitCampaign={handleSubmitCampaign}
-              isLoading={createCampaignMutation.isPending}
+              isLoading={isCreatingCampaign || createCampaignMutation.isPending}
             />
           )}
         </Modal>

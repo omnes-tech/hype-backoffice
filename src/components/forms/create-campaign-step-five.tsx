@@ -3,6 +3,7 @@ import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import type { CampaignFormData } from "@/shared/types";
 import { handleNumberInput } from "@/shared/utils/masks";
 
@@ -24,6 +25,15 @@ export function CreateCampaignStepFive({
   const [bannerPreview, setBannerPreview] = useState<string | null>(
     formData.banner || null
   );
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [imagePosition, setImagePosition] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [dragStartPosition, setDragStartPosition] = useState(0);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // Atualizar preview quando formData.banner mudar (útil para edição)
   useEffect(() => {
@@ -38,15 +48,172 @@ export function CreateCampaignStepFive({
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        setBannerPreview(result);
-        updateFormData("banner", result);
-        // Armazenar o arquivo original para upload posterior
-        // Usar uma propriedade customizada no formData
-        (formData as any).bannerFile = file;
+        const img = new Image();
+        img.onload = () => {
+          // Se a altura for maior que 512px, abrir modal de ajuste
+          if (img.height > 512) {
+            setOriginalImage(result);
+            setOriginalFile(file);
+            setShowCropModal(true);
+            setImagePosition(0);
+          } else {
+            // Se a altura for menor ou igual a 512px, usar diretamente
+            setBannerPreview(result);
+            updateFormData("banner", result);
+            (formData as any).bannerFile = file;
+          }
+        };
+        img.src = result;
       };
       reader.readAsDataURL(file);
     }
   };
+
+  const handleCropConfirm = () => {
+    if (!originalImage || !imageRef.current || !cropContainerRef.current) return;
+
+    const img = imageRef.current;
+    const container = cropContainerRef.current;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    // Dimensões do banner: 1280x512
+    const targetWidth = 1280;
+    const targetHeight = 512;
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    // Calcular a escala da imagem no container
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const scale = containerWidth / img.naturalWidth;
+    const imageDisplayHeight = img.naturalHeight * scale;
+    
+    // Calcular qual parte da imagem original está visível no container
+    // imagePosition é negativo quando a imagem está sendo arrastada para cima
+    // Converter a posição visual para coordenadas da imagem original
+    const visibleTopInOriginal = Math.max(0, -imagePosition / scale);
+    const visibleHeightInOriginal = Math.min(img.naturalHeight - visibleTopInOriginal, containerHeight / scale);
+
+    // Calcular a proporção para manter o aspect ratio correto (1280:512 = 2.5:1)
+    const targetAspectRatio = targetWidth / targetHeight; // 2.5
+
+    let sourceX = 0;
+    let sourceY = visibleTopInOriginal;
+    let sourceWidth = img.naturalWidth;
+    let sourceHeight = visibleHeightInOriginal;
+
+    // Se a imagem for mais larga que o necessário para o aspect ratio, centralizar horizontalmente
+    const imageAspectRatio = img.naturalWidth / img.naturalHeight;
+    if (imageAspectRatio > targetAspectRatio) {
+      // A imagem é mais larga, então precisamos cortar as laterais
+      sourceWidth = img.naturalHeight * targetAspectRatio;
+      sourceX = (img.naturalWidth - sourceWidth) / 2;
+    }
+
+    // Garantir que temos altura suficiente
+    if (sourceHeight < targetHeight / scale) {
+      sourceHeight = Math.min(img.naturalHeight - sourceY, targetHeight / scale);
+    }
+
+    // Desenhar a parte visível da imagem no canvas
+    ctx.drawImage(
+      img,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight
+    );
+
+    // Converter canvas para blob e depois para File
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      const croppedFile = new File([blob], originalFile?.name || "banner.jpg", {
+        type: blob.type || "image/jpeg",
+      });
+
+      const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      setBannerPreview(croppedDataUrl);
+      updateFormData("banner", croppedDataUrl);
+      (formData as any).bannerFile = croppedFile;
+      setShowCropModal(false);
+      setOriginalImage(null);
+      setOriginalFile(null);
+    }, "image/jpeg", 0.9);
+  };
+
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setOriginalImage(null);
+    setOriginalFile(null);
+    if (bannerInputRef.current) {
+      bannerInputRef.current.value = "";
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStartY(e.clientY);
+    setDragStartPosition(imagePosition);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !imageRef.current || !cropContainerRef.current) return;
+
+    const deltaY = e.clientY - dragStartY;
+    const newPosition = dragStartPosition + deltaY;
+
+    // Calcular limites
+    const container = cropContainerRef.current;
+    const img = imageRef.current;
+    const scale = container.clientWidth / img.naturalWidth;
+    const imageDisplayHeight = img.naturalHeight * scale;
+    const maxPosition = 0;
+    const minPosition = container.clientHeight - imageDisplayHeight;
+
+    setImagePosition(Math.max(minPosition, Math.min(maxPosition, newPosition)));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      const handleGlobalMouseMove = (e: MouseEvent) => {
+        if (!imageRef.current || !cropContainerRef.current) return;
+        const deltaY = e.clientY - dragStartY;
+        const newPosition = dragStartPosition + deltaY;
+        const container = cropContainerRef.current;
+        const img = imageRef.current;
+        const scale = container.clientWidth / img.naturalWidth;
+        const imageDisplayHeight = img.naturalHeight * scale;
+        const maxPosition = 0;
+        const minPosition = container.clientHeight - imageDisplayHeight;
+        setImagePosition(Math.max(minPosition, Math.min(maxPosition, newPosition)));
+      };
+
+      const handleGlobalMouseUp = () => {
+        setIsDragging(false);
+      };
+
+      document.addEventListener("mousemove", handleGlobalMouseMove);
+      document.addEventListener("mouseup", handleGlobalMouseUp);
+
+      return () => {
+        document.removeEventListener("mousemove", handleGlobalMouseMove);
+        document.removeEventListener("mouseup", handleGlobalMouseUp);
+      };
+    }
+  }, [isDragging, dragStartY, dragStartPosition]);
 
   const handleBrandFilesSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
@@ -179,6 +346,50 @@ export function CreateCampaignStepFive({
           </Button>
         </div>
       </div>
+
+      {/* Modal de ajuste de banner */}
+      {showCropModal && originalImage && (
+        <Modal title="Ajustar banner" onClose={handleCropCancel}>
+          <div className="flex flex-col gap-6">
+            <p className="text-sm text-neutral-600">
+              A imagem tem altura maior que 512px. Arraste a imagem para ajustar qual parte ficará visível no banner.
+            </p>
+            
+            <div className="relative w-full bg-neutral-100 rounded-2xl overflow-hidden border-2 border-neutral-200">
+              <div
+                ref={cropContainerRef}
+                className="relative w-full"
+                style={{ aspectRatio: "1280/512", height: "512px" }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <img
+                  ref={imageRef}
+                  src={originalImage}
+                  alt="Banner para ajustar"
+                  className="absolute w-full h-auto select-none"
+                  style={{
+                    transform: `translateY(${imagePosition}px)`,
+                    cursor: isDragging ? "grabbing" : "grab",
+                  }}
+                  draggable={false}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleCropCancel} className="flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleCropConfirm} className="flex-1">
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </form>
   );
 }

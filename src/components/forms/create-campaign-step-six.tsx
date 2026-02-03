@@ -143,9 +143,9 @@ export function CreateCampaignStepSix({
           ...phase,
           formats: phase.formats.map((format) => {
             if (format.id === formatId) {
-              // Sempre manter quantidade como "1"
               const updatedFormat = { ...format, [field]: value };
-              if (field !== "quantity") {
+              // Se mudou rede social ou tipo de conteúdo, resetar quantidade para 1
+              if ((field === "socialNetwork" || field === "contentType") && !updatedFormat.quantity) {
                 updatedFormat.quantity = "1";
               }
               return updatedFormat;
@@ -158,6 +158,24 @@ export function CreateCampaignStepSix({
     });
     setPhases(updatedPhases);
     updateFormData("phases", updatedPhases);
+  };
+
+  // Função para obter o label da quantidade baseado no formato
+  const getQuantityLabel = (socialNetwork: string, contentType: string): string => {
+    // Instagram Stories: minutos
+    if (socialNetwork === "instagram" && contentType === "stories") {
+      return "minutos";
+    }
+    // TikTok LIVE: horas
+    if (socialNetwork === "tiktok" && contentType === "live") {
+      return "horas";
+    }
+    // YouTube LIVE: horas
+    if (socialNetwork === "youtube" && contentType === "live") {
+      return "horas";
+    }
+    // Todos os outros: quantidade normal
+    return "quantidade";
   };
 
   const handlePhaseFilesSelect = (phaseId: string, files: FileList | null) => {
@@ -184,13 +202,17 @@ export function CreateCampaignStepSix({
       { label: "LIVE", value: "live" },
     ],
     youtube: [
-      { label: "Video", value: "video" },
+      { label: "Vídeo dedicado até 10 minutos", value: "video_dedicated" },
+      { label: "Inserção até 60 segundos", value: "insertion" },
+      { label: "Pré-roll ou End-roll até 15 segundos", value: "preroll_endroll" },
       { label: "Shorts", value: "shorts" },
       { label: "LIVE", value: "live" },
     ],
     ugc: [
       { label: "Imagem", value: "image" },
-      { label: "Vídeo", value: "video" },
+      { label: "Vídeo até 1 minuto", value: "video_1min" },
+      { label: "Vídeo até 10 minutos", value: "video_10min" },
+      { label: "Vídeo até 1 hora", value: "video_1hour" },
     ],
   };
 
@@ -268,6 +290,17 @@ export function CreateCampaignStepSix({
 
       if (incompleteFormats.length > 0) {
         toast.error(`A Fase ${i + 1} tem formato(s) incompleto(s). Preencha a rede social e o tipo de conteúdo.`);
+        return false;
+      }
+
+      // Verificar se todas as quantidades são válidas
+      const invalidQuantities = phase.formats.filter((format) => {
+        const quantity = parseInt(format.quantity || "0", 10);
+        return isNaN(quantity) || quantity < 1;
+      });
+
+      if (invalidQuantities.length > 0) {
+        toast.error(`A Fase ${i + 1} tem formato(s) com quantidade inválida. A quantidade deve ser maior que 0.`);
         return false;
       }
     }
@@ -372,44 +405,65 @@ export function CreateCampaignStepSix({
                 Formatos e redes sociais
               </label>
 
-              {phase.formats.map((format) => (
-                <div
-                  key={format.id}
-                  className="grid grid-cols-3 gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-200"
-                >
-                  <Select
-                    placeholder="Rede social"
-                    value={format.socialNetwork}
-                    onChange={(value) =>
-                      updateFormat(phase.id, format.id, "socialNetwork", value)
-                    }
-                    options={socialNetworks}
-                  />
-
-                  <Select
-                    placeholder="Tipo de conteúdo"
-                    value={format.contentType}
-                    onChange={(value) =>
-                      updateFormat(phase.id, format.id, "contentType", value)
-                    }
-                    options={getContentTypes(format.socialNetwork)}
-                    disabled={!format.socialNetwork}
-                  />
-
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1 flex items-center justify-center">
-                      <span className="text-neutral-600 font-medium">Quantidade: 1</span>
+              {phase.formats.map((format) => {
+                const quantityLabel = getQuantityLabel(format.socialNetwork || "", format.contentType || "");
+                return (
+                  <div
+                    key={format.id}
+                    className="flex flex-col sm:flex-row items-end gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-200"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <Select
+                        placeholder="Rede social"
+                        value={format.socialNetwork}
+                        onChange={(value) =>
+                          updateFormat(phase.id, format.id, "socialNetwork", value)
+                        }
+                        options={socialNetworks}
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFormat(phase.id, format.id)}
-                      className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
-                    >
-                      <Icon name="X" color="#DC2626" size={20} />
-                    </button>
+
+                    <div className="flex-1 min-w-0">
+                      <Select
+                        placeholder="Tipo de conteúdo"
+                        value={format.contentType}
+                        onChange={(value) =>
+                          updateFormat(phase.id, format.id, "contentType", value)
+                        }
+                        options={getContentTypes(format.socialNetwork)}
+                        disabled={!format.socialNetwork}
+                      />
+                    </div>
+
+                    <div className="w-full sm:w-32 flex flex-col gap-1">
+                      <label className="text-xs text-neutral-600 font-medium">
+                        {quantityLabel === "minutos" ? "Minutos" : 
+                         quantityLabel === "horas" ? "Horas" : 
+                         "Quantidade"}
+                      </label>
+                      <Input
+                        type="number"
+                        value={format.quantity || "1"}
+                        onChange={(e) =>
+                          updateFormat(phase.id, format.id, "quantity", e.target.value)
+                        }
+                        min="1"
+                        disabled={!format.socialNetwork || !format.contentType}
+                      />
+                    </div>
+
+                    <div className="flex items-end sm:items-center justify-end sm:justify-center">
+                      <button
+                        type="button"
+                        onClick={() => removeFormat(phase.id, format.id)}
+                        className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                      >
+                        <Icon name="X" color="#DC2626" size={20} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               <Button
                 type="button"

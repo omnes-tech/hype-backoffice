@@ -106,6 +106,7 @@ export function CreateCampaignStepOne({
           onChange={handleMainNicheChange}
           disabled={isLoadingNiches}
           openUp={true}
+          isSearchable={true}
         />
 
         {formData.mainNiche && (

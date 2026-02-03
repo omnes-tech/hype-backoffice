@@ -60,10 +60,16 @@ const getContentTypeLabel = (value: string) => {
     post: "Post",
     reels: "Reels",
     stories: "Stories",
-    video: "Vídeo",
+    video: "Vídeos",
+    video_dedicated: "Vídeo dedicado até 10 minutos",
+    insertion: "Inserção até 60 segundos",
+    preroll_endroll: "Pré-roll ou End-roll até 15 segundos",
     live: "LIVE",
     shorts: "Shorts",
     image: "Imagem",
+    video_1min: "Vídeo até 1 minuto",
+    video_10min: "Vídeo até 10 minutos",
+    video_1hour: "Vídeo até 1 hora",
   };
   return types[value] || value;
 };
@@ -141,6 +147,14 @@ export function CreateCampaignStepSeven({
                 </p>
                 <p className="text-base text-neutral-950">
                   {subnicheNames || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-600 mb-1">
+                  Quantidade de vagas de influenciadores
+                </p>
+                <p className="text-base text-neutral-950 font-medium">
+                  {formData.influencersCount || "-"}
                 </p>
               </div>
             </div>
@@ -527,7 +541,20 @@ export function CreateCampaignStepSeven({
                                 </span>
                                 <span className="text-neutral-400">•</span>
                                 <span>
-                                  Quantidade: {format.quantity || "-"}
+                                  {(() => {
+                                    const socialNetwork = format.socialNetwork || "";
+                                    const contentType = format.contentType || "";
+                                    let label = "Quantidade";
+                                    if (socialNetwork === "instagram" && contentType === "stories") {
+                                      label = "Minutos";
+                                    } else if (
+                                      (socialNetwork === "tiktok" && contentType === "live") ||
+                                      (socialNetwork === "youtube" && contentType === "live")
+                                    ) {
+                                      label = "Horas";
+                                    }
+                                    return `${label}: ${format.quantity || "-"}`;
+                                  })()}
                                 </span>
                               </div>
                             ))}
@@ -571,6 +598,9 @@ export function CreateCampaignStepSeven({
         <div className="w-fit">
           <Button onClick={onSubmitCampaign} type="button" disabled={isLoading}>
             <div className="flex items-center justify-center gap-2">
+              {isLoading && (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-50/30 border-t-neutral-50"></div>
+              )}
               <p className="text-neutral-50 font-semibold">
                 {isLoading ? "Criando campanha..." : "Confirmar e selecionar influenciadores"}
               </p>

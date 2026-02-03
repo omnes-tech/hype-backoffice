@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Influencer } from "@/shared/types";
 import { useCampaignRecommendations } from "@/hooks/use-catalog";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
-import { useMuralStatus, useActivateMural } from "@/hooks/use-campaign-mural";
+import { useMuralStatus, useActivateMural, useDeactivateMural } from "@/hooks/use-campaign-mural";
 import { useInviteInfluencer, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
@@ -36,11 +36,15 @@ interface ExtendedInfluencer extends Influencer {
 interface InfluencerSelectionTabProps {
   influencers: Influencer[];
   campaignPhases?: Array<{ id: string; label: string; publish_date?: string }>;
+  maxInfluencers?: number;
+  phasesWithFormats?: Array<{ formats?: Array<{ socialNetwork: string }> }>;
 }
 
 export function InfluencerSelectionTab({
   influencers: _influencers,
   campaignPhases: _campaignPhases = [],
+  maxInfluencers = 0,
+  phasesWithFormats = [],
 }: InfluencerSelectionTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const queryClient = useQueryClient();
@@ -65,19 +69,45 @@ export function InfluencerSelectionTab({
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 
-  // Buscar perfis do influenciador quando o modal de convite for aberto
+  // Buscar perfis do influenciador quando o modal de convite ou curadoria for aberto
   const { data: influencerProfilesData, isLoading: isLoadingProfiles } = useQuery({
     queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
     queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
-    enabled: !!selectedInfluencer && modalType === "invite",
+    enabled: !!selectedInfluencer && (modalType === "invite" || modalType === "curation"),
   });
 
   // Garantir que influencerProfiles seja sempre um array
-  const influencerProfiles = Array.isArray(influencerProfilesData) ? influencerProfilesData : [];
+  const influencerProfilesDataArray = Array.isArray(influencerProfilesData) ? influencerProfilesData : [];
+
+  // Extrair redes sociais permitidas das fases da campanha
+  const allowedSocialNetworks = useMemo(() => {
+    const networks = new Set<string>();
+    phasesWithFormats.forEach((phase) => {
+      phase.formats?.forEach((format) => {
+        if (format.socialNetwork) {
+          networks.add(format.socialNetwork.toLowerCase());
+        }
+      });
+    });
+    return Array.from(networks);
+  }, [phasesWithFormats]);
+
+  // Filtrar perfis do influenciador para mostrar apenas os permitidos
+  const influencerProfiles = useMemo(() => {
+    if (allowedSocialNetworks.length === 0) {
+      // Se não há redes sociais definidas nas fases, mostrar todos os perfis
+      return influencerProfilesDataArray;
+    }
+    return influencerProfilesDataArray.filter((profile) => {
+      const profileType = profile.type?.toLowerCase() || "";
+      return allowedSocialNetworks.includes(profileType);
+    });
+  }, [influencerProfilesDataArray, allowedSocialNetworks]);
 
   // Hooks para dados reais
   const { data: muralStatus } = useMuralStatus(campaignId);
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
+  const { mutate: deactivateMural, isPending: isDeactivatingMural } = useDeactivateMural(campaignId);
   const { data: recommendations = [], isLoading: isLoadingRecommendations } = useCampaignRecommendations(campaignId);
   const { data: catalogData = [], isLoading: isLoadingCatalog } = useInfluencersCatalog({
     social_network: filterSocialNetwork || undefined,
@@ -232,17 +262,56 @@ export function InfluencerSelectionTab({
     return Array.from(allCities);
   }, [catalogInfluencers]);
 
+  // Verificar se todas as vagas foram preenchidas
+  const approvedInfluencersCount = useMemo(() => {
+    return campaignUsers.filter((user) => {
+      const status = user.status?.toLowerCase() || "";
+      return status === "approved" || status === "aprovado";
+    }).length;
+  }, [campaignUsers]);
+
+  const allVacanciesFilled = maxInfluencers > 0 && approvedInfluencersCount >= maxInfluencers;
+
+  // Desativar automaticamente quando todas as vagas forem preenchidas
+  useEffect(() => {
+    if (isMuralActive && allVacanciesFilled) {
+      deactivateMural(undefined, {
+        onSuccess: () => {
+          toast.success("Descobrir desativado automaticamente: todas as vagas foram preenchidas");
+        },
+        onError: (error: any) => {
+          console.error("Erro ao desativar mural automaticamente:", error);
+        },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMuralActive, allVacanciesFilled]);
+
   const handleMuralToggle = (checked: boolean) => {
     if (checked) {
       setShowMuralDateModal(true);
     } else {
-      // Only allow deactivation if end date has passed
-      if (muralEndDate && new Date(muralEndDate) > new Date()) {
-        toast.error("Não é possível desativar o mural antes da data limite");
-        return;
-      }
-      // Deactivation handled by backend
+      // Permitir desativação a qualquer momento
+      deactivateMural(undefined, {
+        onSuccess: () => {
+          toast.success("Descobrir desativado com sucesso!");
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao desativar Descobrir");
+        },
+      });
     }
+  };
+
+  const handleDeactivateMural = () => {
+    deactivateMural(undefined, {
+      onSuccess: () => {
+        toast.success("Descobrir desativado com sucesso!");
+      },
+      onError: (error: any) => {
+        toast.error(error?.message || "Erro ao desativar Descobrir");
+      },
+    });
   };
 
   const handleActivateMural = () => {
@@ -345,6 +414,14 @@ export function InfluencerSelectionTab({
         }
       );
     } else if (modalType === "curation") {
+      // Validar se o influenciador tem perfis permitidos (se houver redes sociais definidas)
+      if (allowedSocialNetworks.length > 0 && influencerProfiles.length === 0) {
+        toast.error(
+          `Este influenciador não possui perfis nas redes sociais definidas na campanha (${allowedSocialNetworks.map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}). Não é possível adicioná-lo para curadoria.`
+        );
+        return;
+      }
+
       // Tenta atualizar o status primeiro (caso o influenciador já esteja na campanha)
       updateStatus(
         {
@@ -468,20 +545,30 @@ export function InfluencerSelectionTab({
                 Eles poderão se inscrever diretamente na campanha, facilitando o processo de seleção e aumentando
                 o alcance da sua campanha.
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={isMuralActive}
                     onCheckedChange={(checked) => handleMuralToggle(checked === true)}
-                    disabled={isMuralActive && muralEndDate ? new Date(muralEndDate) > new Date() : false}
+                    disabled={isActivatingMural || isDeactivatingMural}
                   />
                   <label className="text-sm font-medium text-neutral-950 cursor-pointer">
                     {isMuralActive ? "Desativar Descobrir" : "Ativar Descobrir"}
                   </label>
                 </div>
-                {isMuralActive && muralEndDate && new Date(muralEndDate) > new Date() && (
-                  <p className="text-xs text-neutral-600">
-                    O Descobrir não pode ser desativado até {new Date(muralEndDate).toLocaleDateString("pt-BR")}
+                {isMuralActive && (
+                  <Button
+                    variant="outline"
+                    onClick={handleDeactivateMural}
+                    disabled={isDeactivatingMural || isActivatingMural}
+                    className="h-9 px-4"
+                  >
+                    {isDeactivatingMural ? "Desativando..." : "Desativar agora"}
+                  </Button>
+                )}
+                {allVacanciesFilled && isMuralActive && (
+                  <p className="text-xs text-warning-600 font-medium">
+                    Todas as vagas foram preenchidas. O Descobrir será desativado automaticamente.
                   </p>
                 )}
               </div>
@@ -699,6 +786,7 @@ export function InfluencerSelectionTab({
               options={catalogNiches.map((niche) => ({ value: niche, label: niche }))}
               value={filterNiche}
               onChange={setFilterNiche}
+              isSearchable={true}
             />
             <Select
               label="País"
@@ -874,7 +962,9 @@ export function InfluencerSelectionTab({
                   ) : influencerProfiles.length === 0 ? (
                     <div className="bg-neutral-50 rounded-2xl p-4 text-center">
                       <p className="text-sm text-neutral-600">
-                        Nenhum perfil encontrado para este influenciador
+                        {allowedSocialNetworks.length > 0
+                          ? `Este influenciador não possui perfis nas redes sociais definidas na campanha (${allowedSocialNetworks.map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")})`
+                          : "Nenhum perfil encontrado para este influenciador"}
                       </p>
                     </div>
                   ) : (
@@ -944,23 +1034,64 @@ export function InfluencerSelectionTab({
                   )}
                 </div>
 
-                <Textarea
-                  label="Mensagem de convite (opcional)"
-                  placeholder="Escreva uma mensagem personalizada para o influenciador..."
-                  value={inviteMessage}
-                  onChange={(e) => setInviteMessage(e.target.value)}
-                />
+                <div className="flex flex-col gap-1">
+                  <Textarea
+                    label="Mensagem de convite (opcional)"
+                    placeholder="Escreva uma mensagem personalizada para o influenciador..."
+                    value={inviteMessage}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= 25) {
+                        setInviteMessage(value);
+                      }
+                    }}
+                    maxLength={25}
+                  />
+                  <div className="flex justify-end">
+                    <span className={`text-xs ${inviteMessage.length >= 25 ? "text-danger-600" : "text-neutral-500"}`}>
+                      {inviteMessage.length}/25
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
             {modalType === "curation" && (
               <div className="flex flex-col gap-4">
-                <Textarea
-                  label="Notas para curadoria"
-                  placeholder="Adicione observações sobre este influenciador..."
-                  value={curationNotes}
-                  onChange={(e) => setCurationNotes(e.target.value)}
-                />
+                {isLoadingProfiles ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-neutral-600">Verificando perfis...</p>
+                  </div>
+                ) : allowedSocialNetworks.length > 0 && influencerProfiles.length === 0 ? (
+                  <div className="bg-warning-50 border-2 border-warning-300 rounded-2xl p-4">
+                    <p className="text-sm text-warning-900 font-medium mb-1">
+                      Atenção: Perfis não compatíveis
+                    </p>
+                    <p className="text-xs text-warning-700">
+                      Este influenciador não possui perfis nas redes sociais definidas na campanha ({allowedSocialNetworks.map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}).
+                      Ainda assim, você pode adicioná-lo para curadoria, mas ele precisará ter perfis compatíveis para participar da campanha.
+                    </p>
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-1">
+                  <Textarea
+                    label="Notas para curadoria"
+                    placeholder="Adicione observações sobre este influenciador..."
+                    value={curationNotes}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= 25) {
+                        setCurationNotes(value);
+                      }
+                    }}
+                    maxLength={25}
+                  />
+                  <div className="flex justify-end">
+                    <span className={`text-xs ${curationNotes.length >= 25 ? "text-danger-600" : "text-neutral-500"}`}>
+                      {curationNotes.length}/25
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -969,7 +1100,15 @@ export function InfluencerSelectionTab({
                 <Button variant="outline" onClick={handleCloseModal} className="flex-1">
                   Cancelar
                 </Button>
-                <Button onClick={handleConfirm} className="flex-1" disabled={isInviting || isUpdatingStatus}>
+                <Button 
+                  onClick={handleConfirm} 
+                  className="flex-1" 
+                  disabled={
+                    isInviting || 
+                    isUpdatingStatus || 
+                    (modalType === "invite" && influencerProfiles.length === 0 && allowedSocialNetworks.length > 0)
+                  }
+                >
                   {isInviting || isUpdatingStatus
                     ? "Processando..."
                     : modalType === "invite"
@@ -1044,7 +1183,7 @@ export function InfluencerSelectionTab({
                 <div className="bg-primary-50 rounded-2xl p-4">
                   <p className="text-sm text-primary-900">
                     O Descobrir ficará ativo até{" "}
-                    <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong> e não poderá ser desativado antes desta data.
+                    <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong>. Você poderá desativá-lo a qualquer momento antes desta data.
                   </p>
                 </div>
               )}
