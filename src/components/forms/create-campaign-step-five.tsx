@@ -90,7 +90,6 @@ export function CreateCampaignStepFive({
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
     const scale = containerWidth / img.naturalWidth;
-    const imageDisplayHeight = img.naturalHeight * scale;
     
     // Calcular qual parte da imagem original está visível no container
     // imagePosition é negativo quando a imagem está sendo arrastada para cima
