@@ -152,7 +152,7 @@ export interface Influencer {
   followers: number;
   engagement: number;
   niche: string;
-  status?: "applications" | "curation" | "invited" | "approved" | "pending_approval" | "in_correction" | "content_approved" | "published" | "rejected";
+  status?: "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected";
   phase?: string;
 }
 
@@ -175,7 +175,7 @@ export interface CampaignContent {
   previewUrls?: string[]; // Alias para compatibilidade
   post_url?: string;
   postUrl: string;
-  status: "pending" | "approved" | "adjustment_requested" | "rejected" | "published";
+  status: "pending" | "awaiting_approval" | "approved" | "content_approved" | "correction" | "rejected" | "published";
   phase_id?: string | null;
   submitted_at?: string;
   submittedAt: string;
@@ -189,17 +189,21 @@ export interface CampaignScript {
   id: string;
   campaign_id?: string;
   influencer_id?: string;
-  influencerId: string;
+  influencerId?: string;
   influencer_name?: string;
-  influencerName: string;
+  influencerName?: string;
   influencer_avatar?: string;
-  influencerAvatar: string;
+  influencerAvatar?: string;
+  social_network?: string;
+  script?: string;
   script_text?: string;
-  scriptText: string;
-  status: "pending" | "approved" | "adjustment_requested" | "rejected";
+  scriptText?: string;
+  file_url?: string;
+  status: "pending" | "awaiting_approval" | "approved" | "correction";
   phase_id?: string | null;
   submitted_at?: string;
-  submittedAt: string;
+  submittedAt?: string;
+  approved_at?: string;
   feedback?: string | null;
 }
 

@@ -76,30 +76,40 @@ const kanbanColumns = [
   { id: "curation", label: "Curadoria", color: "bg-blue-50" },
   { id: "invited", label: "Convidados", color: "bg-yellow-50" },
   {
-    id: "approved",
-    label: "Aprovado/Em Andamento",
-    color: "bg-green-50",
-  },
-  {
-    id: "pending_approval",
-    label: "Aguardando Aprovação",
-    color: "bg-orange-50",
-  },
-  {
-    id: "script_pending",
-    label: "Roteiro Pendente",
-    color: "bg-indigo-50",
-  },
-  {
     id: "contract_pending",
     label: "Contrato Pendente",
     color: "bg-teal-50",
   },
-  { id: "in_correction", label: "Correção", color: "bg-yellow-100" },
+  {
+    id: "approved",
+    label: "Aprovado / Em Andamento",
+    color: "bg-green-50",
+  },
+  {
+    id: "script_pending",
+    label: "Aguardando Aprovação Roteiro",
+    color: "bg-indigo-50",
+  },
+  {
+    id: "content_pending",
+    label: "Aguardando Conteúdo",
+    color: "bg-amber-50",
+  },
+  {
+    id: "pending_approval",
+    label: "Aguardando Aprovação Conteúdo",
+    color: "bg-orange-50",
+  },
+  { id: "in_correction", label: "Em Correção", color: "bg-yellow-100" },
   {
     id: "content_approved",
-    label: "Conteúdo aprovado",
+    label: "Conteúdo Aprovado",
     color: "bg-purple-50",
+  },
+  {
+    id: "payment_pending",
+    label: "Aguardando Pagamento",
+    color: "bg-cyan-50",
   },
   { id: "published", label: "Publicado", color: "bg-success-50" },
   {
@@ -461,36 +471,34 @@ export function ManagementTab({
   );
 
   // Função para mapear status da API para colunas do Kanban
-  // Usa os valores do enum do backend: applications, curation, invited, approved, pending_approval, in_correction, content_approved, published, rejected
+  // Mapeia os valores do backend para os IDs das colunas do Kanban
   const mapUserStatusToKanbanColumn = (status: string): string => {
     const statusMap: { [key: string]: string } = {
-      // Valores corretos do enum do backend
+      // Valores do banco de dados mapeados para IDs das colunas do Kanban
       applications: "applications",
       curation: "curation",
       invited: "invited",
+      contract_pending: "contract_pending",
       approved: "approved",
-      pending_approval: "pending_approval",
+      pending_approval: "script_pending", // Aguardando Aprovação Roteiro
+      awaiting_content: "content_pending", // Aguardando Conteúdo
+      awaiting_content_approval: "pending_approval", // Aguardando Aprovação Conteúdo
       in_correction: "in_correction",
-      content_approved: "content_approved",
-      published: "published",
+      content_approved: "content_approved", // Conteúdo Aprovado / Aguardando Publicação
+      awaiting_publication: "content_approved", // Aguardando Publicação (mesmo que content_approved)
+      awaiting_payment: "payment_pending", // Aguardando Pagamento
+      published: "published", // Publicado / Concluído
+      completed: "published", // Concluído (mesmo que published)
       rejected: "rejected",
-      // Valores antigos do frontend (mapeia para valores corretos)
-      inscriptions: "applications",
-      approved_progress: "approved",
-      awaiting_approval: "pending_approval",
-      selected: "applications",
-      active: "approved",
-      // Mantém compatibilidade com status antigos em português (caso ainda venham do backend)
-      inscricoes: "applications",
-      aprovado: "approved",
-      curadoria: "curation",
-      recusado: "rejected",
-      convidados: "invited",
-      aprovados: "approved",
-      rejeitados: "rejected",
-      conteudo_submetido: "pending_approval",
-      conteudo_aprovado: "content_approved",
-      conteudo_rejeitado: "in_correction",
+      // Compatibilidade com valores antigos (caso ainda venham)
+      contractpending: "contract_pending",
+      script_pending: "script_pending",
+      content_pending: "content_pending",
+      awaitingcontent: "content_pending",
+      awaitingcontentapproval: "pending_approval",
+      awaitingpublication: "content_approved",
+      awaitingpayment: "payment_pending",
+      incorrection: "in_correction",
     };
     return statusMap[status.toLowerCase()] || "applications";
   };
@@ -807,8 +815,18 @@ export function ManagementTab({
       case "invited":
         // Sem ações - aprovação/recusa deve ser feita nas guias específicas
         return [];
+      case "contract_pending":
+        // Sem ações - contrato deve ser gerenciado na aba de Contratos
+        return [];
       case "approved":
         // Sem ações - aprovação/recusa deve ser feita nas guias específicas
+        return [];
+      case "script_pending":
+        // Sem ações - aprovação de roteiro deve ser feita na aba "Aprovações de Roteiro"
+        return [];
+      case "content_pending":
+        // Aguardando conteúdo do influenciador
+        // Não há ações disponíveis - aguarda envio automático
         return [];
       case "pending_approval":
         // Conteúdo aguardando aprovação
@@ -822,6 +840,10 @@ export function ManagementTab({
       case "content_approved":
         // Conteúdo aprovado, aguardando publicação e identificação pelo bot
         // Não há ações disponíveis - processo automático
+        return [];
+      case "payment_pending":
+        // Aguardando pagamento - processo automático
+        // Não há ações disponíveis
         return [];
       case "published":
         // Conteúdo publicado - fase concluída
@@ -991,7 +1013,25 @@ export function ManagementTab({
               ? "rejected"
               : targetStatus === "applications" || targetStatus === "inscriptions"
                 ? "applications"
-                : targetStatus;
+                : targetStatus === "invited"
+                  ? "invited"
+                  : targetStatus === "contract_pending"
+                    ? "contract_pending"
+                    : targetStatus === "script_pending"
+                      ? "script_pending"
+                      : targetStatus === "content_pending"
+                        ? "content_pending"
+                        : targetStatus === "pending_approval"
+                          ? "pending_approval"
+                          : targetStatus === "in_correction"
+                            ? "in_correction"
+                            : targetStatus === "content_approved"
+                              ? "content_approved"
+                              : targetStatus === "payment_pending"
+                                ? "payment_pending"
+                                : targetStatus === "published"
+                                  ? "published"
+                                  : targetStatus;
 
       // Atualiza o status do influenciador via API
       const notes = getTransitionNote(currentStatus, targetStatus);
@@ -1038,16 +1078,24 @@ export function ManagementTab({
       applications: ["curation", "invited", "rejected"],
       // curation → invited, approved, rejected
       curation: ["invited", "approved", "rejected"],
-      // invited → approved, rejected
-      invited: ["approved", "rejected"],
-      // approved → pending_approval, rejected
-      approved: ["pending_approval", "rejected"],
+      // invited → contract_pending, rejected
+      invited: ["contract_pending", "rejected"],
+      // contract_pending → approved, rejected
+      contract_pending: ["approved", "rejected"],
+      // approved → script_pending, rejected
+      approved: ["script_pending", "rejected"],
+      // script_pending → content_pending, rejected
+      script_pending: ["content_pending", "rejected"],
+      // content_pending → pending_approval, rejected
+      content_pending: ["pending_approval", "rejected"],
       // pending_approval → content_approved, in_correction
       pending_approval: ["content_approved", "in_correction"],
       // in_correction → pending_approval
       in_correction: ["pending_approval"],
-      // content_approved → published
-      content_approved: ["published"],
+      // content_approved → payment_pending, published
+      content_approved: ["payment_pending", "published"],
+      // payment_pending → published
+      payment_pending: ["published"],
       // published → nenhum (status final)
       published: [],
       // rejected → nenhum (status final)
@@ -1063,8 +1111,8 @@ export function ManagementTab({
   };
 
   // Para usuários da campanha, permitir transições conforme documentação
-  // O backoffice pode mover manualmente entre: applications, curation, invited, approved, rejected
-  // Os status pending_approval, in_correction, content_approved, published são automáticos
+  // O backoffice pode mover manualmente entre: applications, curation, invited, contract_pending, approved, script_pending, content_pending, rejected
+  // Os status pending_approval, in_correction, content_approved, payment_pending, published são automáticos
   const validateUserStatusTransition = (
     fromStatus: string,
     toStatus: string
@@ -1074,6 +1122,7 @@ export function ManagementTab({
       "pending_approval",
       "in_correction",
       "content_approved",
+      "payment_pending",
       "published",
     ];
 
@@ -1088,10 +1137,16 @@ export function ManagementTab({
       applications: ["curation", "invited", "rejected"],
       // curation → invited, approved, rejected
       curation: ["invited", "approved", "rejected"],
-      // invited → approved, rejected
-      invited: ["approved", "rejected"],
-      // approved → curation, rejected (não pode voltar para applications ou invited)
-      approved: ["curation", "rejected"],
+      // invited → contract_pending, rejected
+      invited: ["contract_pending", "rejected"],
+      // contract_pending → approved, rejected
+      contract_pending: ["approved", "rejected"],
+      // approved → script_pending, curation, rejected
+      approved: ["script_pending", "curation", "rejected"],
+      // script_pending → content_pending, rejected
+      script_pending: ["content_pending", "rejected"],
+      // content_pending → rejected
+      content_pending: ["rejected"],
       // rejected → applications, curation (pode ser reativado)
       rejected: ["applications", "curation"],
       // Compatibilidade com valores antigos
@@ -1115,19 +1170,31 @@ export function ManagementTab({
       "curation->approved": "Aprovado após curadoria",
       "curation->rejected": "Recusado após curadoria",
       // Transições de invited
-      "invited->approved": "Aceitou o convite",
+      "invited->contract_pending": "Contrato pendente",
       "invited->rejected": "Recusou o convite",
+      // Transições de contract_pending
+      "contract_pending->approved": "Contrato aprovado",
+      "contract_pending->rejected": "Contrato recusado",
       // Transições de approved
-      "approved->pending_approval": "Conteúdo enviado para aprovação",
+      "approved->script_pending": "Aguardando aprovação de roteiro",
       "approved->rejected": "Removido da campanha",
       "approved->curation": "Movido para curadoria",
+      // Transições de script_pending
+      "script_pending->content_pending": "Roteiro aprovado, aguardando conteúdo",
+      "script_pending->rejected": "Roteiro recusado",
+      // Transições de content_pending
+      "content_pending->pending_approval": "Conteúdo enviado para aprovação",
+      "content_pending->rejected": "Recusado",
       // Transições de pending_approval
       "pending_approval->content_approved": "Conteúdo aprovado",
       "pending_approval->in_correction": "Conteúdo recusado, aguardando correção",
       // Transições de in_correction
       "in_correction->pending_approval": "Novo conteúdo enviado após correção",
       // Transições de content_approved
+      "content_approved->payment_pending": "Aguardando pagamento",
       "content_approved->published": "Publicação identificada pelo bot",
+      // Transições de payment_pending
+      "payment_pending->published": "Pagamento processado, conteúdo publicado",
       // Transições de rejected (reativação)
       "rejected->applications": "Reativado - movido para inscrições",
       "rejected->curation": "Reativado - movido para curadoria",

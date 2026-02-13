@@ -32,16 +32,19 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [rejectionFeedback, setRejectionFeedback] = useState("");
-  const [newSubmissionDeadline, setNewSubmissionDeadline] = useState("");
   const [selectedScripts, setSelectedScripts] = useState<Set<string>>(new Set());
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
   // Buscar roteiros com filtros dinâmicos
+  // Nota: A API aceita apenas 'pending', 'approved', 'correction' no filtro
+  // Mas os roteiros podem vir com status 'awaiting_approval', então tratamos no frontend
   const filters = useMemo(() => {
     const filter: { status?: string; phase_id?: string } = {};
-    if (selectedStatusFilter !== "all") {
+    // Se o filtro for "pending", não enviamos filtro de status para a API
+    // e filtramos no frontend para incluir tanto "pending" quanto "awaiting_approval"
+    if (selectedStatusFilter !== "all" && selectedStatusFilter !== "pending") {
       filter.status = selectedStatusFilter;
     }
     if (selectedPhaseFilter !== "all") {
@@ -56,23 +59,27 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     refetch: refetchScripts,
   } = useCampaignScripts(campaignId || "", filters);
 
-  // Normalizar roteiros (garantir compatibilidade com diferentes formatos da API)
+  // Normalizar roteiros conforme formato da API
   const normalizedScripts = useMemo(() => {
     return scripts.map((script: any) => ({
       id: script.id,
       campaign_id: script.campaign_id,
-      influencer_id: script.influencer_id || script.influencerId,
-      influencerId: script.influencerId || script.influencer_id,
-      influencer_name: script.influencer_name || script.influencerName,
-      influencerName: script.influencerName || script.influencer_name,
-      influencer_avatar: script.influencer_avatar || script.influencerAvatar,
-      influencerAvatar: script.influencerAvatar || script.influencer_avatar,
-      script_text: script.script_text || script.scriptText,
-      scriptText: script.scriptText || script.script_text || "",
+      influencer_id: script.influencer_id,
+      influencerId: script.influencer_id,
+      influencer_name: script.influencer_name,
+      influencerName: script.influencer_name || "",
+      influencer_avatar: script.influencer_avatar,
+      influencerAvatar: script.influencer_avatar || "",
+      social_network: script.social_network,
+      script: script.script,
+      script_text: script.script,
+      scriptText: script.script || "",
+      file_url: script.file_url,
       status: script.status,
-      phase_id: script.phase_id || script.phaseId,
-      submitted_at: script.submitted_at || script.submittedAt,
-      submittedAt: script.submittedAt || script.submitted_at,
+      phase_id: script.phase_id,
+      submitted_at: script.submitted_at,
+      submittedAt: script.submitted_at || "",
+      approved_at: script.approved_at,
       feedback: script.feedback,
     })) as CampaignScript[];
   }, [scripts]);
@@ -86,16 +93,28 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
       filtered = filtered.filter((script) => script.phase_id === selectedPhaseFilter);
     }
 
+    // Filtro por status (tratar awaiting_approval como pending)
+    if (selectedStatusFilter !== "all") {
+      if (selectedStatusFilter === "pending") {
+        // Quando filtrar por "pending", incluir também "awaiting_approval"
+        filtered = filtered.filter((script) => 
+          script.status === "pending" || script.status === "awaiting_approval"
+        );
+      } else {
+        filtered = filtered.filter((script) => script.status === selectedStatusFilter);
+      }
+    }
+
     // Filtro por busca de influenciador
     if (searchInfluencer) {
       const searchLower = searchInfluencer.toLowerCase();
       filtered = filtered.filter((script) =>
-        script.influencerName.toLowerCase().includes(searchLower)
+        (script.influencerName || script.influencer_name || "").toLowerCase().includes(searchLower)
       );
     }
 
     return filtered;
-  }, [normalizedScripts, selectedPhaseFilter, searchInfluencer]);
+  }, [normalizedScripts, selectedPhaseFilter, selectedStatusFilter, searchInfluencer]);
 
   // Hooks para mutations
   const { mutate: approveScript, isPending: isApproving } = useApproveScript(campaignId || "");
@@ -126,31 +145,31 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     setSelectedScript(script);
     setIsRejectModalOpen(true);
     setRejectionFeedback("");
-    setNewSubmissionDeadline("");
   };
 
   const handleConfirmRejection = () => {
     if (!selectedScript) return;
 
+    if (!rejectionFeedback.trim()) {
+      toast.error("Feedback é obrigatório para rejeição");
+      return;
+    }
+
     rejectScript(
       {
         script_id: selectedScript.id,
         feedback: rejectionFeedback,
-        ...(newSubmissionDeadline && {
-          new_submission_deadline: new Date(newSubmissionDeadline).toISOString(),
-        }),
       },
       {
         onSuccess: () => {
-          toast.success("Roteiro reprovado");
+          toast.success("Roteiro rejeitado com sucesso!");
           setIsRejectModalOpen(false);
           setSelectedScript(null);
           setRejectionFeedback("");
-          setNewSubmissionDeadline("");
           refetchScripts();
         },
         onError: (error: any) => {
-          toast.error(error?.message || "Erro ao reprovar roteiro");
+          toast.error(error?.message || "Erro ao rejeitar roteiro");
         },
       }
     );
@@ -225,18 +244,21 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   };
 
   const getStatusBadge = (status: CampaignScript["status"]) => {
+    // Mapear awaiting_approval para pending visualmente
+    const normalizedStatus = status === "awaiting_approval" ? "pending" : status;
+    
     const statusConfig = {
       pending: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
+      awaiting_approval: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
       approved: { text: "Aprovado", bg: "bg-green-50", textColor: "text-green-900" },
-      adjustment_requested: {
-        text: "Ajuste solicitado",
+      correction: {
+        text: "Correção Solicitada",
         bg: "bg-orange-50",
         textColor: "text-orange-900",
       },
-      rejected: { text: "Reprovado", bg: "bg-red-50", textColor: "text-red-900" },
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[normalizedStatus] || statusConfig.pending;
     return (
       <Badge
         text={config.text}
@@ -258,8 +280,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     { value: "all", label: "Todos os status" },
     { value: "pending", label: "Pendente" },
     { value: "approved", label: "Aprovado" },
-    { value: "adjustment_requested", label: "Ajuste solicitado" },
-    { value: "rejected", label: "Reprovado" },
+    { value: "correction", label: "Correção Solicitada" },
   ];
 
   return (
@@ -388,16 +409,16 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                         onCheckedChange={() => handleSelectScript(script.id)}
                       />
                       <Avatar
-                        src={script.influencerAvatar}
-                        alt={script.influencerName}
+                        src={script.influencerAvatar || ""}
+                        alt={script.influencerName || script.influencer_name || ""}
                         size="lg"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-base font-semibold text-neutral-950 truncate">
-                          {script.influencerName}
+                          {script.influencerName || script.influencer_name || "Sem nome"}
                         </p>
                         <p className="text-sm text-neutral-600 truncate">
-                          @{script.influencerName.split(" ")[0]}
+                          @{(script.influencerName || script.influencer_name || "").split(" ")[0]}
                         </p>
                       </div>
                     </div>
@@ -409,9 +430,22 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     <div className="mb-3">
                       <p className="text-xs text-neutral-500 mb-1">Roteiro:</p>
                       <p className="text-sm text-neutral-950 line-clamp-3">
-                        {script.scriptText || script.script_text || "Sem texto"}
+                        {script.script || script.scriptText || script.script_text || "Sem texto"}
                       </p>
                     </div>
+                    {script.file_url && (
+                      <div className="mb-3">
+                        <a
+                          href={script.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                        >
+                          <Icon name="File" color="#2563eb" size={14} />
+                          <span>Ver arquivo anexado</span>
+                        </a>
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
                       <Button
@@ -467,13 +501,13 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <Avatar
-                src={selectedScript.influencerAvatar}
-                alt={selectedScript.influencerName}
+                src={selectedScript.influencerAvatar || ""}
+                alt={selectedScript.influencerName || selectedScript.influencer_name || ""}
                 size="lg"
               />
               <div>
                 <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedScript.influencerName}
+                  {selectedScript.influencerName || selectedScript.influencer_name || "Sem nome"}
                 </h3>
                 <div className="mt-2">{getStatusBadge(selectedScript.status)}</div>
               </div>
@@ -485,10 +519,38 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
               </label>
               <div className="bg-neutral-50 rounded-2xl p-4 max-h-96 overflow-y-auto">
                 <p className="text-sm text-neutral-950 whitespace-pre-wrap">
-                  {selectedScript.scriptText || selectedScript.script_text || "Sem texto"}
+                  {selectedScript.script || selectedScript.scriptText || selectedScript.script_text || "Sem texto"}
                 </p>
               </div>
             </div>
+
+            {selectedScript.file_url && (
+              <div>
+                <label className="text-sm font-medium text-neutral-950 mb-2 block">
+                  Arquivo anexado:
+                </label>
+                <a
+                  href={selectedScript.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-2"
+                >
+                  <Icon name="File" color="#2563eb" size={16} />
+                  <span>Baixar arquivo</span>
+                </a>
+              </div>
+            )}
+
+            {selectedScript.social_network && (
+              <div>
+                <label className="text-sm font-medium text-neutral-950 mb-2 block">
+                  Rede social:
+                </label>
+                <p className="text-sm text-neutral-600 capitalize">
+                  {selectedScript.social_network}
+                </p>
+              </div>
+            )}
 
             {selectedScript.feedback && (
               <div>
@@ -548,19 +610,18 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
             setIsRejectModalOpen(false);
             setSelectedScript(null);
             setRejectionFeedback("");
-            setNewSubmissionDeadline("");
           }}
         >
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <Avatar
-                src={selectedScript.influencerAvatar}
-                alt={selectedScript.influencerName}
+                src={selectedScript.influencerAvatar || ""}
+                alt={selectedScript.influencerName || selectedScript.influencer_name || ""}
                 size="lg"
               />
               <div>
                 <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedScript.influencerName}
+                  {selectedScript.influencerName || selectedScript.influencer_name || "Sem nome"}
                 </h3>
               </div>
             </div>
@@ -584,14 +645,6 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
               }
             />
 
-            <Input
-              label="Nova data limite para reenvio (opcional)"
-              type="datetime-local"
-              value={newSubmissionDeadline}
-              onChange={(e) => setNewSubmissionDeadline(e.target.value)}
-              placeholder="Selecione uma data limite para o reenvio"
-              min={new Date(Date.now() + 60 * 1000).toISOString().slice(0, 16)}
-            />
 
             <div className="flex gap-3">
               <Button
@@ -600,7 +653,6 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                   setIsRejectModalOpen(false);
                   setSelectedScript(null);
                   setRejectionFeedback("");
-                  setNewSubmissionDeadline("");
                 }}
                 className="flex-1"
               >

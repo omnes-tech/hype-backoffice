@@ -33,12 +33,12 @@ export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
 const tabs = [
   { id: "dashboard", label: "Dashboard" },
   { id: "selection", label: "Seleção de influenciadores" },
-  { id: "management", label: "Gerenciamento" },
   { id: "applications", label: "Inscrições" },
   { id: "curation", label: "Curadoria" },
-  { id: "approval", label: "Aprovações de conteúdo" },
-  { id: "script-approval", label: "Aprovações de roteiro" },
+  { id: "management", label: "Gerenciamento" },
   { id: "contracts", label: "Contratos" },
+  { id: "script-approval", label: "Aprovações de roteiro" },
+  { id: "approval", label: "Aprovações de conteúdo" },
   { id: "metrics", label: "Métricas e conteúdos" },
 ];
 

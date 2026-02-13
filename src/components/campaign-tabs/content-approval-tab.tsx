@@ -48,9 +48,12 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   const [previewModalContentType, setPreviewModalContentType] = useState<string | undefined>();
 
   // Buscar conteúdos com filtros dinâmicos
+  // Nota: A API pode retornar conteúdos com status 'awaiting_approval', então tratamos no frontend
   const filters = useMemo(() => {
     const filter: { status?: string; phase_id?: string } = {};
-    if (selectedStatusFilter !== "all") {
+    // Se o filtro for "pending", não enviamos filtro de status para a API
+    // e filtramos no frontend para incluir tanto "pending" quanto "awaiting_approval"
+    if (selectedStatusFilter !== "all" && selectedStatusFilter !== "pending") {
       filter.status = selectedStatusFilter;
     }
     if (selectedPhaseFilter !== "all") {
@@ -106,6 +109,23 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       filtered = filtered.filter((content) => content.phase_id === selectedPhaseFilter);
     }
 
+    // Filtro por status (tratar awaiting_approval como pending, content_approved como approved)
+    if (selectedStatusFilter !== "all") {
+      if (selectedStatusFilter === "pending") {
+        // Quando filtrar por "pending", incluir também "awaiting_approval"
+        filtered = filtered.filter((content) => 
+          content.status === "pending" || content.status === "awaiting_approval"
+        );
+      } else if (selectedStatusFilter === "approved") {
+        // Quando filtrar por "approved", incluir também "content_approved"
+        filtered = filtered.filter((content) => 
+          content.status === "approved" || content.status === "content_approved"
+        );
+      } else {
+        filtered = filtered.filter((content) => content.status === selectedStatusFilter);
+      }
+    }
+
     // Filtro por busca de influenciador
     if (searchInfluencer) {
       const searchLower = searchInfluencer.toLowerCase();
@@ -123,7 +143,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     }
 
     return filtered;
-  }, [normalizedContents, selectedPhaseFilter, searchInfluencer, filterSocialNetwork]);
+  }, [normalizedContents, selectedPhaseFilter, selectedStatusFilter, searchInfluencer, filterSocialNetwork]);
 
   // Opções de redes sociais disponíveis
   const socialNetworkOptions = useMemo(() => {
@@ -206,7 +226,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     { value: "all", label: "Todos os status" },
     { value: "pending", label: "Pendentes" },
     { value: "approved", label: "Aprovados" },
-    { value: "adjustment_requested", label: "Ajuste solicitado" },
+    { value: "correction", label: "Ajuste solicitado" },
     { value: "rejected", label: "Rejeitados" },
     { value: "published", label: "Publicados" },
   ];
@@ -218,25 +238,45 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   };
 
   const getStatusLabel = (status: string) => {
+    // Mapear awaiting_approval para Pendente visualmente
+    // Mapear content_approved para Aprovado visualmente
+    const normalizedStatus = status === "awaiting_approval" 
+      ? "pending" 
+      : status === "content_approved"
+      ? "approved"
+      : status;
+    
     const labels: { [key: string]: string } = {
       pending: "Pendente",
+      awaiting_approval: "Pendente",
       approved: "Aprovado",
-      adjustment_requested: "Ajuste solicitado",
+      content_approved: "Aprovado",
+      correction: "Ajuste solicitado",
       rejected: "Rejeitado",
       published: "Publicado",
     };
-    return labels[status] || status;
+    return labels[normalizedStatus] || status;
   };
 
   const getStatusBadgeColor = (status: string) => {
+    // Mapear awaiting_approval para pending visualmente
+    // Mapear content_approved para approved visualmente
+    const normalizedStatus = status === "awaiting_approval" 
+      ? "pending" 
+      : status === "content_approved"
+      ? "approved"
+      : status;
+    
     const colors: { [key: string]: { bg: string; text: string } } = {
       pending: { bg: "bg-warning-200", text: "text-warning-900" },
+      awaiting_approval: { bg: "bg-warning-200", text: "text-warning-900" },
       approved: { bg: "bg-success-200", text: "text-success-900" },
-      adjustment_requested: { bg: "bg-info-200", text: "text-info-900" },
+      content_approved: { bg: "bg-success-200", text: "text-success-900" },
+      correction: { bg: "bg-info-200", text: "text-info-900" },
       rejected: { bg: "bg-danger-200", text: "text-danger-900" },
       published: { bg: "bg-primary-200", text: "text-primary-900" },
     };
-    return colors[status] || { bg: "bg-neutral-200", text: "text-neutral-900" };
+    return colors[normalizedStatus] || { bg: "bg-neutral-200", text: "text-neutral-900" };
   };
 
   const handleSelectContent = (contentId: string) => {
@@ -789,7 +829,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                       )}
 
                       {/* Ações disponíveis baseadas no status */}
-                      {content.status === "pending" && (
+                      {(content.status === "pending" || content.status === "awaiting_approval") && (
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -816,7 +856,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                         </div>
                       )}
 
-                      {content.status === "adjustment_requested" && (
+                      {content.status === "correction" && (
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
