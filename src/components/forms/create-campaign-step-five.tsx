@@ -60,7 +60,8 @@ export function CreateCampaignStepFive({
             // Se a altura for menor ou igual a 512px, usar diretamente
             setBannerPreview(result);
             updateFormData("banner", result);
-            (formData as any).bannerFile = file;
+            // Atualizar bannerFile através do updateFormData também
+            updateFormData("bannerFile" as any, file);
           }
         };
         img.src = result;
@@ -69,7 +70,11 @@ export function CreateCampaignStepFive({
     }
   };
 
-  const handleCropConfirm = () => {
+  const handleCropConfirm = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!originalImage || !imageRef.current || !cropContainerRef.current) return;
 
     const img = imageRef.current;
@@ -142,14 +147,19 @@ export function CreateCampaignStepFive({
       const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
       setBannerPreview(croppedDataUrl);
       updateFormData("banner", croppedDataUrl);
-      (formData as any).bannerFile = croppedFile;
+      // Atualizar bannerFile através do updateFormData também
+      updateFormData("bannerFile" as any, croppedFile);
       setShowCropModal(false);
       setOriginalImage(null);
       setOriginalFile(null);
     }, "image/jpeg", 0.9);
   };
 
-  const handleCropCancel = () => {
+  const handleCropCancel = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setShowCropModal(false);
     setOriginalImage(null);
     setOriginalFile(null);
@@ -159,6 +169,7 @@ export function CreateCampaignStepFive({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     setDragStartY(e.clientY);
     setDragStartPosition(imagePosition);
@@ -166,6 +177,8 @@ export function CreateCampaignStepFive({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !imageRef.current || !cropContainerRef.current) return;
+    
+    e.preventDefault();
 
     const deltaY = e.clientY - dragStartY;
     const newPosition = dragStartPosition + deltaY;
@@ -222,8 +235,12 @@ export function CreateCampaignStepFive({
     }
   };
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
   return (
-    <form className="flex flex-col gap-10">
+    <form className="flex flex-col gap-10" onSubmit={handleFormSubmit}>
       <div className="flex flex-col gap-6">
         {/* Banner da campanha */}
         <div className="flex flex-col gap-2">
@@ -249,7 +266,7 @@ export function CreateCampaignStepFive({
                   setBannerPreview(null);
                   updateFormData("banner", "");
                   // Limpar o arquivo também
-                  (formData as any).bannerFile = undefined;
+                  updateFormData("bannerFile" as any, undefined);
                   if (bannerInputRef.current) {
                     bannerInputRef.current.value = "";
                   }
@@ -269,7 +286,10 @@ export function CreateCampaignStepFive({
                 type="file"
                 accept="image/jpeg,image/jpg,image/png"
                 className="hidden"
-                onChange={(e) => handleBannerSelect(e.target.files)}
+                onChange={(e) => {
+                  e.preventDefault();
+                  handleBannerSelect(e.target.files);
+                }}
               />
               
               <Icon name="Upload" color="#A3A3A3" size={32} />
@@ -379,10 +399,10 @@ export function CreateCampaignStepFive({
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={handleCropCancel} className="flex-1">
+              <Button variant="outline" onClick={handleCropCancel} type="button" className="flex-1">
                 Cancelar
               </Button>
-              <Button onClick={handleCropConfirm} className="flex-1">
+              <Button onClick={handleCropConfirm} type="button" className="flex-1">
                 Confirmar
               </Button>
             </div>

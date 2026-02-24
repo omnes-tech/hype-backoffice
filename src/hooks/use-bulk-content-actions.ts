@@ -10,8 +10,14 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
   const queryClient = useQueryClient();
 
   const approveMutation = useMutation({
-    mutationFn: (contentIds: string[]) =>
-      bulkApproveContents(campaignId, contentIds),
+    mutationFn: (
+      contentIds: string[],
+      data?: {
+        feedback?: string;
+        caption_feedback?: string;
+        new_submission_deadline?: string;
+      }
+    ) => bulkApproveContents(campaignId, contentIds, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "contents"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
@@ -24,8 +30,25 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ contentIds, feedback }: { contentIds: string[]; feedback: string }) =>
-      bulkRejectContents(campaignId, contentIds, feedback),
+    mutationFn: ({
+      contentIds,
+      feedback,
+      caption_feedback,
+      new_submission_deadline,
+    }: {
+      contentIds: string[];
+      feedback: string;
+      caption_feedback?: string;
+      new_submission_deadline?: string;
+    }) =>
+      bulkRejectContents(
+        campaignId,
+        contentIds,
+        feedback,
+        caption_feedback || new_submission_deadline
+          ? { caption_feedback, new_submission_deadline }
+          : undefined
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "contents"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });

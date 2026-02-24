@@ -3,11 +3,15 @@ import type { CampaignContent } from "../types";
 
 export interface ApproveContentData {
   content_id: string;
+  feedback?: string;
+  caption_feedback?: string;
+  new_submission_deadline?: string; // ISO 8601 timestamp
 }
 
 export interface RejectContentData {
   content_id: string;
   feedback: string;
+  caption_feedback?: string;
   new_submission_deadline?: string; // ISO 8601 timestamp
 }
 
@@ -76,6 +80,13 @@ export async function approveContent(
         Authorization: `Bearer ${getAuthToken()}`,
         "Workspace-Id": workspaceId,
       },
+      body: JSON.stringify({
+        ...(data.feedback && { feedback: data.feedback }),
+        ...(data.caption_feedback && { caption_feedback: data.caption_feedback }),
+        ...(data.new_submission_deadline && {
+          new_submission_deadline: data.new_submission_deadline,
+        }),
+      }),
     }
   );
 
@@ -110,6 +121,7 @@ export async function rejectContent(
       },
       body: JSON.stringify({
         feedback: data.feedback,
+        ...(data.caption_feedback && { caption_feedback: data.caption_feedback }),
         ...(data.new_submission_deadline && {
           new_submission_deadline: data.new_submission_deadline,
         }),
@@ -172,7 +184,12 @@ export async function getContentEvaluation(
  */
 export async function bulkApproveContents(
   campaignId: string,
-  contentIds: string[]
+  contentIds: string[],
+  data?: {
+    feedback?: string;
+    caption_feedback?: string;
+    new_submission_deadline?: string;
+  }
 ): Promise<void> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -192,6 +209,11 @@ export async function bulkApproveContents(
       },
       body: JSON.stringify({
         content_ids: contentIds,
+        ...(data?.feedback && { feedback: data.feedback }),
+        ...(data?.caption_feedback && { caption_feedback: data.caption_feedback }),
+        ...(data?.new_submission_deadline && {
+          new_submission_deadline: data.new_submission_deadline,
+        }),
       }),
     }
   );
@@ -208,7 +230,11 @@ export async function bulkApproveContents(
 export async function bulkRejectContents(
   campaignId: string,
   contentIds: string[],
-  feedback: string
+  feedback: string,
+  data?: {
+    caption_feedback?: string;
+    new_submission_deadline?: string;
+  }
 ): Promise<void> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -229,6 +255,10 @@ export async function bulkRejectContents(
       body: JSON.stringify({
         content_ids: contentIds,
         feedback,
+        ...(data?.caption_feedback && { caption_feedback: data.caption_feedback }),
+        ...(data?.new_submission_deadline && {
+          new_submission_deadline: data.new_submission_deadline,
+        }),
       }),
     }
   );

@@ -35,11 +35,14 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [rejectionFeedback, setRejectionFeedback] = useState("");
+  const [captionFeedback, setCaptionFeedback] = useState("");
   const [newSubmissionDeadline, setNewSubmissionDeadline] = useState("");
   const [selectedContents, setSelectedContents] = useState<Set<string>>(new Set());
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
+  const [bulkCaptionFeedback, setBulkCaptionFeedback] = useState("");
+  const [bulkNewSubmissionDeadline, setBulkNewSubmissionDeadline] = useState("");
   const [aiEvaluation, setAiEvaluation] = useState<AIEvaluation | null>(null);
   const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -306,14 +309,27 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       return;
     }
 
-    bulkApprove(contentIds, {
-      onSuccess: () => {
-        setSelectedContents(new Set());
-        setIsBulkActionModalOpen(false);
-        setBulkActionType(null);
-        refetchContents();
+    bulkApprove(
+      contentIds,
+      {
+        ...(bulkRejectionFeedback.trim() && { feedback: bulkRejectionFeedback }),
+        ...(bulkCaptionFeedback.trim() && { caption_feedback: bulkCaptionFeedback }),
+        ...(bulkNewSubmissionDeadline && {
+          new_submission_deadline: bulkNewSubmissionDeadline, // Formato YYYY-MM-DD
+        }),
       },
-    });
+      {
+        onSuccess: () => {
+          setSelectedContents(new Set());
+          setBulkRejectionFeedback("");
+          setBulkCaptionFeedback("");
+          setBulkNewSubmissionDeadline("");
+          setIsBulkActionModalOpen(false);
+          setBulkActionType(null);
+          refetchContents();
+        },
+      }
+    );
   };
 
   const handleBulkReject = () => {
@@ -329,11 +345,20 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     }
 
     bulkReject(
-      { contentIds, feedback: bulkRejectionFeedback },
+      {
+        contentIds,
+        feedback: bulkRejectionFeedback,
+        ...(bulkCaptionFeedback.trim() && { caption_feedback: bulkCaptionFeedback }),
+        ...(bulkNewSubmissionDeadline && {
+          new_submission_deadline: bulkNewSubmissionDeadline, // Formato YYYY-MM-DD
+        }),
+      },
       {
         onSuccess: () => {
           setSelectedContents(new Set());
           setBulkRejectionFeedback("");
+          setBulkCaptionFeedback("");
+          setBulkNewSubmissionDeadline("");
           setIsBulkActionModalOpen(false);
           setBulkActionType(null);
           refetchContents();
@@ -344,11 +369,21 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
 
   const handleApprove = (content: CampaignContent) => {
     approveContent(
-      { content_id: content.id },
+      { 
+        content_id: content.id,
+        ...(rejectionFeedback.trim() && { feedback: rejectionFeedback }),
+        ...(captionFeedback.trim() && { caption_feedback: captionFeedback }),
+        ...(newSubmissionDeadline && {
+          new_submission_deadline: new Date(newSubmissionDeadline).toISOString(),
+        }),
+      },
       {
         onSuccess: () => {
           toast.success("Conteúdo aprovado com sucesso!");
           setSelectedContent(null);
+          setRejectionFeedback("");
+          setCaptionFeedback("");
+          setNewSubmissionDeadline("");
           refetchContents();
         },
         onError: (error: any) => {
@@ -369,8 +404,9 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
         {
           content_id: selectedContent.id,
           feedback: rejectionFeedback,
+          ...(captionFeedback.trim() && { caption_feedback: captionFeedback }),
           ...(newSubmissionDeadline && {
-            new_submission_deadline: new Date(newSubmissionDeadline).toISOString(),
+            new_submission_deadline: newSubmissionDeadline, // Formato YYYY-MM-DD
           }),
         },
         {
@@ -379,6 +415,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
             setIsRejectModalOpen(false);
             setSelectedContent(null);
             setRejectionFeedback("");
+            setCaptionFeedback("");
             setNewSubmissionDeadline("");
             refetchContents();
           },
@@ -912,6 +949,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
             setIsRejectModalOpen(false);
             setSelectedContent(null);
             setRejectionFeedback("");
+            setCaptionFeedback("");
             setNewSubmissionDeadline("");
           }}
         >
@@ -944,7 +982,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
             </div>
 
             <Textarea
-              label="Feedback de reprovação"
+              label="Feedback sobre o conteúdo"
               placeholder="Explique o que precisa ser ajustado no conteúdo..."
               value={rejectionFeedback}
               onChange={(e) => setRejectionFeedback(e.target.value)}
@@ -953,21 +991,25 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               }
             />
 
+            <Textarea
+              label="Feedback sobre a legenda"
+              placeholder="Explique o que precisa ser ajustado na legenda (opcional)..."
+              value={captionFeedback}
+              onChange={(e) => setCaptionFeedback(e.target.value)}
+            />
+
             <Input
               label="Nova data limite para reenvio (opcional)"
-              type="datetime-local"
+              type="date"
               value={newSubmissionDeadline}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSubmissionDeadline(e.target.value)}
               placeholder="Selecione uma data limite para o reenvio"
               min={(() => {
                 const now = new Date();
-                now.setMinutes(now.getMinutes() + 1); // Mínimo: 1 minuto a partir de agora
                 const year = now.getFullYear();
                 const month = String(now.getMonth() + 1).padStart(2, "0");
                 const day = String(now.getDate()).padStart(2, "0");
-                const hours = String(now.getHours()).padStart(2, "0");
-                const minutes = String(now.getMinutes()).padStart(2, "0");
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
+                return `${year}-${month}-${day}`;
               })()}
             />
 
@@ -978,6 +1020,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                   setIsRejectModalOpen(false);
                   setSelectedContent(null);
                   setRejectionFeedback("");
+                  setCaptionFeedback("");
                   setNewSubmissionDeadline("");
                 }}
                 className="flex-1"
@@ -1168,6 +1211,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
             setIsBulkActionModalOpen(false);
             setBulkActionType(null);
             setBulkRejectionFeedback("");
+            setBulkCaptionFeedback("");
+            setBulkNewSubmissionDeadline("");
           }}
         >
           <div className="flex flex-col gap-6">
@@ -1177,24 +1222,46 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                 : `Você está prestes a reprovar ${selectedContents.size} conteúdo(s).`}
             </p>
 
-            {bulkActionType === "reject" && (
+            {(bulkActionType === "approve" || bulkActionType === "reject") && (
               <>
-                <div className="bg-danger-50 rounded-2xl p-4">
-                  <p className="text-sm text-danger-900">
-                    O feedback é obrigatório ao reprovar conteúdos em massa. Ele será
-                    enviado a todos os influenciadores dos conteúdos selecionados.
-                  </p>
-                </div>
+                {bulkActionType === "reject" && (
+                  <div className="bg-danger-50 rounded-2xl p-4">
+                    <p className="text-sm text-danger-900">
+                      O feedback é obrigatório ao reprovar conteúdos em massa. Ele será
+                      enviado a todos os influenciadores dos conteúdos selecionados.
+                    </p>
+                  </div>
+                )}
                 <Textarea
-                  label="Feedback de reprovação"
-                  placeholder="Explique o que precisa ser ajustado..."
+                  label={bulkActionType === "approve" ? "Feedback sobre o conteúdo (opcional)" : "Feedback sobre o conteúdo"}
+                  placeholder="Explique o que precisa ser ajustado no conteúdo..."
                   value={bulkRejectionFeedback}
                   onChange={(e) => setBulkRejectionFeedback(e.target.value)}
                   error={
-                    !bulkRejectionFeedback.trim()
+                    bulkActionType === "reject" && !bulkRejectionFeedback.trim()
                       ? "Este campo é obrigatório"
                       : undefined
                   }
+                />
+                <Textarea
+                  label="Feedback sobre a legenda (opcional)"
+                  placeholder="Explique o que precisa ser ajustado na legenda..."
+                  value={bulkCaptionFeedback}
+                  onChange={(e) => setBulkCaptionFeedback(e.target.value)}
+                />
+                <Input
+                  label="Nova data limite para reenvio (opcional)"
+                  type="date"
+                  value={bulkNewSubmissionDeadline}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkNewSubmissionDeadline(e.target.value)}
+                  placeholder="Selecione uma data limite para o reenvio"
+                  min={(() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, "0");
+                    const day = String(now.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                  })()}
                 />
               </>
             )}
@@ -1206,6 +1273,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                   setIsBulkActionModalOpen(false);
                   setBulkActionType(null);
                   setBulkRejectionFeedback("");
+                  setBulkCaptionFeedback("");
+                  setBulkNewSubmissionDeadline("");
                 }}
                 className="flex-1"
               >
