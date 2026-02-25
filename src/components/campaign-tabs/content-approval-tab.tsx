@@ -213,7 +213,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   // Função para abrir modal de detalhes e buscar avaliação da IA
   const handleOpenDetailModal = (content: CampaignContent) => {
     setSelectedContent(content);
-            handleOpenDetailModal(content);
+    setIsDetailModalOpen(true);
     getAIEvaluation(content.id);
   };
 
@@ -310,13 +310,15 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     }
 
     bulkApprove(
-      contentIds,
       {
-        ...(bulkRejectionFeedback.trim() && { feedback: bulkRejectionFeedback }),
-        ...(bulkCaptionFeedback.trim() && { caption_feedback: bulkCaptionFeedback }),
-        ...(bulkNewSubmissionDeadline && {
-          new_submission_deadline: bulkNewSubmissionDeadline, // Formato YYYY-MM-DD
-        }),
+        contentIds,
+        data: {
+          ...(bulkRejectionFeedback.trim() && { feedback: bulkRejectionFeedback }),
+          ...(bulkCaptionFeedback.trim() && { caption_feedback: bulkCaptionFeedback }),
+          ...(bulkNewSubmissionDeadline && {
+            new_submission_deadline: bulkNewSubmissionDeadline, // Formato YYYY-MM-DD
+          }),
+        },
       },
       {
         onSuccess: () => {
@@ -832,7 +834,10 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                         />
                       </div>
 
-                      <div className="mb-3 rounded-xl overflow-hidden bg-neutral-200 h-32">
+                      <div 
+                        className="mb-3 rounded-xl overflow-hidden bg-neutral-200 h-32 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => handleOpenDetailModal(content)}
+                      >
                         {renderPreviewGrid(content.previewUrl, content.previewUrls, content.contentType)}
                       </div>
 

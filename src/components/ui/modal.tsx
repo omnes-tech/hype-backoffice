@@ -15,9 +15,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
     }
   };
 
-  const handleCloseClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleCloseClick = () => {
     onClose();
   };
 

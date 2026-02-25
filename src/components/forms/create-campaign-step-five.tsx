@@ -9,7 +9,7 @@ import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFiveProps {
   formData: CampaignFormData;
-  updateFormData: (field: keyof CampaignFormData, value: string) => void;
+  updateFormData: (field: keyof CampaignFormData, value: any) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -61,7 +61,7 @@ export function CreateCampaignStepFive({
             setBannerPreview(result);
             updateFormData("banner", result);
             // Atualizar bannerFile através do updateFormData também
-            updateFormData("bannerFile" as any, file);
+            updateFormData("bannerFile", file);
           }
         };
         img.src = result;
@@ -148,7 +148,7 @@ export function CreateCampaignStepFive({
       setBannerPreview(croppedDataUrl);
       updateFormData("banner", croppedDataUrl);
       // Atualizar bannerFile através do updateFormData também
-      updateFormData("bannerFile" as any, croppedFile);
+      updateFormData("bannerFile", croppedFile);
       setShowCropModal(false);
       setOriginalImage(null);
       setOriginalFile(null);
@@ -266,7 +266,7 @@ export function CreateCampaignStepFive({
                   setBannerPreview(null);
                   updateFormData("banner", "");
                   // Limpar o arquivo também
-                  updateFormData("bannerFile" as any, undefined);
+                  updateFormData("bannerFile", undefined);
                   if (bannerInputRef.current) {
                     bannerInputRef.current.value = "";
                   }

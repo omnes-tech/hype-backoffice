@@ -10,14 +10,17 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
   const queryClient = useQueryClient();
 
   const approveMutation = useMutation({
-    mutationFn: (
-      contentIds: string[],
+    mutationFn: ({
+      contentIds,
+      data,
+    }: {
+      contentIds: string[];
       data?: {
         feedback?: string;
         caption_feedback?: string;
         new_submission_deadline?: string;
-      }
-    ) => bulkApproveContents(campaignId, contentIds, data),
+      };
+    }) => bulkApproveContents(campaignId, contentIds, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "contents"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
