@@ -8,7 +8,7 @@ export const addDays = (date: Date, days: number): Date => {
 };
 
 /**
- * Formata data para YYYY-MM-DD (formato do input date)
+ * Formata data para YYYY-MM-DD (formato do input date / API)
  * Usa métodos locais para evitar problemas de timezone
  */
 export const formatDateForInput = (date: Date): string => {
@@ -16,6 +16,37 @@ export const formatDateForInput = (date: Date): string => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+/**
+ * Converte YYYY-MM-DD para DD/MM/AAAA (exibição para o usuário)
+ */
+export const formatDateToDisplay = (isoDate: string): string => {
+  if (!isoDate || isoDate.length < 10) return "";
+  const [y, m, d] = isoDate.slice(0, 10).split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+};
+
+/**
+ * Converte DD/MM/AAAA (ou digitação parcial) para YYYY-MM-DD se válido
+ * Aceita: 25/12/2024, 25/12/24, 25/1/2024, etc.
+ */
+export const parseDisplayDateToISO = (display: string): string | null => {
+  const digits = display.replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  const day = digits.slice(0, 2);
+  const month = digits.slice(2, 4);
+  let year = digits.slice(4, 8);
+  if (year.length === 2) year = `20${year}`;
+  if (year.length < 4) return null;
+  const d = parseInt(day, 10);
+  const m = parseInt(month, 10);
+  const y = parseInt(year, 10);
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > 2100) return null;
+  const lastDay = new Date(y, m, 0).getDate();
+  if (d > lastDay) return null;
+  return `${y}-${month}-${day}`;
 };
 
 /**
@@ -50,11 +81,10 @@ export const validatePhase1Date = (date: string): { valid: boolean; error?: stri
 
   // Comparar apenas as datas (sem horas)
   if (selectedDate.getTime() < minDate.getTime()) {
-    // Formatar a data mínima para exibição (usando a mesma lógica de parsing)
     const minDateFormatted = minDate.toLocaleDateString("pt-BR");
     return {
       valid: false,
-      error: `A data prevista para a primeira entrega não pode ser menor que 10 dias da data atual. Data mínima: ${minDateFormatted}`,
+      error: `Use uma data a partir de ${minDateFormatted}`,
       minDate: minDateStr,
     };
   }
@@ -93,7 +123,7 @@ export const validateSubsequentPhaseDate = (
   if (selectedDate.getTime() < minDate.getTime()) {
     return {
       valid: false,
-      error: `A data prevista entre uma fase e outra não pode ser menor que 3 dias. Data mínima: ${minDate.toLocaleDateString("pt-BR")}`,
+      error: `Use uma data a partir de ${minDate.toLocaleDateString("pt-BR")}`,
       minDate: formatDateForInput(minDate),
     };
   }

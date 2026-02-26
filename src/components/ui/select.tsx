@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo, type ComponentProps } from "react
 import { clsx } from "clsx";
 
 import { Icon } from "@/components/ui/icon";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   label?: string;
@@ -169,7 +170,7 @@ export function Select({
         )}
       </div>
 
-      {error && <p className="text-sm text-danger-600">{error}</p>}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

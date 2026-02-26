@@ -5,6 +5,8 @@ import TextareaAutosize, {
   type TextareaAutosizeProps,
 } from "react-textarea-autosize";
 
+import { ErrorMessage } from "@/components/ui/error-message";
+
 interface TextareaProps extends ComponentProps<"textarea"> {
   label: string;
   labelColor?: string;
@@ -31,7 +33,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
 
-        {error && <p className="text-sm text-danger-600">{error}</p>}
+        {error && <ErrorMessage message={error} />}
       </div>
     );
   }

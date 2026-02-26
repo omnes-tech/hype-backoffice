@@ -4,21 +4,22 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { WorkspaceDropdown } from "./workspace-dropdown";
 import { NotificationsDropdown } from "./notifications-dropdown";
-import { useWorkspaces } from "@/hooks/use-workspaces";
+import { useWorkspaceContext } from "@/contexts/workspace-context";
 
 interface HeaderProps extends ComponentProps<"header"> {
   title: string;
 }
 
 export function Header({ title, ...props }: HeaderProps) {
-  const { data: workspaces = [], isLoading } = useWorkspaces();
+  const { workspaces, isLoading, selectedWorkspace, selectWorkspace } =
+    useWorkspaceContext();
 
   return (
     <header
-      className="w-full bg-neutral-50 py-3 px-6 flex items-center justify-between"
+      className="w-full bg-white/80 backdrop-blur-sm border-b border-neutral-200/80 py-4 px-6 flex items-center justify-between"
       {...props}
     >
-      <h1 className="text-xl font-medium text-neutral-950">{title}</h1>
+      <h1 className="text-xl font-semibold text-neutral-950 tracking-tight">{title}</h1>
 
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-4">
@@ -37,7 +38,11 @@ export function Header({ title, ...props }: HeaderProps) {
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-neutral-600"></div>
             </div>
           ) : workspaces.length > 0 ? (
-            <WorkspaceDropdown options={workspaces} />
+            <WorkspaceDropdown
+              options={workspaces}
+              value={selectedWorkspace}
+              onChange={selectWorkspace}
+            />
           ) : (
             <div className="w-32 h-11 rounded-3xl border border-neutral-200 flex items-center justify-center bg-neutral-50">
               <span className="text-xs text-neutral-600">Sem workspaces</span>

@@ -8,30 +8,44 @@ interface SidebarItemProps {
   href: string;
   icon: keyof typeof icons;
   label: string;
+  /** Quando true, mostra só o ícone (sidebar encurtada) */
+  compact?: boolean;
 }
 
-export function SidebarItem({ href, icon, label }: SidebarItemProps) {
+export function SidebarItem({ href, icon, label, compact = false }: SidebarItemProps) {
   const location = useLocation();
   const isActive =
     location.pathname === href || location.pathname.startsWith(`${href}/`);
 
+  const content = (
+    <>
+      <Icon name={icon} size={18} color={isActive ? "#0a0a0a" : "#a3a3a3"} className="shrink-0" />
+      {!compact && (
+        <span
+          className={clsx(
+            "font-medium truncate min-w-0 text-sm",
+            isActive ? "text-neutral-950" : "text-neutral-300"
+          )}
+        >
+          {label}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div
       className={clsx(
-        "flex items-center gap-1 px-4 py-2 rounded-3xl",
-        isActive ? "bg-secondary-500" : "bg-transparent"
+        "flex items-center gap-2 px-3 py-2.5 rounded-2xl min-w-0 transition-colors duration-150",
+        isActive ? "bg-secondary-500/90 text-neutral-950" : "text-neutral-400 hover:bg-neutral-800/50 hover:text-neutral-200"
       )}
+      title={compact ? label : undefined}
     >
-      <Icon name={icon} size={16} color={isActive ? "#0a0a0a" : "#d4d4d4"} />
-
       <Link
         to={href}
-        className={clsx(
-          " font-medium",
-          isActive ? "text-neutral-950" : "text-neutral-300"
-        )}
+        className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden"
       >
-        {label}
+        {content}
       </Link>
     </div>
   );

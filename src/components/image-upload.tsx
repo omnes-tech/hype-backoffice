@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface ImageUploadProps {
   register: UseFormRegisterReturn;
@@ -106,7 +107,7 @@ export function ImageUpload({
         </div>
       )}
 
-      {error && <p className="text-sm text-danger-600">{error}</p>}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from "react";
 
 import { Icon } from "@/components/ui/icon";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface InputPasswordProps extends ComponentProps<"input"> {
   label?: string;
@@ -33,7 +34,7 @@ export function InputPassword({ label, error, ...props }: InputPasswordProps) {
         />
       </div>
 
-      {error && <p className="text-sm text-danger-600">{error}</p>}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

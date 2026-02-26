@@ -1,6 +1,8 @@
 import type { ComponentProps } from "react";
 import Select, { type MultiValue, type StylesConfig } from "react-select";
 
+import { ErrorMessage } from "@/components/ui/error-message";
+
 interface MultiSelectOption {
   value: string;
   label: string;
@@ -129,7 +131,7 @@ export function MultiSelect({
         menuPlacement={menuPlacement}
       />
 
-      {error && <p className="text-sm text-danger-600">{error}</p>}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

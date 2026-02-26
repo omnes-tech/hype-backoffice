@@ -17,8 +17,12 @@ import { ScriptApprovalTab } from "@/components/campaign-tabs/script-approval-ta
 import { ContractsTab } from "@/components/campaign-tabs/contracts-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 import { ShareCampaignModal } from "@/components/share-campaign-modal";
+import { Modal } from "@/components/ui/modal";
+import { InputDate } from "@/components/ui/input-date";
+import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 
 import { useCampaign } from "@/hooks/use-campaigns";
+import { useActivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
@@ -48,6 +52,8 @@ function RouteComponent() {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [showMuralDateModal, setShowMuralDateModal] = useState(false);
+  const [tempMuralEndDate, setTempMuralEndDate] = useState("");
   
   // Ler search params da URL para navegação de notificações
   const searchParams = new URLSearchParams(location.search);
@@ -98,6 +104,8 @@ function RouteComponent() {
   const {
     data: campaignUsers = [],
   } = useCampaignUsers(campaignId);
+
+  const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
 
   // Buscar nichos para determinar o nicho principal
   const { data: niches = [] } = useNiches();
@@ -321,6 +329,7 @@ function RouteComponent() {
             }))}
             maxInfluencers={campaign?.max_influencers || 0}
             phasesWithFormats={phases}
+            onOpenMuralModal={() => setShowMuralDateModal(true)}
           />
         );
       case "applications":
@@ -364,9 +373,9 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-100">
+    <div className="flex flex-col h-full bg-neutral-50">
       {/* Header fixo */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white/95 backdrop-blur-sm border-b border-neutral-200 sticky top-0 z-10">
         <div className="p-6 pb-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col justify-start gap-4">
@@ -394,7 +403,7 @@ function RouteComponent() {
                     }
                     textColor={
                       campaign?.status === "published"
-                        ? "text-success-900"
+                        ? "text-success-600"
                         : "text-neutral-700"
                     }
                   />
@@ -406,6 +415,15 @@ function RouteComponent() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setShowMuralDateModal(true)}
+                className="bg-primary-500 hover:bg-primary-600 text-white border-0"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon name="Send" color="#fff" size={16} />
+                  <span>Publicar</span>
+                </div>
+              </Button>
               {((campaign?.status as any)?.value === "draft" || campaign?.status === "draft") && (
                 <Button
                   variant="outline"
@@ -448,6 +466,101 @@ function RouteComponent() {
           campaignTitle={campaign.title}
         />
       )}
+
+      {/* Modal Ativar Descobrir (aberto pelo botão Publicar ou pela aba de seleção) */}
+      {showMuralDateModal && (() => {
+        const phase1Date = phases?.[0]?.postDate || "";
+        const validation = tempMuralEndDate
+          ? validateMuralEndDate(tempMuralEndDate, phase1Date)
+          : { valid: true };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minDate = formatDateForInput(addDays(today, 1));
+        const maxDate = validation.maxDate;
+
+        return (
+          <Modal
+            title="Ativar Descobrir - Definir data limite"
+            onClose={() => {
+              setShowMuralDateModal(false);
+              setTempMuralEndDate("");
+            }}
+          >
+            <div className="flex flex-col gap-6">
+              <div className="bg-primary-50 rounded-2xl p-4 mb-2">
+                <p className="text-sm font-medium text-primary-900 mb-2">
+                  O que é o Descobrir?
+                </p>
+                <p className="text-sm text-primary-800">
+                  O Descobrir permite que influenciadores encontrem e se inscrevam na sua campanha.
+                  Ao ativar, sua campanha ficará visível na seção de descoberta do app, aumentando
+                  o alcance e facilitando o processo de seleção de influenciadores.
+                </p>
+              </div>
+              <p className="text-sm text-neutral-600">
+                Defina até quando o Descobrir ficará ativo para receber inscrições. A data limite precisa ser maior que a data atual e pelo menos 7 dias menor que a data prevista da fase 1.
+              </p>
+              <InputDate
+                label="Data limite para receber inscrições"
+                value={tempMuralEndDate}
+                onChange={setTempMuralEndDate}
+                min={minDate}
+                max={maxDate}
+                error={validation.error}
+              />
+              {phase1Date && (
+                <p className="text-xs text-neutral-500">
+                  Data da fase 1: {new Date(phase1Date).toLocaleDateString("pt-BR")} |
+                  Data máxima permitida: {maxDate ? new Date(maxDate).toLocaleDateString("pt-BR") : "N/A"}
+                </p>
+              )}
+              {tempMuralEndDate && validation.valid && (
+                <div className="bg-primary-50 rounded-2xl p-4">
+                  <p className="text-sm text-primary-900">
+                    O Descobrir ficará ativo até{" "}
+                    <strong>{new Date(tempMuralEndDate).toLocaleDateString("pt-BR")}</strong>. Você poderá desativá-lo a qualquer momento antes desta data.
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowMuralDateModal(false);
+                    setTempMuralEndDate("");
+                  }}
+                  disabled={isActivatingMural}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!tempMuralEndDate) return;
+                    activateMural(
+                      { end_date: tempMuralEndDate },
+                      {
+                        onSuccess: () => {
+                          toast.success("Descobrir ativado com sucesso!");
+                          setShowMuralDateModal(false);
+                          setTempMuralEndDate("");
+                        },
+                        onError: (error: any) => {
+                          toast.error(error?.message || "Erro ao ativar Descobrir");
+                        },
+                      }
+                    );
+                  }}
+                  disabled={!tempMuralEndDate || isActivatingMural || !validation.valid}
+                  className="flex-1 bg-primary-500 hover:bg-primary-600 text-white border-0"
+                >
+                  {isActivatingMural ? "Ativando..." : "Ativar Descobrir"}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

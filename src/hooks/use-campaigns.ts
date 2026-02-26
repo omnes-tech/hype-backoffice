@@ -9,10 +9,11 @@ import {
   type UpdateCampaignData,
 } from "@/shared/services/campaign";
 
-export function useCampaigns() {
+export function useCampaigns(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["campaigns"],
     queryFn: getCampaigns,
+    enabled: options?.enabled !== false,
   });
 }
 

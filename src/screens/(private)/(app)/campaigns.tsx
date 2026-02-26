@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -16,6 +16,7 @@ import { CampaignCard } from "@/components/campaign-card";
 import { InputSearch } from "@/components/ui/input-search";
 import { Icon } from "@/components/ui/icon";
 import { Dropdown } from "@/components/ui/dropdown";
+import { Avatar } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import type { CampaignFormData } from "@/shared/types";
 import { useCampaigns, useCreateCampaign } from "@/hooks/use-campaigns";
@@ -24,10 +25,48 @@ import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/pha
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceContext } from "@/contexts/workspace-context";
+import { getUploadUrl } from "@/lib/utils/api";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
 });
+
+const initialFormData: CampaignFormData = {
+  title: "",
+  description: "",
+  mainNiche: "",
+  subniches: "",
+  influencersCount: "",
+  minFollowers: "",
+  state: "",
+  city: "",
+  gender: "",
+  paymentType: "",
+  paymentFixedAmount: "",
+  paymentSwapItem: "",
+  paymentSwapMarketValue: "",
+  paymentCpaActions: "",
+  paymentCpaValue: "",
+  paymentCpmValue: "",
+  benefits: "",
+  generalObjective: "",
+  whatToDo: "",
+  whatNotToDo: "",
+  banner: "",
+  imageRightsPeriod: "",
+  brandFiles: "",
+  phasesCount: "1",
+  phases: [
+    {
+      id: "1",
+      objective: "",
+      postDate: "",
+      formats: [],
+      files: "",
+    },
+  ],
+};
 
 function RouteComponent() {
   const location = useLocation();
@@ -36,8 +75,20 @@ function RouteComponent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all_campaigns");
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [formData, setFormData] = useState<CampaignFormData>(initialFormData);
 
-  const { data: campaignsData = [], isLoading, error } = useCampaigns();
+  const {
+    workspaces,
+    isInitialized,
+    selectedWorkspace,
+    selectWorkspace,
+  } = useWorkspaceContext();
+
+  const hasWorkspace = !!selectedWorkspace;
+  const { data: campaignsData = [], isLoading, error } = useCampaigns({
+    enabled: hasWorkspace,
+  });
   const createCampaignMutation = useCreateCampaign();
   const queryClient = useQueryClient();
 
@@ -93,41 +144,104 @@ function RouteComponent() {
   if (location.pathname !== "/campaigns") {
     return <Outlet />;
   }
-  const [formData, setFormData] = useState<CampaignFormData>({
-    title: "",
-    description: "",
-    mainNiche: "",
-    subniches: "",
-    influencersCount: "",
-    minFollowers: "",
-    state: "",
-    city: "",
-    gender: "",
-    paymentType: "",
-    paymentFixedAmount: "",
-    paymentSwapItem: "",
-    paymentSwapMarketValue: "",
-    paymentCpaActions: "",
-    paymentCpaValue: "",
-    paymentCpmValue: "",
-    benefits: "",
-    generalObjective: "",
-    whatToDo: "",
-    whatNotToDo: "",
-    banner: "",
-    imageRightsPeriod: "",
-    brandFiles: "",
-    phasesCount: "1",
-    phases: [
-      {
-        id: "1",
-        objective: "",
-        postDate: "",
-        formats: [],
-        files: "",
-      },
-    ],
-  });
+
+  // Aguardar workspace estar pronto antes de decidir o que mostrar
+  if (location.pathname === "/campaigns" && !isInitialized) {
+    return (
+      <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+          <p className="text-neutral-600">Preparando workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Na página de campanhas: sem workspace selecionado → modal ou empty state (só após contexto inicializado)
+  if (isInitialized && !hasWorkspace) {
+    if (workspaces.length === 0) {
+      return (
+        <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
+          <div className="w-full max-w-xl flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary-100 flex items-center justify-center">
+                <Icon name="Building2" color="#9e2cfa" size={32} />
+              </div>
+              <p className="text-2xl font-medium text-neutral-950">
+                Nenhum workspace encontrado
+              </p>
+              <span className="text-neutral-600">
+                Crie um workspace no onboarding para começar a gerenciar suas campanhas.
+              </span>
+            </div>
+            <Link to="/onboarding">
+              <Button>
+                <p className="text-neutral-50 font-semibold">Ir para onboarding</p>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    // Tem workspaces mas nenhum selecionado → modal para escolher
+    return (
+      <>
+        <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
+          <div className="w-full max-w-xl flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary-100 flex items-center justify-center">
+                <Icon name="Building2" color="#9e2cfa" size={32} />
+              </div>
+              <p className="text-2xl font-medium text-neutral-950">
+                Selecione um workspace
+              </p>
+              <span className="text-neutral-600">
+                Escolha o workspace para ver e gerenciar as campanhas.
+              </span>
+            </div>
+            <Button onClick={() => setShowWorkspaceModal(true)}>
+              <p className="text-neutral-50 font-semibold">Escolher workspace</p>
+            </Button>
+          </div>
+        </div>
+
+        {showWorkspaceModal && (
+          <Modal
+            title="Selecione um workspace"
+            onClose={() => setShowWorkspaceModal(false)}
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-neutral-600 mb-2">
+                Selecione o workspace para acessar as campanhas:
+              </p>
+              {workspaces.map((workspace) => (
+                <button
+                  key={workspace.id}
+                  type="button"
+                  onClick={() => {
+                    selectWorkspace(workspace);
+                    setShowWorkspaceModal(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-neutral-200 hover:border-primary-300 hover:bg-primary-50/50 transition-colors text-left"
+                >
+                  <Avatar
+                    size="md"
+                    src={getUploadUrl(workspace.photo)}
+                    alt={workspace.name}
+                  />
+                  <div>
+                    <p className="font-semibold text-neutral-950">{workspace.name}</p>
+                    <p className="text-xs text-neutral-500">Clique para acessar as campanhas</p>
+                  </div>
+                  <Icon name="ChevronRight" className="ml-auto" size={20} color="#525252" />
+                </button>
+              ))}
+            </div>
+          </Modal>
+        )}
+      </>
+    );
+  }
 
   const totalSteps = 7;
   const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
@@ -135,41 +249,7 @@ function RouteComponent() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setCurrentStep(1);
-    setFormData({
-      title: "",
-      description: "",
-      mainNiche: "",
-      subniches: "",
-      influencersCount: "",
-      minFollowers: "",
-      state: "",
-      city: "",
-      gender: "",
-      paymentType: "",
-      paymentFixedAmount: "",
-      paymentSwapItem: "",
-      paymentSwapMarketValue: "",
-      paymentCpaActions: "",
-      paymentCpaValue: "",
-      paymentCpmValue: "",
-      benefits: "",
-      generalObjective: "",
-      whatToDo: "",
-      whatNotToDo: "",
-      banner: "",
-      imageRightsPeriod: "",
-      brandFiles: "",
-      phasesCount: "1",
-      phases: [
-        {
-          id: "1",
-          objective: "",
-          postDate: "",
-          formats: [],
-          files: "",
-        },
-      ],
-    });
+    setFormData({ ...initialFormData });
   };
 
   const updateFormData = (field: keyof CampaignFormData, value: any) => {
@@ -314,6 +394,12 @@ function RouteComponent() {
         return;
       }
 
+      if (formData.mainNiche && (!formData.subniches || formData.subniches.split(",").filter(Boolean).length === 0)) {
+        toast.error("Selecione pelo menos um subnicho da campanha.");
+        setIsCreatingCampaign(false);
+        return;
+      }
+
       // Transformar dados do formulário
       const campaignData = transformFormDataToApiData(formData);
 
@@ -387,44 +473,7 @@ function RouteComponent() {
       setIsCreatingCampaign(false);
       setIsModalOpen(false);
       setCurrentStep(1);
-      const resetFormData: CampaignFormData = {
-        title: "",
-        description: "",
-        mainNiche: "",
-        subniches: "",
-        influencersCount: "",
-        minFollowers: "",
-        state: "",
-        city: "",
-        gender: "",
-        paymentType: "",
-        paymentFixedAmount: "",
-        paymentSwapItem: "",
-        paymentSwapMarketValue: "",
-        paymentCpaActions: "",
-        paymentCpaValue: "",
-        paymentCpmValue: "",
-        benefits: "",
-        generalObjective: "",
-        whatToDo: "",
-        whatNotToDo: "",
-        banner: "",
-        imageRightsPeriod: "",
-        brandFiles: "",
-        phasesCount: "1",
-        phases: [
-          {
-            id: "1",
-            objective: "",
-            postDate: "",
-            formats: [],
-            files: "",
-          },
-        ],
-      };
-      // Limpar bannerFile também
-      (resetFormData as any).bannerFile = undefined;
-      setFormData(resetFormData);
+      setFormData({ ...initialFormData });
     } catch (error: any) {
       console.error("Erro ao criar campanha:", error);
       toast.error(
@@ -465,48 +514,68 @@ function RouteComponent() {
     );
   }
 
+  const emptyMessageByFilter =
+    filterStatus === "active_campaigns"
+      ? {
+          title: "Nenhuma campanha ativa no momento",
+          description:
+            "Altere o filtro acima para ver todas ou finalizadas, ou crie uma nova campanha.",
+        }
+      : filterStatus === "finished_campaigns"
+        ? {
+            title: "Nenhuma campanha finalizada",
+            description:
+              "Altere o filtro acima para ver todas ou ativas, ou crie uma nova campanha.",
+          }
+        : {
+            title: "Nenhuma campanha por aqui... ainda!",
+            description:
+              "Dê o primeiro passo: crie sua primeira campanha e comece a impulsionar sua marca no Hype.",
+          };
+
   return (
     <>
-      {filteredCampaigns.length > 0 ? (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div className="w-full max-w-xs">
-              <InputSearch
-                placeholder="Pesquisar campanha"
-                icon={<Icon name="Search" color="#0a0a0a" size={16} />}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="flex flex-col gap-6">
+        {/* Barra superior sempre visível: pesquisa, filtro e criar campanha */}
+        <div className="flex items-center justify-between">
+          <div className="w-full max-w-xs">
+            <InputSearch
+              placeholder="Pesquisar campanha"
+              icon={<Icon name="Search" color="#0a0a0a" size={16} />}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="w-auto">
+              <Dropdown
+                options={[
+                  { label: "Todas as campanhas", value: "all_campaigns" },
+                  { label: "Campanhas ativas", value: "active_campaigns" },
+                  {
+                    label: "Campanhas finalizadas",
+                    value: "finished_campaigns",
+                  },
+                ]}
+                value={filterStatus}
+                onChange={setFilterStatus}
               />
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="w-auto">
-                <Dropdown
-                  options={[
-                    { label: "Todas as campanhas", value: "all_campaigns" },
-                    { label: "Campanhas ativas", value: "active_campaigns" },
-                    {
-                      label: "Campanhas finalizadas",
-                      value: "finished_campaigns",
-                    },
-                  ]}
-                  value={filterStatus}
-                  onChange={setFilterStatus}
-                />
+            <Button onClick={() => setIsModalOpen(true)}>
+              <div className="flex items-center gap-2">
+                <Icon name="Plus" color="#FAFAFA" size={16} />
+
+                <p className="text-neutral-50 font-semibold">
+                  Criar campanha
+                </p>
               </div>
-
-              <Button onClick={() => setIsModalOpen(true)}>
-                <div className="flex items-center gap-2">
-                  <Icon name="Plus" color="#FAFAFA" size={16} />
-
-                  <p className="text-neutral-50 font-semibold">
-                    Criar campanha
-                  </p>
-                </div>
-              </Button>
-            </div>
+            </Button>
           </div>
+        </div>
 
+        {filteredCampaigns.length > 0 ? (
           <div className="grid xl:grid-cols-3 2xl:grid-cols-4 gap-5">
             {filteredCampaigns.map((campaign: any) => (
               <CampaignCard
@@ -520,31 +589,27 @@ function RouteComponent() {
               />
             ))}
           </div>
-        </div>
-      ) : (
-        <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
-          <div className="w-full max-w-xl flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-2xl font-medium text-neutral-950">
-                Nenhuma campanha por aqui... ainda!
-              </p>
-
-              <span className="text-neutral-600 text-center">
-                Dê o primeiro passo: crie sua primeira campanha e comece a
-                impulsionar sua marca no Hype.
-              </span>
-            </div>
-
-            <div className="w-fit">
-              <Button onClick={() => setIsModalOpen(true)}>
-                <p className="text-neutral-50 font-semibold">
-                  Criar minha primeira campanha
+        ) : (
+          <div className="w-full min-h-[calc(100vh-16rem)] flex items-center justify-center py-12">
+            <div className="w-full max-w-md flex flex-col items-center gap-6 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto">
+                <Icon name="Megaphone" color="#a3a3a3" size={28} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <p className="text-lg font-semibold text-neutral-950">
+                  {emptyMessageByFilter.title}
                 </p>
+                <span className="text-sm text-neutral-600">
+                  {emptyMessageByFilter.description}
+                </span>
+              </div>
+              <Button onClick={() => setIsModalOpen(true)}>
+                Criar campanha
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {isModalOpen && (
         <Modal title="Criar campanha" onClose={handleCloseModal}>

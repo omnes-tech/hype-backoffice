@@ -19,10 +19,10 @@ export function Badge({
   
   return (
     <div
-      className={clsx("w-fit px-2 py-1 rounded-3xl", backgroundColor)}
+      className={clsx("w-fit px-2.5 py-1 rounded-full text-xs font-medium", backgroundColor, textColor)}
       {...props}
     >
-      <span className={clsx("text-sm font-medium", textColor)}>{displayText}</span>
+      {displayText}
     </div>
   );
 }

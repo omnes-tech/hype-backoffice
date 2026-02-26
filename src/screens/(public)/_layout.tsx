@@ -10,7 +10,7 @@ export const Route = createFileRoute("/(public)")({
 
 function RouteComponent() {
   return (
-    <div className="w-full h-screen bg-neutral-050 flex">
+    <div className="w-full h-screen bg-neutral-50 flex">
       <div className="w-1/2 relative">
         <img
           src={hypeappLogo}

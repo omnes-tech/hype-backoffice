@@ -1,5 +1,7 @@
 import type { ComponentProps, HTMLInputTypeAttribute } from "react";
 
+import { ErrorMessage } from "@/components/ui/error-message";
+
 interface InputProps extends ComponentProps<"input"> {
   label?: string;
   icon?: React.ReactNode;
@@ -75,10 +77,10 @@ export function Input({
         </label>
       )}
 
-      <div className="w-full h-11 rounded-3xl bg-neutral-100 flex items-center justify-between gap-2 px-4 focus-within:bg-neutral-200/70 transition-colors duration-150">
+      <div className="w-full h-11 rounded-2xl bg-neutral-100 flex items-center justify-between gap-2 px-4 focus-within:bg-neutral-100 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500/30 border border-transparent transition-all duration-150">
         <input
           type={type}
-          className="w-full h-full rounded-3xl outline-none placeholder:text-neutral-400 text-neutral-950"
+          className="w-full h-full rounded-2xl outline-none placeholder:text-neutral-400 text-neutral-950 bg-transparent"
           {...props}
           onChange={handleChange}
           min={type === "number" ? "0" : undefined}
@@ -87,7 +89,7 @@ export function Input({
         {icon}
       </div>
 
-      {error && <p className="text-sm text-danger-600">{error}</p>}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

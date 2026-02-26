@@ -43,6 +43,7 @@
   --color-tertiary-50: #fbf5fe;
 
   --color-success-600: #16a34a;
+  --color-success-500: #22c55e;
   --color-success-200: #bbf7d1;
   --color-success-50: #f0fdf5;
 
@@ -60,7 +61,69 @@
 }
 
 @layer base {
-  body {
-    @apply antialiased;
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+  body {
+    @apply antialiased text-neutral-950;
+  }
+  /* Scrollbar minimalista */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-neutral-300);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-neutral-400);
+  }
+}
+
+/* Toasts minimalistas */
+[data-sonner-toaster] [data-type="error"] {
+  --normal-bg: var(--color-neutral-50);
+  --normal-border: var(--color-neutral-200);
+  --normal-text: var(--color-neutral-600);
+  background: var(--normal-bg) !important;
+  border: 1px solid var(--normal-border) !important;
+  color: var(--normal-text) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+[data-sonner-toaster] [data-type="error"] [data-icon] {
+  color: var(--color-neutral-400);
+}
+[data-sonner-toaster] [data-type="success"] {
+  --normal-bg: var(--color-neutral-50);
+  --normal-border: var(--color-neutral-200);
+  --normal-text: var(--color-neutral-700);
+  background: var(--normal-bg) !important;
+  border: 1px solid var(--normal-border) !important;
+  color: var(--normal-text) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+[data-sonner-toaster] [data-type="success"] [data-icon] {
+  color: var(--color-success-600);
+}
+[data-sonner-toaster] [data-type="warning"] {
+  --normal-bg: var(--color-neutral-50);
+  --normal-border: var(--color-neutral-200);
+  --normal-text: var(--color-neutral-700);
+  background: var(--normal-bg) !important;
+  border: 1px solid var(--normal-border) !important;
+  color: var(--normal-text) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+[data-sonner-toaster] [data-type="warning"] [data-icon] {
+  color: var(--color-warning-400);
+}
+[data-sonner-toaster] [data-sonner-toast] {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.875rem;
 }

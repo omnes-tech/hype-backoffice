@@ -7,13 +7,13 @@ interface ProgressBarProps {
 
 export function ProgressBar({ progressPercentage, color }: ProgressBarProps) {
   return (
-    <div className="w-full h-2 bg-neutral-200 rounded-3xl">
+    <div className="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
       <div
         className={clsx(
-          "h-full rounded-3xl transition-all duration-300",
+          "h-full rounded-full transition-all duration-300",
           color
         )}
-        style={{ width: `${progressPercentage}%` }}
+        style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
       />
     </div>
   );

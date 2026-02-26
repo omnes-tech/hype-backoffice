@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, type ComponentProps } from "react";
 
 import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
-import { useQueryClient } from "@tanstack/react-query";
 
 import type { Workspace } from "@/shared/types";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -25,8 +24,12 @@ export function WorkspaceDropdown({
 }: WorkspaceDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
-  const { selectedWorkspace, selectWorkspace } = useWorkspace(options, value);
+
+  // Controlado pelo contexto (value + onChange) ou interno (useWorkspace)
+  const isControlled = value !== undefined && onChange !== undefined;
+  const internal = useWorkspace(options, isControlled ? undefined : value);
+  const selectedWorkspace = isControlled ? value : internal.selectedWorkspace;
+  const selectWorkspace = isControlled ? onChange : internal.selectWorkspace;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -49,14 +52,7 @@ export function WorkspaceDropdown({
 
   const handleSelect = (workspace: Workspace) => {
     selectWorkspace(workspace);
-    onChange?.(workspace);
     setIsOpen(false);
-    
-    // Invalidar todas as queries relacionadas a campanhas e dados do workspace
-    // para que sejam recarregadas com o novo workspace selecionado
-    queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
-    queryClient.invalidateQueries({ queryKey: ["get-campaign"] });
-    queryClient.invalidateQueries({ queryKey: ["get-campaign-dashboard"] });
   };
 
   return (
@@ -67,8 +63,8 @@ export function WorkspaceDropdown({
         className={clsx(
           "w-full h-11 flex items-center justify-between gap-6 px-4",
           isOpen && options.length > 0
-            ? "rounded-t-3xl border-t border-r border-l border-neutral-200 shadow-md"
-            : "rounded-3xl border border-neutral-200"
+            ? "rounded-t-2xl border-t border-r border-l border-neutral-200 shadow-md bg-white"
+            : "rounded-2xl border border-neutral-200 bg-white"
         )}
       >
         <div className="flex items-center gap-2">
@@ -79,7 +75,7 @@ export function WorkspaceDropdown({
           />
 
           <span className="whitespace-nowrap text-neutral-950">
-            {selectedWorkspace?.name}
+            {selectedWorkspace?.name ?? "Selecione um workspace"}
           </span>
         </div>
 
@@ -94,7 +90,7 @@ export function WorkspaceDropdown({
       {isOpen && options.length > 0 && (
         <div
           className={clsx(
-            "absolute top-full w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-neutral-50 rounded-b-3xl z-10 shadow-md"
+            "absolute top-full w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-white rounded-b-2xl z-10 shadow-md"
           )}
         >
           <div className="w-full border border-dashed border-neutral-200" />

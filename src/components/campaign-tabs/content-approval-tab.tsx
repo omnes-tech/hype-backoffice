@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import { Input } from "@/components/ui/input";
+import { InputDate } from "@/components/ui/input-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { CampaignContent, AIEvaluation, CampaignPhase } from "@/shared/types";
@@ -16,6 +17,7 @@ import { useApproveContent, useRejectContent } from "@/hooks/use-campaign-conten
 import { useBulkContentActions } from "@/hooks/use-bulk-content-actions";
 import { getContentEvaluation } from "@/shared/services/content";
 import { getUploadUrl } from "@/lib/utils/api";
+import { formatDateForInput } from "@/shared/utils/date-validations";
 
 interface ContentApprovalTabProps {
   campaignPhases?: CampaignPhase[];
@@ -1003,19 +1005,12 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               onChange={(e) => setCaptionFeedback(e.target.value)}
             />
 
-            <Input
+            <InputDate
               label="Nova data limite para reenvio (opcional)"
-              type="date"
               value={newSubmissionDeadline}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSubmissionDeadline(e.target.value)}
+              onChange={setNewSubmissionDeadline}
               placeholder="Selecione uma data limite para o reenvio"
-              min={(() => {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, "0");
-                const day = String(now.getDate()).padStart(2, "0");
-                return `${year}-${month}-${day}`;
-              })()}
+              min={formatDateForInput(new Date())}
             />
 
             <div className="flex gap-3">
@@ -1254,19 +1249,12 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                   value={bulkCaptionFeedback}
                   onChange={(e) => setBulkCaptionFeedback(e.target.value)}
                 />
-                <Input
+                <InputDate
                   label="Nova data limite para reenvio (opcional)"
-                  type="date"
                   value={bulkNewSubmissionDeadline}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkNewSubmissionDeadline(e.target.value)}
+                  onChange={setBulkNewSubmissionDeadline}
                   placeholder="Selecione uma data limite para o reenvio"
-                  min={(() => {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = String(now.getMonth() + 1).padStart(2, "0");
-                    const day = String(now.getDate()).padStart(2, "0");
-                    return `${year}-${month}-${day}`;
-                  })()}
+                  min={formatDateForInput(new Date())}
                 />
               </>
             )}

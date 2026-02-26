@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { toast } from "sonner";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,14 @@ export function CreateCampaignStepOne({
     updateFormData("subniches", values.join(","));
   };
 
+  const handleNext = () => {
+    if (formData.mainNiche && selectedSubniches.length === 0) {
+      toast.error("Selecione pelo menos um subnicho da campanha para continuar.");
+      return;
+    }
+    onNext();
+  };
+
   return (
     <form className="flex flex-col gap-10">
       <div className="flex items-center flex-col gap-1">
@@ -111,7 +120,7 @@ export function CreateCampaignStepOne({
 
         {formData.mainNiche && (
           <MultiSelect
-            label="Subnichos da Campanha"
+            label="Subnichos da Campanha (obrigatório)"
             placeholder={
               isLoadingNiches
                 ? "Carregando subnichos..."
@@ -129,7 +138,7 @@ export function CreateCampaignStepOne({
       </div>
 
       <div className="w-fit self-end">
-        <Button onClick={onNext}>
+        <Button type="button" onClick={handleNext}>
           <div className="flex items-center justify-center gap-2">
             <p className="text-neutral-50 font-semibold">Avançar</p>
 

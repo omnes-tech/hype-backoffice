@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
 import type { CampaignFormData, CampaignPhase, SocialFormat } from "@/shared/types";
 import {
@@ -365,35 +366,25 @@ export function CreateCampaignStepSix({
 
             {/* Data */}
             <div className="flex flex-col gap-1">
-              <Input
+              <InputDate
                 label="Data prevista de postagem"
-                type="date"
-                value={phase.postDate}
-                onChange={(e) => updatePhase(phase.id, "postDate", e.target.value)}
+                value={phase.postDate ?? ""}
+                onChange={(v) => updatePhase(phase.id, "postDate", v)}
                 min={getPhaseMinDate(phaseIndex, phase.postDate)}
                 error={getPhaseDateError(phaseIndex, phase.postDate)}
               />
-              {phaseIndex === 0 && phase.postDate && (() => {
+              {(() => {
                 const minDateStr = getPhaseMinDate(phaseIndex, phase.postDate);
                 if (!minDateStr) return null;
-                // Parsear a data corretamente para evitar problemas de timezone
-                const [year, month, day] = minDateStr.split("-").map(Number);
-                const minDate = new Date(year, month - 1, day);
+                const [y, m, d] = minDateStr.split("-").map(Number);
+                const minDateFormatted = new Date(y, m - 1, d).toLocaleDateString("pt-BR");
+                const reason =
+                  phaseIndex === 0
+                    ? "10 dias a partir de hoje"
+                    : "3 dias após a fase anterior";
                 return (
-                  <p className="text-xs text-neutral-500 mt-1">
-                    Data mínima: {minDate.toLocaleDateString("pt-BR")}
-                  </p>
-                );
-              })()}
-              {phaseIndex > 0 && phases[phaseIndex - 1]?.postDate && phase.postDate && (() => {
-                const minDateStr = getPhaseMinDate(phaseIndex, phase.postDate);
-                if (!minDateStr) return null;
-                // Parsear a data corretamente para evitar problemas de timezone
-                const [year, month, day] = minDateStr.split("-").map(Number);
-                const minDate = new Date(year, month - 1, day);
-                return (
-                  <p className="text-xs text-neutral-500 mt-1">
-                    Data mínima: {minDate.toLocaleDateString("pt-BR")} (3 dias após a fase anterior)
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    A partir de {minDateFormatted} ({reason})
                   </p>
                 );
               })()}

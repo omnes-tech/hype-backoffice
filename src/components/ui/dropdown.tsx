@@ -58,8 +58,8 @@ export function Dropdown({
         className={clsx(
           "w-full h-11 flex items-center justify-between px-4 outline-none",
           isOpen && options.length > 0
-            ? "rounded-t-3xl border-t border-r border-l border-neutral-200 shadow-md bg-neutral-50"
-            : "rounded-3xl border border-neutral-200 bg-neutral-50",
+            ? "rounded-t-2xl border-t border-r border-l border-neutral-200 shadow-md bg-white"
+            : "rounded-2xl border border-neutral-200 bg-white",
           disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
           !disabled && "hover:bg-neutral-100 transition-colors duration-150"
         )}
@@ -89,7 +89,7 @@ export function Dropdown({
       {isOpen && options.length > 0 && (
         <div
           className={clsx(
-            "absolute top-full w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-neutral-50 rounded-b-3xl z-10 shadow-md"
+            "absolute top-full w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-white rounded-b-2xl z-10 shadow-md"
           )}
         >
           <div className="w-full border border-dashed border-neutral-200" />

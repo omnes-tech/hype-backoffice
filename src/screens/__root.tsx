@@ -17,7 +17,15 @@ const RootLayout = () => (
       </AuthLoader>
     </AuthProvider>
 
-    <Toaster position="top-right" expand={true} richColors duration={3000} />
+    <Toaster
+      position="top-right"
+      expand={false}
+      duration={4000}
+      closeButton
+      toastOptions={{
+        className: "shadow-sm border border-neutral-200 rounded-xl",
+      }}
+    />
   </QueryClientProvider>
 );
 

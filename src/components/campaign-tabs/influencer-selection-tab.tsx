@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
@@ -38,6 +39,7 @@ interface InfluencerSelectionTabProps {
   campaignPhases?: Array<{ id: string; label: string; publish_date?: string }>;
   maxInfluencers?: number;
   phasesWithFormats?: Array<{ formats?: Array<{ socialNetwork: string }> }>;
+  onOpenMuralModal?: () => void;
 }
 
 export function InfluencerSelectionTab({
@@ -45,6 +47,7 @@ export function InfluencerSelectionTab({
   campaignPhases: _campaignPhases = [],
   maxInfluencers = 0,
   phasesWithFormats = [],
+  onOpenMuralModal,
 }: InfluencerSelectionTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const queryClient = useQueryClient();
@@ -289,7 +292,8 @@ export function InfluencerSelectionTab({
 
   const handleMuralToggle = (checked: boolean) => {
     if (checked) {
-      setShowMuralDateModal(true);
+      if (onOpenMuralModal) onOpenMuralModal();
+      else setShowMuralDateModal(true);
     } else {
       // Permitir desativação a qualquer momento
       deactivateMural(undefined, {
@@ -1131,8 +1135,8 @@ export function InfluencerSelectionTab({
         />
       )}
 
-      {/* Modal de data limite do mural */}
-      {showMuralDateModal && (() => {
+      {/* Modal de data limite do mural (só renderiza aqui quando não controlado pelo parent) */}
+      {!onOpenMuralModal && showMuralDateModal && (() => {
         const phase1Date = _campaignPhases?.[0]?.publish_date || "";
         const validation = tempMuralEndDate
           ? validateMuralEndDate(tempMuralEndDate, phase1Date)
@@ -1164,11 +1168,10 @@ export function InfluencerSelectionTab({
               <p className="text-sm text-neutral-600">
                 Defina até quando o Descobrir ficará ativo para receber inscrições. A data limite precisa ser maior que a data atual e pelo menos 7 dias menor que a data prevista da fase 1.
               </p>
-              <Input
+              <InputDate
                 label="Data limite para receber inscrições"
-                type="date"
                 value={tempMuralEndDate}
-                onChange={(e) => setTempMuralEndDate(e.target.value)}
+                onChange={setTempMuralEndDate}
                 min={minDate}
                 max={maxDate}
                 error={validation.error}

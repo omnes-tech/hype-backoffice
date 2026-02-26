@@ -176,36 +176,37 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
       <div className="flex flex-col gap-6">
         {/* Filtros e ações */}
         <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-neutral-950">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <h3 className="text-lg font-semibold text-neutral-950 shrink-0">
               Contratos
             </h3>
-            <Button onClick={() => setIsSendModalOpen(true)}>
-              <div className="flex items-center gap-2">
-                <Icon name="Send" color="#FAFAFA" size={16} />
-                <span>Enviar contrato</span>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-full sm:w-48 min-w-0">
+                <Select
+                  label="Filtrar por status"
+                  placeholder="Todos os status"
+                  options={statusOptions}
+                  value={selectedStatusFilter}
+                  onChange={setSelectedStatusFilter}
+                />
               </div>
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-48">
-              <Select
-                label="Filtrar por status"
-                placeholder="Todos os status"
-                options={statusOptions}
-                value={selectedStatusFilter}
-                onChange={setSelectedStatusFilter}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Filtrar por influenciador"
-                placeholder="Todos os influenciadores"
-                options={influencerOptions}
-                value={selectedInfluencer}
-                onChange={setSelectedInfluencer}
-              />
+              <div className="w-full sm:w-48 min-w-0">
+                <Select
+                  label="Filtrar por influenciador"
+                  placeholder="Todos os influenciadores"
+                  options={influencerOptions}
+                  value={selectedInfluencer}
+                  onChange={setSelectedInfluencer}
+                />
+              </div>
+              <div className="shrink-0">
+                <Button onClick={() => setIsSendModalOpen(true)}>
+                  <div className="flex items-center gap-2">
+                    <Icon name="Send" color="#FAFAFA" size={16} />
+                    <span>Enviar contrato</span>
+                  </div>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

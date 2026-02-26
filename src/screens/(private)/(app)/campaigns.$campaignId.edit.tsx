@@ -337,6 +337,11 @@ function RouteComponent() {
         return;
       }
 
+      if (formData.mainNiche && (!formData.subniches || formData.subniches.split(",").filter(Boolean).length === 0)) {
+        toast.error("Selecione pelo menos um subnicho da campanha.");
+        return;
+      }
+
       // Atualizar campanha
       const campaignData = transformFormDataToApiData(formData);
       await updateCampaignMutation.mutateAsync({

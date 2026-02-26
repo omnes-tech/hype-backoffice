@@ -33,45 +33,43 @@ export function CampaignCard({
 
   return (
     <div
-      className="w-full h-auto rounded-3xl border border-neutral-200 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
+      className="group w-full h-auto rounded-2xl border border-neutral-200 bg-white overflow-hidden cursor-pointer hover:border-neutral-300 hover:shadow-md transition-all duration-200"
       onClick={handleClick}
     >
-      <div className="w-full h-48 relative bg-neutral-200">
+      <div className="w-full h-44 relative bg-neutral-100 overflow-hidden">
         {banner ? (
           <img 
             src={getUploadUrl(banner)} 
             alt={title} 
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" 
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-200">
+          <div className="w-full h-full flex items-center justify-center bg-neutral-100">
             <span className="text-neutral-400 text-sm">Sem banner</span>
           </div>
         )}
 
-        <div className="absolute top-3 right-4">
+        <div className="absolute top-3 right-3">
           <Badge
             text={`${influencersCount} influenciadores`}
-            backgroundColor="bg-primary-50"
-            textColor="text-primary-900"
+            backgroundColor="bg-white/90 backdrop-blur-sm"
+            textColor="text-neutral-700"
           />
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 p-4">
-        <h1 className="text-xl font-medium text-neutral-700">{title}</h1>
+      <div className="flex flex-col gap-3 p-4">
+        <h2 className="text-base font-semibold text-neutral-950 line-clamp-2">{title}</h2>
 
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-neutral-600">{phase}</span>
-            <span className="text-sm text-neutral-600">
-              {progressPercentage}%
-            </span>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-neutral-600">{phase}</span>
+            <span className="font-medium text-neutral-700">{progressPercentage}%</span>
           </div>
 
           <ProgressBar
             progressPercentage={progressPercentage}
-            color="bg-tertiary-500"
+            color="bg-primary-500"
           />
         </div>
       </div>
