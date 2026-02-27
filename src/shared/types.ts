@@ -182,6 +182,7 @@ export interface CampaignContent {
   published_at?: string | null;
   publishedAt?: string;
   feedback?: string | null;
+  caption?: string | null;
   ai_evaluation?: any | null;
 }
 

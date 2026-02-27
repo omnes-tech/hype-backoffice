@@ -101,6 +101,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       published_at: content.published_at || content.publishedAt,
       publishedAt: content.publishedAt || content.published_at,
       feedback: content.feedback,
+      caption: content.caption,
       ai_evaluation: content.ai_evaluation,
     })) as CampaignContent[];
   }, [contents]);
@@ -981,6 +982,17 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               {renderPreviewGrid(selectedContent.previewUrl, selectedContent.previewUrls, selectedContent.contentType)}
             </div>
 
+            {selectedContent.caption && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-700 mb-2">
+                  Legenda do conteúdo:
+                </p>
+                <p className="text-sm text-neutral-900 whitespace-pre-wrap break-words">
+                  {selectedContent.caption}
+                </p>
+              </div>
+            )}
+
             <div className="bg-danger-50 rounded-2xl p-4">
               <p className="text-sm text-danger-900">
                 O feedback é obrigatório ao reprovar um conteúdo. Ele será enviado ao
@@ -1069,6 +1081,17 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
             <div className="rounded-xl overflow-hidden bg-neutral-200 h-32">
               {renderPreviewGrid(selectedContent.previewUrl, selectedContent.previewUrls, selectedContent.contentType)}
             </div>
+
+            {selectedContent.caption && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-700 mb-2">
+                  Legenda do conteúdo:
+                </p>
+                <p className="text-sm text-neutral-900 whitespace-pre-wrap break-words">
+                  {selectedContent.caption}
+                </p>
+              </div>
+            )}
 
             <div>
               <h4 className="text-sm font-semibold text-neutral-950 mb-3">
