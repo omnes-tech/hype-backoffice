@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,10 @@ import type { Notification } from "@/shared/services/notifications";
 export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(
+    null
+  );
   const navigate = useNavigate();
   const { data: notifications = [], isLoading } = useNotifications();
   const { mutate: markAsRead } = useMarkNotificationAsRead();
@@ -27,7 +32,9 @@ export function NotificationsDropdown() {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(event.target as Node) &&
+        (!dropdownContentRef.current ||
+          !dropdownContentRef.current.contains(event.target as Node))
       ) {
         setIsOpen(false);
       }
@@ -39,6 +46,33 @@ export function NotificationsDropdown() {
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Calcular posição do dropdown em relação ao ícone do sino
+  useEffect(() => {
+    const updatePosition = () => {
+      if (!isOpen || !dropdownRef.current) return;
+
+      const trigger = dropdownRef.current.querySelector("button");
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const right = window.innerWidth - rect.right - 8; // 8px de espaçamento
+      const top = rect.bottom + 8; // 8px abaixo do sino
+
+      setPosition({ top, right: Math.max(right, 8) });
+    };
+
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [isOpen]);
 
@@ -159,8 +193,14 @@ export function NotificationsDropdown() {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-2xl border border-neutral-200 shadow-lg z-50 max-h-[600px] flex flex-col">
+      {isOpen &&
+        position &&
+        createPortal(
+          <div
+            ref={dropdownContentRef}
+            className="fixed mt-2 w-96 bg-white rounded-2xl border border-neutral-200 shadow-lg z-[1000] max-h-[calc(100vh-96px)] flex flex-col overflow-hidden"
+            style={{ top: position.top, right: position.right }}
+          >
           {/* Header */}
           <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-neutral-950">
@@ -176,7 +216,7 @@ export function NotificationsDropdown() {
           </div>
 
           {/* Lista de notificações */}
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto flex-1 min-h-0">
             {isLoading ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-2"></div>
@@ -243,7 +283,7 @@ export function NotificationsDropdown() {
                               <span className="h-2 w-2 rounded-full bg-primary-600 shrink-0 mt-1"></span>
                             )}
                           </div>
-                          <p className="text-sm text-neutral-600 mb-2 line-clamp-2">
+                          <p className="text-sm text-neutral-600 mb-2 break-words">
                             {notification.message}
                           </p>
 
@@ -254,7 +294,7 @@ export function NotificationsDropdown() {
                                 <p className="text-xs font-medium text-warning-900 mb-1">
                                   Feedback:
                                 </p>
-                                <p className="text-xs text-warning-800 line-clamp-2">
+                                <p className="text-xs text-warning-800 break-words">
                                   {notification.metadata.feedback}
                                 </p>
                               </div>
@@ -300,8 +340,9 @@ export function NotificationsDropdown() {
               </Button>
             </div>
           )}
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

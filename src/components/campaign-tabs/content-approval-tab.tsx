@@ -101,7 +101,11 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       published_at: content.published_at || content.publishedAt,
       publishedAt: content.publishedAt || content.published_at,
       feedback: content.feedback,
-      caption: content.caption,
+      caption:
+        content.caption ||
+        content.caption_text ||
+        content.captionText ||
+        null,
       ai_evaluation: content.ai_evaluation,
     })) as CampaignContent[];
   }, [contents]);
@@ -863,6 +867,17 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                           />
                         )}
                       </div>
+
+                      {content.caption && (
+                        <div className="mb-3">
+                          <p className="text-xs font-medium text-neutral-700 mb-1">
+                            Legenda enviada
+                          </p>
+                          <p className="text-xs text-neutral-700 whitespace-pre-line break-words">
+                            {content.caption}
+                          </p>
+                        </div>
+                      )}
 
                       {content.feedback && (
                         <div className="mb-3 bg-info-50 rounded-xl p-3">

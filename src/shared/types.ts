@@ -182,7 +182,10 @@ export interface CampaignContent {
   published_at?: string | null;
   publishedAt?: string;
   feedback?: string | null;
+  // Legenda enviada pelo influenciador (compatível com diferentes formatos da API)
   caption?: string | null;
+  caption_text?: string | null;
+  captionText?: string | null;
   ai_evaluation?: any | null;
 }
 
