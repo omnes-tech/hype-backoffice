@@ -1,8 +1,17 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 
+/** Tipos de notificação conhecidos; a API pode enviar outros (fallback por metadata). */
+export type NotificationType =
+  | "content_approved"
+  | "content_adjustment_requested"
+  | "content_submitted"
+  | "new_content_submission"
+  | "new_message"
+  | "influencer_approved";
+
 export interface Notification {
   id: string;
-  type: "content_approved" | "content_adjustment_requested" | "content_submitted" | "new_content_submission" | "new_message";
+  type: NotificationType;
   title: string;
   message: string;
   boldText: string | null;

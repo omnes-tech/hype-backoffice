@@ -77,80 +77,89 @@ export function NotificationsDropdown() {
   }, [isOpen]);
 
   const handleNotificationClick = (notification: Notification) => {
-    // Marcar como lida se ainda não estiver lida
     if (!notification.read_at) {
       markAsRead(notification.id);
     }
 
-    // Navegar baseado no tipo de notificação
+    const campaignId = notification.metadata.campaign_id;
+    const hasCampaign = Boolean(campaignId);
+
+    const goToCampaign = (tab: string, extraSearch?: Record<string, string>) => {
+      if (!hasCampaign) return;
+      navigate({
+        to: "/campaigns/$campaignId",
+        params: { campaignId },
+        search: { tab, ...extraSearch },
+      });
+      setIsOpen(false);
+    };
+
     switch (notification.type) {
       case "new_message":
-        // Navegar para a campanha e abrir o chat com o influenciador
-        if (notification.metadata.campaign_id && notification.metadata.influencer_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "management",
-              openChat: String(notification.metadata.influencer_id),
-            },
+        if (hasCampaign && notification.metadata.influencer_id != null) {
+          goToCampaign("management", {
+            openChat: String(notification.metadata.influencer_id),
           });
-          setIsOpen(false);
+        } else if (hasCampaign) {
+          goToCampaign("management");
+        }
+        break;
+      case "influencer_approved":
+        // Influenciador aceitou convite / foi aprovado na campanha → aba Gerenciamento
+        if (hasCampaign && notification.metadata.influencer_id != null) {
+          goToCampaign("management", {
+            openChat: String(notification.metadata.influencer_id),
+          });
+        } else if (hasCampaign) {
+          goToCampaign("management");
         }
         break;
       case "content_approved":
       case "content_adjustment_requested":
       case "content_submitted":
-        // Navegar para a campanha e abrir a aba de aprovações de conteúdo
-        if (notification.metadata.campaign_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "approval",
-              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
-            },
-          });
-          setIsOpen(false);
+      case "new_content_submission":
+        if (hasCampaign) {
+          goToCampaign(
+            "approval",
+            notification.metadata.content_id
+              ? { contentId: notification.metadata.content_id }
+              : undefined
+          );
         }
         break;
-      case "new_content_submission":
-        // Para dono da campanha - navegar para aprovações de conteúdo
-        if (notification.metadata.campaign_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "approval",
-              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
-            },
-          });
+      default:
+        // Tipos desconhecidos ou futuros: se tiver campaign_id, abre a campanha na aba management
+        if (hasCampaign) {
+          goToCampaign("management");
+        } else {
           setIsOpen(false);
         }
         break;
     }
   };
 
-  const getNotificationIcon = (type: Notification["type"]): string => {
-    const icons: Record<Notification["type"], string> = {
+  const getNotificationIcon = (type: string): string => {
+    const icons: Record<string, string> = {
       content_approved: "Check",
       content_adjustment_requested: "AlertCircle",
       content_submitted: "Upload",
       new_content_submission: "Bell",
       new_message: "MessageCircle",
+      influencer_approved: "UserCheck",
     };
-    return icons[type] || "Bell";
+    return icons[type] ?? "Bell";
   };
 
-  const getNotificationColor = (type: Notification["type"]) => {
-    const colors: Record<Notification["type"], { bg: string; text: string }> = {
+  const getNotificationColor = (type: string): { bg: string; text: string } => {
+    const colors: Record<string, { bg: string; text: string }> = {
       content_approved: { bg: "bg-success-50", text: "text-success-900" },
       content_adjustment_requested: { bg: "bg-warning-50", text: "text-warning-900" },
       content_submitted: { bg: "bg-info-50", text: "text-info-900" },
       new_content_submission: { bg: "bg-primary-50", text: "text-primary-900" },
       new_message: { bg: "bg-blue-50", text: "text-blue-900" },
+      influencer_approved: { bg: "bg-success-50", text: "text-success-900" },
     };
-    return colors[type] || { bg: "bg-neutral-50", text: "text-neutral-900" };
+    return colors[type] ?? { bg: "bg-neutral-50", text: "text-neutral-900" };
   };
 
   const formatDate = (dateString: string) => {
@@ -241,9 +250,10 @@ export function NotificationsDropdown() {
                       type="button"
                       onClick={() => handleNotificationClick(notification)}
                       className={clsx(
-                        "w-full p-4 text-left hover:bg-neutral-50 transition-colors",
+                        "w-full p-4 text-left hover:bg-neutral-50 transition-colors cursor-pointer",
                         isUnread && "bg-primary-50/30"
                       )}
+                      aria-label={`Ver notificação: ${notification.boldText || notification.title}`}
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -264,6 +274,8 @@ export function NotificationsDropdown() {
                                 ? "#0284c7"
                                 : colors.text === "text-blue-900"
                                 ? "#1e40af"
+                                : colors.text === "text-neutral-900"
+                                ? "#171717"
                                 : "#9e2cfa"
                             }
                           />
