@@ -82,13 +82,11 @@ export function NotificationsDropdown() {
     }
 
     const campaignId = notification.metadata.campaign_id;
-    const hasCampaign = Boolean(campaignId);
 
-    const goToCampaign = (tab: string, extraSearch?: Record<string, string>) => {
-      if (!hasCampaign) return;
+    const goToCampaign = (id: string, tab: string, extraSearch?: Record<string, string>) => {
       navigate({
         to: "/campaigns/$campaignId",
-        params: { campaignId },
+        params: { campaignId: id },
         search: { tab, ...extraSearch },
       });
       setIsOpen(false);
@@ -96,30 +94,30 @@ export function NotificationsDropdown() {
 
     switch (notification.type) {
       case "new_message":
-        if (hasCampaign && notification.metadata.influencer_id != null) {
-          goToCampaign("management", {
+        if (campaignId && notification.metadata.influencer_id != null) {
+          goToCampaign(campaignId, "management", {
             openChat: String(notification.metadata.influencer_id),
           });
-        } else if (hasCampaign) {
-          goToCampaign("management");
+        } else if (campaignId) {
+          goToCampaign(campaignId, "management");
         }
         break;
       case "influencer_approved":
-        // Influenciador aceitou convite / foi aprovado na campanha → aba Gerenciamento
-        if (hasCampaign && notification.metadata.influencer_id != null) {
-          goToCampaign("management", {
+        if (campaignId && notification.metadata.influencer_id != null) {
+          goToCampaign(campaignId, "management", {
             openChat: String(notification.metadata.influencer_id),
           });
-        } else if (hasCampaign) {
-          goToCampaign("management");
+        } else if (campaignId) {
+          goToCampaign(campaignId, "management");
         }
         break;
       case "content_approved":
       case "content_adjustment_requested":
       case "content_submitted":
       case "new_content_submission":
-        if (hasCampaign) {
+        if (campaignId) {
           goToCampaign(
+            campaignId,
             "approval",
             notification.metadata.content_id
               ? { contentId: notification.metadata.content_id }
@@ -128,9 +126,8 @@ export function NotificationsDropdown() {
         }
         break;
       default:
-        // Tipos desconhecidos ou futuros: se tiver campaign_id, abre a campanha na aba management
-        if (hasCampaign) {
-          goToCampaign("management");
+        if (campaignId) {
+          goToCampaign(campaignId, "management");
         } else {
           setIsOpen(false);
         }
