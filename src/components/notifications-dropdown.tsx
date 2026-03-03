@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,10 @@ import type { Notification } from "@/shared/services/notifications";
 export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(
+    null
+  );
   const navigate = useNavigate();
   const { data: notifications = [], isLoading } = useNotifications();
   const { mutate: markAsRead } = useMarkNotificationAsRead();
@@ -27,7 +32,9 @@ export function NotificationsDropdown() {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(event.target as Node) &&
+        (!dropdownContentRef.current ||
+          !dropdownContentRef.current.contains(event.target as Node))
       ) {
         setIsOpen(false);
       }
@@ -42,96 +49,114 @@ export function NotificationsDropdown() {
     };
   }, [isOpen]);
 
+  // Calcular posição do dropdown em relação ao ícone do sino
+  useEffect(() => {
+    const updatePosition = () => {
+      if (!isOpen || !dropdownRef.current) return;
+
+      const trigger = dropdownRef.current.querySelector("button");
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const right = window.innerWidth - rect.right - 8; // 8px de espaçamento
+      const top = rect.bottom + 8; // 8px abaixo do sino
+
+      setPosition({ top, right: Math.max(right, 8) });
+    };
+
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
+
   const handleNotificationClick = (notification: Notification) => {
-    // Marcar como lida se ainda não estiver lida
     if (!notification.read_at) {
       markAsRead(notification.id);
     }
 
-    // Navegar baseado no tipo de notificação
+    const campaignId = notification.metadata.campaign_id;
+
+    const goToCampaign = (id: string, tab: string, extraSearch?: Record<string, string>) => {
+      navigate({
+        to: "/campaigns/$campaignId",
+        params: { campaignId: id },
+        search: { tab, ...extraSearch },
+      });
+      setIsOpen(false);
+    };
+
     switch (notification.type) {
       case "new_message":
-        // Navegar para a campanha e abrir o chat com o influenciador
-        if (notification.metadata.campaign_id && notification.metadata.influencer_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "management",
-              openChat: String(notification.metadata.influencer_id),
-            },
+        if (campaignId && notification.metadata.influencer_id != null) {
+          goToCampaign(campaignId, "management", {
+            openChat: String(notification.metadata.influencer_id),
           });
-          setIsOpen(false);
+        } else if (campaignId) {
+          goToCampaign(campaignId, "management");
         }
         break;
-      case "new_application":
-      case "application_received":
-        // Navegar para a campanha e abrir a aba de inscrições
-        if (notification.metadata.campaign_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "applications",
-            },
+      case "influencer_approved":
+        if (campaignId && notification.metadata.influencer_id != null) {
+          goToCampaign(campaignId, "management", {
+            openChat: String(notification.metadata.influencer_id),
           });
-          setIsOpen(false);
+        } else if (campaignId) {
+          goToCampaign(campaignId, "management");
         }
         break;
       case "content_approved":
       case "content_adjustment_requested":
       case "content_submitted":
       case "new_content_submission":
-        // Navegar para a campanha e abrir a aba de aprovações de conteúdo
-        if (notification.metadata.campaign_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "approval",
-              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
-            },
-          });
-          setIsOpen(false);
+        if (campaignId) {
+          goToCampaign(
+            campaignId,
+            "approval",
+            notification.metadata.content_id
+              ? { contentId: notification.metadata.content_id }
+              : undefined
+          );
         }
         break;
       default:
-        // Para outros tipos de notificação, se tiver campaign_id, navegar para a campanha
-        if (notification.metadata.campaign_id) {
-          navigate({
-            to: "/campaigns/$campaignId",
-            params: { campaignId: notification.metadata.campaign_id },
-          });
+        if (campaignId) {
+          goToCampaign(campaignId, "management");
+        } else {
           setIsOpen(false);
         }
         break;
     }
   };
 
-  const getNotificationIcon = (type: Notification["type"]): string => {
-    const icons: Record<Notification["type"], string> = {
+  const getNotificationIcon = (type: string): string => {
+    const icons: Record<string, string> = {
       content_approved: "Check",
       content_adjustment_requested: "AlertCircle",
       content_submitted: "Upload",
       new_content_submission: "Bell",
       new_message: "MessageCircle",
-      new_application: "UserPlus",
-      application_received: "UserPlus",
+      influencer_approved: "UserCheck",
     };
-    return icons[type] || "Bell";
+    return icons[type] ?? "Bell";
   };
 
-  const getNotificationColor = (type: Notification["type"]) => {
-    const colors: Record<Notification["type"], { bg: string; text: string }> = {
+  const getNotificationColor = (type: string): { bg: string; text: string } => {
+    const colors: Record<string, { bg: string; text: string }> = {
       content_approved: { bg: "bg-success-50", text: "text-success-900" },
       content_adjustment_requested: { bg: "bg-warning-50", text: "text-warning-900" },
       content_submitted: { bg: "bg-info-50", text: "text-info-900" },
       new_content_submission: { bg: "bg-primary-50", text: "text-primary-900" },
       new_message: { bg: "bg-blue-50", text: "text-blue-900" },
-      new_application: { bg: "bg-purple-50", text: "text-purple-900" },
-      application_received: { bg: "bg-purple-50", text: "text-purple-900" },
+      influencer_approved: { bg: "bg-success-50", text: "text-success-900" },
     };
-    return colors[type] || { bg: "bg-neutral-50", text: "text-neutral-900" };
+    return colors[type] ?? { bg: "bg-neutral-50", text: "text-neutral-900" };
   };
 
   const formatDate = (dateString: string) => {
@@ -174,8 +199,14 @@ export function NotificationsDropdown() {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-2xl border border-neutral-200 shadow-lg z-50 max-h-[600px] flex flex-col">
+      {isOpen &&
+        position &&
+        createPortal(
+          <div
+            ref={dropdownContentRef}
+            className="fixed mt-2 w-96 bg-white rounded-2xl border border-neutral-200 shadow-lg z-[1000] max-h-[calc(100vh-96px)] flex flex-col overflow-hidden"
+            style={{ top: position.top, right: position.right }}
+          >
           {/* Header */}
           <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-neutral-950">
@@ -191,7 +222,7 @@ export function NotificationsDropdown() {
           </div>
 
           {/* Lista de notificações */}
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto flex-1 min-h-0">
             {isLoading ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-2"></div>
@@ -216,9 +247,10 @@ export function NotificationsDropdown() {
                       type="button"
                       onClick={() => handleNotificationClick(notification)}
                       className={clsx(
-                        "w-full p-4 text-left hover:bg-neutral-50 transition-colors",
+                        "w-full p-4 text-left hover:bg-neutral-50 transition-colors cursor-pointer",
                         isUnread && "bg-primary-50/30"
                       )}
+                      aria-label={`Ver notificação: ${notification.boldText || notification.title}`}
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -239,8 +271,8 @@ export function NotificationsDropdown() {
                                 ? "#0284c7"
                                 : colors.text === "text-blue-900"
                                 ? "#1e40af"
-                                : colors.text === "text-purple-900"
-                                ? "#7c3aed"
+                                : colors.text === "text-neutral-900"
+                                ? "#171717"
                                 : "#9e2cfa"
                             }
                           />
@@ -260,7 +292,7 @@ export function NotificationsDropdown() {
                               <span className="h-2 w-2 rounded-full bg-primary-600 shrink-0 mt-1"></span>
                             )}
                           </div>
-                          <p className="text-sm text-neutral-600 mb-2 line-clamp-2">
+                          <p className="text-sm text-neutral-600 mb-2 break-words">
                             {notification.message}
                           </p>
 
@@ -271,7 +303,7 @@ export function NotificationsDropdown() {
                                 <p className="text-xs font-medium text-warning-900 mb-1">
                                   Feedback:
                                 </p>
-                                <p className="text-xs text-warning-800 line-clamp-2">
+                                <p className="text-xs text-warning-800 break-words">
                                   {notification.metadata.feedback}
                                 </p>
                               </div>
@@ -317,8 +349,9 @@ export function NotificationsDropdown() {
               </Button>
             </div>
           )}
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
