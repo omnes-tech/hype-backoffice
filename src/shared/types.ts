@@ -167,8 +167,23 @@ export interface CampaignContent {
   influencerAvatar: string;
   social_network?: string;
   socialNetwork: string;
+  social_network_type?: string;
+  social_network_obj?: {
+    id: string;
+    type: string;
+    name: string;
+    username?: string;
+  };
   content_type?: string;
   contentType: string;
+  content_format?: {
+    social_network: string;
+    formats: Array<{
+      type: string;
+      quantity: number;
+    }>;
+  };
+  content_format_type?: string | null;
   preview_url?: string;
   previewUrl: string;
   preview_urls?: string[]; // Array com todas as URLs de preview
@@ -176,6 +191,15 @@ export interface CampaignContent {
   post_url?: string;
   postUrl: string;
   status: "pending" | "awaiting_approval" | "approved" | "content_approved" | "correction" | "rejected" | "published";
+  phase?: {
+    id: string;
+    order: number;
+    objective: string;
+    publish_date: string;
+    publish_time?: string;
+    content_submission_deadline?: string;
+    correction_submission_deadline?: string;
+  };
   phase_id?: string | null;
   submitted_at?: string;
   submittedAt: string;
@@ -183,6 +207,10 @@ export interface CampaignContent {
   publishedAt?: string;
   feedback?: string | null;
   caption?: string | null;
+  caption_feedback?: string | null;
+  metadata?: {
+    content_format_type?: string;
+  } | null;
   ai_evaluation?: any | null;
 }
 
@@ -196,6 +224,36 @@ export interface CampaignScript {
   influencer_avatar?: string;
   influencerAvatar?: string;
   social_network?: string;
+  social_network_type?: string;
+  social_network_obj?: {
+    id: string;
+    type: string;
+    name: string;
+  };
+  content_format?: {
+    social_network: string;
+    formats: Array<{
+      type: string;
+      quantity: number;
+    }>;
+  } | Array<{
+    social_network: string;
+    formats: Array<{
+      type: string;
+      quantity: number;
+    }>;
+  }>;
+  content_format_type?: string | null;
+  metadata?: {
+    content_format_type?: string;
+  } | null;
+  phase?: {
+    id: string;
+    order: number;
+    objective: string;
+    publish_date: string;
+    publish_time?: string;
+  };
   script?: string;
   script_text?: string;
   scriptText?: string;

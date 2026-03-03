@@ -64,9 +64,24 @@ export function NotificationsDropdown() {
           setIsOpen(false);
         }
         break;
+      case "new_application":
+      case "application_received":
+        // Navegar para a campanha e abrir a aba de inscrições
+        if (notification.metadata.campaign_id) {
+          navigate({
+            to: "/campaigns/$campaignId",
+            params: { campaignId: notification.metadata.campaign_id },
+            search: {
+              tab: "applications",
+            },
+          });
+          setIsOpen(false);
+        }
+        break;
       case "content_approved":
       case "content_adjustment_requested":
       case "content_submitted":
+      case "new_content_submission":
         // Navegar para a campanha e abrir a aba de aprovações de conteúdo
         if (notification.metadata.campaign_id) {
           navigate({
@@ -80,16 +95,12 @@ export function NotificationsDropdown() {
           setIsOpen(false);
         }
         break;
-      case "new_content_submission":
-        // Para dono da campanha - navegar para aprovações de conteúdo
+      default:
+        // Para outros tipos de notificação, se tiver campaign_id, navegar para a campanha
         if (notification.metadata.campaign_id) {
           navigate({
             to: "/campaigns/$campaignId",
             params: { campaignId: notification.metadata.campaign_id },
-            search: {
-              tab: "approval",
-              ...(notification.metadata.content_id && { contentId: notification.metadata.content_id }),
-            },
           });
           setIsOpen(false);
         }
@@ -104,6 +115,8 @@ export function NotificationsDropdown() {
       content_submitted: "Upload",
       new_content_submission: "Bell",
       new_message: "MessageCircle",
+      new_application: "UserPlus",
+      application_received: "UserPlus",
     };
     return icons[type] || "Bell";
   };
@@ -115,6 +128,8 @@ export function NotificationsDropdown() {
       content_submitted: { bg: "bg-info-50", text: "text-info-900" },
       new_content_submission: { bg: "bg-primary-50", text: "text-primary-900" },
       new_message: { bg: "bg-blue-50", text: "text-blue-900" },
+      new_application: { bg: "bg-purple-50", text: "text-purple-900" },
+      application_received: { bg: "bg-purple-50", text: "text-purple-900" },
     };
     return colors[type] || { bg: "bg-neutral-50", text: "text-neutral-900" };
   };
@@ -224,6 +239,8 @@ export function NotificationsDropdown() {
                                 ? "#0284c7"
                                 : colors.text === "text-blue-900"
                                 ? "#1e40af"
+                                : colors.text === "text-purple-900"
+                                ? "#7c3aed"
                                 : "#9e2cfa"
                             }
                           />

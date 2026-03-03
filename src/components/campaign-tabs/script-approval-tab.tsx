@@ -21,12 +21,12 @@ interface ScriptApprovalTabProps {
 
 export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
-  
+
   // Estados de filtros
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("pending");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [searchInfluencer, setSearchInfluencer] = useState("");
-  
+
   // Estados de UI
   const [selectedScript, setSelectedScript] = useState<CampaignScript | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -70,13 +70,23 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
       influencerName: script.influencer_name || "",
       influencer_avatar: script.influencer_avatar,
       influencerAvatar: script.influencer_avatar || "",
-      social_network: script.social_network,
+      // Suporte ao novo formato: social_network como objeto ou string
+      social_network: script.social_network_type || script.social_network?.type || script.social_network || "",
+      social_network_type: script.social_network_type || script.social_network?.type || script.social_network || "",
+      social_network_obj: script.social_network || undefined,
+      // Novo campo: content_format (pode ser objeto único ou array)
+      content_format: script.content_format || undefined,
+      // Tipo específico do formato deste script
+      content_format_type: script.content_format_type || script.metadata?.content_format_type || null,
+      metadata: script.metadata || null,
+      // Novo campo: phase como objeto
+      phase: script.phase || undefined,
       script: script.script,
       script_text: script.script,
       scriptText: script.script || "",
       file_url: script.file_url,
       status: script.status,
-      phase_id: script.phase_id,
+      phase_id: script.phase_id || script.phase?.id || null,
       submitted_at: script.submitted_at,
       submittedAt: script.submitted_at || "",
       approved_at: script.approved_at,
@@ -97,7 +107,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     if (selectedStatusFilter !== "all") {
       if (selectedStatusFilter === "pending") {
         // Quando filtrar por "pending", incluir também "awaiting_approval"
-        filtered = filtered.filter((script) => 
+        filtered = filtered.filter((script) =>
           script.status === "pending" || script.status === "awaiting_approval"
         );
       } else {
@@ -246,7 +256,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   const getStatusBadge = (status: CampaignScript["status"]) => {
     // Mapear awaiting_approval para pending visualmente
     const normalizedStatus = status === "awaiting_approval" ? "pending" : status;
-    
+
     const statusConfig = {
       pending: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
       awaiting_approval: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
@@ -266,6 +276,25 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
         textColor={config.textColor}
       />
     );
+  };
+
+  // Função auxiliar para obter o número da fase
+  const getPhaseNumber = (phaseId?: string | null) => {
+    if (!phaseId) return null;
+    // Primeiro tenta encontrar na prop campaignPhases
+    const phaseIndex = campaignPhases.findIndex((p) => p.id === phaseId);
+    if (phaseIndex >= 0) return phaseIndex + 1;
+    // Se não encontrar, tenta usar o order do objeto phase no script
+    const script = normalizedScripts.find((s) => s.phase_id === phaseId);
+    if (script?.phase?.order) return script.phase.order;
+    return null;
+  };
+
+  // Type guard para verificar se content_format é objeto único
+  const isContentFormatObject = (
+    format: CampaignScript["content_format"]
+  ): format is { social_network: string; formats: Array<{ type: string; quantity: number }> } => {
+    return format !== undefined && !Array.isArray(format) && "social_network" in format;
   };
 
   const phaseOptions = [
@@ -397,11 +426,10 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                 {filteredScripts.map((script) => (
                   <div
                     key={script.id}
-                    className={`bg-neutral-50 rounded-2xl p-4 border transition-colors ${
-                      selectedScripts.has(script.id)
-                        ? "border-primary-600 bg-primary-50"
-                        : "border-neutral-200"
-                    }`}
+                    className={`bg-neutral-50 rounded-2xl p-4 border transition-colors ${selectedScripts.has(script.id)
+                      ? "border-primary-600 bg-primary-50"
+                      : "border-neutral-200"
+                      }`}
                   >
                     <div className="flex items-start gap-3 mb-3">
                       <Checkbox
@@ -426,6 +454,83 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     <div className="mb-3">
                       {getStatusBadge(script.status)}
                     </div>
+
+                    {/* Informações da fase */}
+                    {(script.phase || script.phase_id) && (
+                      <div className="mb-3">
+                        <p className="text-xs text-neutral-500 mb-1">
+                          Fase {script.phase?.order || getPhaseNumber(script.phase_id) || "?"}:
+                        </p>
+                        {script.phase ? (
+                          <>
+                            <p className="text-sm text-neutral-950">
+                              {script.phase.objective}
+                            </p>
+                            {script.phase.publish_date && (
+                              <p className="text-xs text-neutral-600 mt-1">
+                                Publicação: {new Date(script.phase.publish_date).toLocaleDateString("pt-BR")}
+                                {script.phase.publish_time && ` às ${script.phase.publish_time.slice(0, 5)}`}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-neutral-600">Informações da fase não disponíveis</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Informações de rede social e formato */}
+                    {(script.content_format || script.content_format_type) && (
+                      <div className="mb-3">
+                        <p className="text-xs text-neutral-500 mb-1">Formato:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {script.content_format_type && (
+                            <Badge
+                              text={script.content_format_type}
+                              backgroundColor="bg-primary-200"
+                              textColor="text-primary-700"
+                            />
+                          )}
+                          {!script.content_format_type && script.content_format && (
+                            <>
+                              {/* Suporte para content_format como objeto único */}
+                              {isContentFormatObject(script.content_format) && script.content_format.formats && (
+                                <>
+                                  {(() => {
+                                    const contentFormat = script.content_format as { social_network: string; formats: Array<{ type: string; quantity: number }> };
+                                    return contentFormat.formats.map((format: any, idx: number) => (
+                                      <Badge
+                                        key={idx}
+                                        text={`${contentFormat.social_network} - ${format.type} (${format.quantity}x)`}
+                                        backgroundColor="bg-primary-50"
+                                        textColor="text-primary-700"
+                                      />
+                                    ));
+                                  })()}
+                                </>
+                              )}
+                              {/* Suporte para content_format como array (retrocompatibilidade) */}
+                              {Array.isArray(script.content_format) && script.content_format.length > 0 && (
+                                <>
+                                  {script.content_format.map((contentFormat: any, formatIdx: number) => (
+                                    <div key={formatIdx} className="flex flex-wrap gap-1">
+                                      {contentFormat.formats?.map((format: any, idx: number) => (
+                                        <Badge
+                                          key={idx}
+                                          text={`${contentFormat.social_network} - ${format.type} (${format.quantity}x)`}
+                                          backgroundColor="bg-primary-50"
+                                          textColor="text-primary-700"
+                                        />
+                                      ))}
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mb-3">
                       <p className="text-xs text-neutral-500 mb-1">Roteiro:</p>
@@ -541,7 +646,92 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
               </div>
             )}
 
-            {selectedScript.social_network && (
+            {/* Informações da fase */}
+            {(selectedScript.phase || selectedScript.phase_id) && (
+              <div>
+                <label className="text-sm font-medium text-neutral-950 mb-2 block">
+                  Fase {selectedScript.phase?.order || getPhaseNumber(selectedScript.phase_id) || "?"}:
+                </label>
+                {selectedScript.phase ? (
+                  <div className="bg-neutral-50 rounded-2xl p-4">
+                    <p className="text-sm text-neutral-950 font-medium mb-1">
+                      {selectedScript.phase.objective}
+                    </p>
+                    {selectedScript.phase.publish_date && (
+                      <p className="text-xs text-neutral-600">
+                        Data de publicação: {new Date(selectedScript.phase.publish_date).toLocaleDateString("pt-BR")}
+                        {selectedScript.phase.publish_time && ` às ${selectedScript.phase.publish_time.slice(0, 5)}`}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-neutral-50 rounded-2xl p-4">
+                    <p className="text-sm text-neutral-600">Informações da fase não disponíveis</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Informações de rede social e formato */}
+            {(selectedScript.content_format || selectedScript.content_format_type) && (
+              <div>
+                <label className="text-sm font-medium text-neutral-950 mb-2 block">
+                  Rede social e formato:
+                </label>
+                <div className="bg-neutral-50 rounded-2xl p-4">
+                  {selectedScript.content_format_type && (
+                    <div>
+                      <p className="text-sm text-neutral-950 font-medium mb-1">Tipo de formato:</p>
+                      <p className="text-sm text-neutral-600 capitalize">{selectedScript.content_format_type}</p>
+                    </div>
+                  )}
+                  {selectedScript.content_format && (
+                    <>
+                      {/* Suporte para content_format como objeto único */}
+                      {isContentFormatObject(selectedScript.content_format) && selectedScript.content_format.formats && (
+                        <div className={selectedScript.content_format_type ? "mt-3 pt-3 border-t border-neutral-200" : ""}>
+                          <p className="text-sm text-neutral-950 font-medium mb-2 capitalize">
+                            {selectedScript.content_format.social_network}
+                          </p>
+                          {selectedScript.content_format.formats.length > 0 && (
+                            <ul className="list-disc list-inside space-y-1">
+                              {selectedScript.content_format.formats.map((format: any, idx: number) => (
+                                <li key={idx} className="text-sm text-neutral-600">
+                                  {format.type} - {format.quantity}x
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                      {/* Suporte para content_format como array (retrocompatibilidade) */}
+                      {Array.isArray(selectedScript.content_format) && selectedScript.content_format.length > 0 && (
+                        <>
+                          {selectedScript.content_format.map((contentFormat: any, formatIdx: number) => (
+                            <div key={formatIdx} className={formatIdx > 0 || selectedScript.content_format_type ? "mt-3 pt-3 border-t border-neutral-200" : ""}>
+                              <p className="text-sm text-neutral-950 font-medium mb-2 capitalize">
+                                {contentFormat.social_network}
+                              </p>
+                              {contentFormat.formats && contentFormat.formats.length > 0 && (
+                                <ul className="list-disc list-inside space-y-1">
+                                  {contentFormat.formats.map((format: any, idx: number) => (
+                                    <li key={idx} className="text-sm text-neutral-600">
+                                      {format.type} - {format.quantity}x
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selectedScript.social_network && !selectedScript.social_network_obj && (
               <div>
                 <label className="text-sm font-medium text-neutral-950 mb-2 block">
                   Rede social:

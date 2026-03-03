@@ -84,10 +84,17 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       influencerName: content.influencerName || content.influencer_name,
       influencer_avatar: content.influencer_avatar || content.influencerAvatar,
       influencerAvatar: content.influencerAvatar || content.influencer_avatar,
-      social_network: content.social_network || content.socialNetwork,
-      socialNetwork: content.socialNetwork || content.social_network,
+      // Suporte ao novo formato: social_network como objeto ou string
+      social_network: content.social_network_type || content.social_network?.type || content.social_network || content.socialNetwork || "",
+      socialNetwork: content.social_network_type || content.social_network?.type || content.socialNetwork || content.social_network || "",
+      social_network_type: content.social_network_type || content.social_network?.type || content.social_network || content.socialNetwork || "",
+      social_network_obj: content.social_network && typeof content.social_network === 'object' ? content.social_network : undefined,
       content_type: content.content_type || content.contentType,
       contentType: content.contentType || content.content_type,
+      // Novo campo: content_format
+      content_format: content.content_format || undefined,
+      // Tipo específico do formato deste conteúdo
+      content_format_type: content.content_format_type || content.metadata?.content_format_type || null,
       preview_url: content.preview_url || content.previewUrl,
       previewUrl: content.previewUrl || content.preview_url,
       preview_urls: content.preview_urls || content.previewUrls || (content.preview_url ? [content.preview_url] : content.previewUrl ? [content.previewUrl] : []),
@@ -95,13 +102,19 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       post_url: content.post_url || content.postUrl,
       postUrl: content.postUrl || content.post_url,
       status: content.status,
-      phase_id: content.phase_id || content.phaseId,
+      // Novo campo: phase como objeto completo
+      phase: content.phase || undefined,
+      phase_id: content.phase_id || content.phase?.id || content.phaseId || null,
       submitted_at: content.submitted_at || content.submittedAt,
       submittedAt: content.submittedAt || content.submitted_at,
       published_at: content.published_at || content.publishedAt,
       publishedAt: content.publishedAt || content.published_at,
       feedback: content.feedback,
       caption: content.caption,
+      // Novo campo: caption_feedback
+      caption_feedback: content.caption_feedback || null,
+      // Novo campo: metadata
+      metadata: content.metadata || null,
       ai_evaluation: content.ai_evaluation,
     })) as CampaignContent[];
   }, [contents]);
@@ -143,7 +156,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     // Filtro por rede social
     if (filterSocialNetwork) {
       filtered = filtered.filter((content) => {
-        const contentNetwork = (content.socialNetwork || content.social_network || "").toLowerCase();
+        const network = content.socialNetwork || content.social_network;
+        const contentNetwork = typeof network === 'string' ? network.toLowerCase() : "";
         return contentNetwork === filterSocialNetwork.toLowerCase();
       });
     }
@@ -156,7 +170,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     const networks = new Set<string>();
     normalizedContents.forEach((content) => {
       const network = content.socialNetwork || content.social_network;
-      if (network) {
+      // Garantir que network é uma string
+      if (network && typeof network === 'string') {
         networks.add(network);
       }
     });
@@ -166,10 +181,12 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       youtube: "YouTube",
       ugc: "UGC",
     };
-    return Array.from(networks).map((network) => ({
-      value: network.toLowerCase(),
-      label: networkLabels[network.toLowerCase()] || network,
-    }));
+    return Array.from(networks)
+      .filter((network): network is string => typeof network === 'string')
+      .map((network) => ({
+        value: network.toLowerCase(),
+        label: networkLabels[network.toLowerCase()] || network,
+      }));
   }, [normalizedContents]);
 
   // Hooks para mutations
@@ -432,7 +449,9 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     }
   };
 
-  const getSocialNetworkIcon = (network: string) => {
+  const getSocialNetworkIcon = (network: string | undefined) => {
+    // Garantir que network é uma string
+    const networkStr = typeof network === 'string' ? network : "";
     const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
       instagram: "Instagram",
       youtube: "Youtube",
@@ -440,7 +459,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       facebook: "Facebook",
       twitter: "Twitter",
     };
-    return icons[network?.toLowerCase()] || "Share2";
+    return icons[networkStr.toLowerCase()] || "Share2";
   };
 
   // Função para detectar se é vídeo ou imagem baseado na URL
@@ -845,7 +864,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                       </div>
 
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Icon
                             name={getSocialNetworkIcon(content.socialNetwork)}
                             color="#404040"
@@ -854,15 +873,35 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                           <span className="text-sm text-neutral-600">
                             {content.socialNetwork} • {content.contentType}
                           </span>
+                          {content.content_format_type && (
+                            <Badge
+                              text={content.content_format_type}
+                              backgroundColor="bg-primary-200"
+                              textColor="text-primary-700"
+                            />
+                          )}
                         </div>
-                        {content.phase_id && (
+                        {(content.phase_id || content.phase) && (
                           <Badge
-                            text={getPhaseLabel(content.phase_id)}
+                            text={content.phase ? `Fase ${content.phase.order}` : getPhaseLabel(content.phase_id)}
                             backgroundColor="bg-tertiary-600"
                             textColor="text-neutral-50"
                           />
                         )}
                       </div>
+
+                      {/* Informações da fase */}
+                      {content.phase && (
+                        <div className="mb-3 text-xs text-neutral-600">
+                          <p className="font-medium mb-1">Fase {content.phase.order}: {content.phase.objective}</p>
+                          {content.phase.publish_date && (
+                            <p>
+                              Publicação: {new Date(content.phase.publish_date).toLocaleDateString("pt-BR")}
+                              {content.phase.publish_time && ` às ${content.phase.publish_time.slice(0, 5)}`}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {content.feedback && (
                         <div className="mb-3 bg-info-50 rounded-xl p-3">
@@ -1072,15 +1111,112 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                 <h3 className="text-lg font-semibold text-neutral-950">
                   {selectedContent.influencerName}
                 </h3>
-                <p className="text-neutral-600">
-                  {selectedContent.socialNetwork} • {selectedContent.contentType}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-neutral-600">
+                    {selectedContent.socialNetwork} • {selectedContent.contentType}
+                  </p>
+                  {selectedContent.content_format_type && (
+                    <Badge
+                      text={selectedContent.content_format_type}
+                      backgroundColor="bg-primary-200"
+                      textColor="text-primary-700"
+                    />
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Informações da fase */}
+            {selectedContent.phase && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
+                <p className="text-sm font-medium text-neutral-950 mb-2">
+                  Fase {selectedContent.phase.order}: {selectedContent.phase.objective}
+                </p>
+                {selectedContent.phase.publish_date && (
+                  <p className="text-xs text-neutral-600">
+                    Data de publicação: {new Date(selectedContent.phase.publish_date).toLocaleDateString("pt-BR")}
+                    {selectedContent.phase.publish_time && ` às ${selectedContent.phase.publish_time.slice(0, 5)}`}
+                  </p>
+                )}
+                {selectedContent.phase.content_submission_deadline && (
+                  <p className="text-xs text-neutral-600 mt-1">
+                    Prazo para envio: {new Date(selectedContent.phase.content_submission_deadline).toLocaleDateString("pt-BR")}
+                  </p>
+                )}
+                {selectedContent.phase.correction_submission_deadline && (
+                  <p className="text-xs text-neutral-600 mt-1">
+                    Prazo para correção: {new Date(selectedContent.phase.correction_submission_deadline).toLocaleDateString("pt-BR")}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Informações de rede social e formato */}
+            {(selectedContent.social_network_obj || selectedContent.content_format) && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
+                {selectedContent.social_network_obj && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-neutral-700 mb-1">Rede social:</p>
+                    <p className="text-sm text-neutral-950">
+                      {selectedContent.social_network_obj.name}
+                      {selectedContent.social_network_obj.username && ` (@${selectedContent.social_network_obj.username})`}
+                    </p>
+                  </div>
+                )}
+                {selectedContent.content_format && (
+                  <div>
+                    <p className="text-xs font-medium text-neutral-700 mb-1">Formatos disponíveis:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {selectedContent.content_format.formats.map((format: any, idx: number) => (
+                        <li key={idx} className="text-sm text-neutral-600">
+                          {format.type} - {format.quantity}x
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="rounded-xl overflow-hidden bg-neutral-200 h-32">
               {renderPreviewGrid(selectedContent.previewUrl, selectedContent.previewUrls, selectedContent.contentType)}
             </div>
+
+            {/* Links do conteúdo */}
+            {(selectedContent.postUrl || selectedContent.previewUrls?.length) && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-700 mb-2">Links:</p>
+                <div className="flex flex-col gap-2">
+                  {selectedContent.postUrl && (
+                    <a
+                      href={selectedContent.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-2"
+                    >
+                      <Icon name="ExternalLink" color="#2563eb" size={16} />
+                      <span>Ver post/publicação</span>
+                    </a>
+                  )}
+                  {selectedContent.previewUrls && selectedContent.previewUrls.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      {selectedContent.previewUrls.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-2"
+                        >
+                          <Icon name="Image" color="#2563eb" size={16} />
+                          <span>Preview {idx + 1}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {selectedContent.caption && (
               <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200">
@@ -1090,6 +1226,16 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
                 <p className="text-sm text-neutral-900 whitespace-pre-wrap break-words">
                   {selectedContent.caption}
                 </p>
+                {selectedContent.caption_feedback && (
+                  <div className="mt-3 pt-3 border-t border-neutral-200">
+                    <p className="text-xs font-medium text-warning-700 mb-1">
+                      Feedback sobre a legenda:
+                    </p>
+                    <p className="text-xs text-warning-900">
+                      {selectedContent.caption_feedback}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
