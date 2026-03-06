@@ -5,6 +5,7 @@ export interface InfluencerStatusUpdate {
   influencer_id: string;
   status: string;
   feedback?: string;
+  network_id?: number | string;
 }
 
 export interface InfluencerProfile {
@@ -114,7 +115,7 @@ export async function updateInfluencerStatus(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencers/${data.influencer_id}/status`),
+    getApiUrl(`/campaigns/${campaignId}/users/${data.influencer_id}/status`),
     {
       method: "PUT",
       headers: {
@@ -127,6 +128,7 @@ export async function updateInfluencerStatus(
       body: JSON.stringify({
         status: data.status,
         feedback: data.feedback,
+        network_id: data.network_id,
       }),
     }
   );
@@ -263,7 +265,8 @@ export async function getInfluencerHistory(
 export async function bulkApproveInfluencers(
   campaignId: string,
   influencerIds: string[],
-  feedback?: string
+  feedback?: string,
+  network_id?: number | string
 ): Promise<void> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -284,6 +287,7 @@ export async function bulkApproveInfluencers(
       body: JSON.stringify({
         influencer_ids: influencerIds,
         feedback,
+        network_id,
       }),
     }
   );
@@ -300,7 +304,8 @@ export async function bulkApproveInfluencers(
 export async function bulkRejectInfluencers(
   campaignId: string,
   influencerIds: string[],
-  feedback: string
+  feedback: string,
+  network_id?: number | string
 ): Promise<void> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -308,7 +313,7 @@ export async function bulkRejectInfluencers(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencers/bulk-reject`),
+    getApiUrl(`/campaigns/${campaignId}/users/bulk-reject`),
     {
       method: "POST",
       headers: {
@@ -321,6 +326,7 @@ export async function bulkRejectInfluencers(
       body: JSON.stringify({
         influencer_ids: influencerIds,
         feedback,
+        network_id,
       }),
     }
   );

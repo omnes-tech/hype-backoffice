@@ -32,6 +32,14 @@ export interface DashboardInfluencer {
   engagement: number;
   niche: string | undefined;
   social_network: string | undefined;
+  social_networks?: Array<{
+    id: number | string;
+    type: string;
+    name: string;
+    username?: string;
+    members?: number;
+    status?: string;
+  }>;
   status: string;
   phase: string | undefined;
 }
@@ -179,6 +187,31 @@ function normalizeStatus(status: string | undefined): string {
 export function transformDashboardInfluencer(
   influencer: DashboardInfluencer
 ): Influencer {
+  // Debug: verificar dados antes da transformação
+  if (String(influencer.id) === "65") {
+    console.log("🔍 Transformando influencer ID 65:", {
+      id: influencer.id,
+      name: influencer.name,
+      social_networks: influencer.social_networks,
+      social_networksWithStatus: influencer.social_networks?.map(p => ({
+        id: p.id,
+        type: p.type,
+        status: p.status,
+      })),
+      hasSocialNetworks: !!influencer.social_networks && influencer.social_networks.length > 0,
+    });
+  }
+  
+  // Garantir que o status seja preservado em cada perfil e normalizado
+  const social_networks: Influencer["social_networks"] = influencer.social_networks?.map((network) => ({
+    id: network.id,
+    type: network.type,
+    name: network.name,
+    username: network.username,
+    members: network.members,
+    status: network.status ? (normalizeStatus(network.status) as "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected" | undefined) : undefined,
+  }));
+  
   return {
     id: influencer.id,
     name: influencer.name,
@@ -189,6 +222,7 @@ export function transformDashboardInfluencer(
     niche: influencer.niche || "",
     status: normalizeStatus(influencer.status) as Influencer["status"],
     phase: influencer.phase,
+    social_networks,
   };
 }
 

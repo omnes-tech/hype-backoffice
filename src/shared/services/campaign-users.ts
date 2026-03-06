@@ -10,6 +10,13 @@ export interface CampaignUser {
   engagement: number;
   niche?: string;
   status: string;
+  social_networks?: Array<{
+    id: number | string;
+    type: string;
+    name: string;
+    username?: string;
+    members?: number;
+  }>;
 }
 
 /**

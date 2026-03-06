@@ -10,8 +10,8 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
   const queryClient = useQueryClient();
 
   const approveMutation = useMutation({
-    mutationFn: ({ influencerIds, feedback }: { influencerIds: string[]; feedback?: string }) =>
-      bulkApproveInfluencers(campaignId, influencerIds, feedback),
+    mutationFn: ({ influencerIds, feedback, network_id }: { influencerIds: string[]; feedback?: string; network_id?: number | string }) =>
+      bulkApproveInfluencers(campaignId, influencerIds, feedback, network_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
@@ -25,8 +25,8 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ influencerIds, feedback }: { influencerIds: string[]; feedback: string }) =>
-      bulkRejectInfluencers(campaignId, influencerIds, feedback),
+    mutationFn: ({ influencerIds, feedback, network_id }: { influencerIds: string[]; feedback: string; network_id?: number | string }) =>
+      bulkRejectInfluencers(campaignId, influencerIds, feedback, network_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });

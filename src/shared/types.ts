@@ -154,6 +154,15 @@ export interface Influencer {
   niche: string;
   status?: "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected";
   phase?: string;
+  // Perfis de rede social que se inscreveram na campanha (vem direto da API)
+  social_networks?: Array<{
+    id: number | string;
+    type: string;
+    name: string;
+    username?: string;
+    members?: number;
+    status?: "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected";
+  }>;
 }
 
 export interface CampaignContent {

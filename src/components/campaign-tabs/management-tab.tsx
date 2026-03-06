@@ -49,6 +49,13 @@ interface ManagementTabProps {
     engagement: number;
     niche?: string;
     status: string;
+    social_networks?: Array<{
+      id: number | string;
+      type: string;
+      name: string;
+      username?: string;
+      members?: number;
+    }>;
   }>;
   openChatInfluencerId?: string;
 }
@@ -63,6 +70,13 @@ interface StatusHistory {
 interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
   id: string | number;
   socialNetwork?: string;
+  social_networks?: Array<{
+    id: number | string;
+    type: string;
+    name: string;
+    username?: string;
+    members?: number;
+  }>;
   statusHistory?: StatusHistory[];
 }
 
@@ -510,9 +524,19 @@ export function ManagementTab({
 
   // Initialize influencers state and merge with all campaign users
   useEffect(() => {
+    // Debug: verificar dados dos influenciadores
+    console.log("🔍 Influencers data:", {
+      influencers: influencers.map(inf => ({
+        id: inf.id,
+        name: inf.name,
+        social_networks: inf.social_networks,
+      })),
+    });
+    
     // Converter TODOS os usuários da campanha para o formato ExtendedInfluencer
     const allCampaignUsers: ExtendedInfluencer[] = campaignUsers.map((user) => {
       const kanbanStatus = mapUserStatusToKanbanColumn(user.status);
+      const userWithSocialNetworks = user as any;
       return {
         id: user.id,
         name: user.name,
@@ -522,7 +546,10 @@ export function ManagementTab({
         engagement: user.engagement || 0,
         niche: user.niche || "",
         status: user.status as Influencer["status"],
-        socialNetwork: undefined,
+        social_networks: userWithSocialNetworks.social_networks || undefined,
+        socialNetwork: userWithSocialNetworks.social_networks && userWithSocialNetworks.social_networks.length > 0
+          ? userWithSocialNetworks.social_networks[0].type
+          : undefined,
         statusHistory: [
           {
             id: `user-${user.id}`,
@@ -578,19 +605,27 @@ export function ManagementTab({
                 ],
               };
             }
-            return extendedInf;
+            // Garantir que social_networks seja preservado
+            return {
+              ...extendedInf,
+              social_networks: extendedInf.social_networks || inf.social_networks || undefined,
+            };
           }
 
           // Caso contrário, é um influenciador normal - usar o status atual do objeto
           return {
             ...inf,
-            socialNetwork: [
-              "instagram",
-              "tiktok",
-              "youtube",
-              "instagram",
-              "tiktok",
-            ][index % 5],
+            // Preservar social_networks se existir, caso contrário usar socialNetwork mockado
+            social_networks: inf.social_networks || undefined,
+            socialNetwork: inf.social_networks && inf.social_networks.length > 0
+              ? inf.social_networks[0].type
+              : [
+                  "instagram",
+                  "tiktok",
+                  "youtube",
+                  "instagram",
+                  "tiktok",
+                ][index % 5],
             statusHistory: [
               {
                 id: "1",
@@ -626,13 +661,17 @@ export function ManagementTab({
         );
         return {
           ...inf,
-          socialNetwork: [
-            "instagram",
-            "tiktok",
-            "youtube",
-            "instagram",
-            "tiktok",
-          ][index % 5],
+          // Preservar social_networks se existir
+          social_networks: inf.social_networks || undefined,
+          socialNetwork: inf.social_networks && inf.social_networks.length > 0
+            ? inf.social_networks[0].type
+            : [
+                "instagram",
+                "tiktok",
+                "youtube",
+                "instagram",
+                "tiktok",
+              ][index % 5],
           statusHistory: [
             {
               id: "1",
@@ -721,11 +760,19 @@ export function ManagementTab({
     influencer: ExtendedInfluencer,
     targetStatus: string
   ) => {
+    // Se o influenciador tiver apenas uma rede social, usar o network_id dela
+    const networkId = influencer.social_networks && influencer.social_networks.length === 1
+      ? (typeof influencer.social_networks[0].id === 'string' 
+          ? Number(influencer.social_networks[0].id) 
+          : influencer.social_networks[0].id)
+      : undefined;
+
     updateStatus(
       {
         influencer_id: idToString(influencer.id),
         status: targetStatus,
         feedback: "Aprovado pelo usuário",
+        network_id: networkId,
       },
       {
         onSuccess: () => {
@@ -751,11 +798,19 @@ export function ManagementTab({
       return;
     }
 
+    // Se o influenciador tiver apenas uma rede social, usar o network_id dela
+    const networkId = influencer.social_networks && influencer.social_networks.length === 1
+      ? (typeof influencer.social_networks[0].id === 'string' 
+          ? Number(influencer.social_networks[0].id) 
+          : influencer.social_networks[0].id)
+      : undefined;
+
     updateStatus(
       {
         influencer_id: idToString(influencer.id),
         status: "rejected",
         feedback,
+        network_id: networkId,
       },
       {
         onSuccess: () => {
@@ -774,11 +829,19 @@ export function ManagementTab({
   };
 
   const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
+    // Se o influenciador tiver apenas uma rede social, usar o network_id dela
+    const networkId = influencer.social_networks && influencer.social_networks.length === 1
+      ? (typeof influencer.social_networks[0].id === 'string' 
+          ? Number(influencer.social_networks[0].id) 
+          : influencer.social_networks[0].id)
+      : undefined;
+
     updateStatus(
       {
         influencer_id: idToString(influencer.id),
         status: "curation",
         feedback: "Movido para curadoria",
+        network_id: networkId,
       },
       {
         onSuccess: () => {
@@ -897,6 +960,13 @@ export function ManagementTab({
   ];
 
   const handleInfluencerClick = (influencer: ExtendedInfluencer) => {
+    // Debug: verificar se social_networks está presente
+    console.log("🔍 Influencer clicked:", {
+      id: influencer.id,
+      name: influencer.name,
+      social_networks: influencer.social_networks,
+      hasSocialNetworks: !!influencer.social_networks && influencer.social_networks.length > 0,
+    });
     setSelectedInfluencer(influencer);
     setIsModalOpen(true);
   };
@@ -974,11 +1044,19 @@ export function ManagementTab({
 
         // Atualizar status do influenciador via API usando a rota correta
         const notes = getTransitionNote(currentStatus, targetStatus);
+        // Se o influenciador tiver apenas uma rede social, usar o network_id dela
+        const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
+          ? (typeof draggedInfluencer.social_networks[0].id === 'string' 
+              ? Number(draggedInfluencer.social_networks[0].id) 
+              : draggedInfluencer.social_networks[0].id)
+          : undefined;
+
         updateStatus(
           {
             influencer_id: idToString(draggedInfluencer.id),
             status: targetStatus,
             feedback: notes,
+            network_id: networkId,
           },
           {
             onSuccess: () => {
@@ -1035,11 +1113,19 @@ export function ManagementTab({
 
       // Atualiza o status do influenciador via API
       const notes = getTransitionNote(currentStatus, targetStatus);
+      // Se o influenciador tiver apenas uma rede social, usar o network_id dela
+      const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
+        ? (typeof draggedInfluencer.social_networks[0].id === 'string' 
+            ? Number(draggedInfluencer.social_networks[0].id) 
+            : draggedInfluencer.social_networks[0].id)
+        : undefined;
+
       updateStatus(
         {
           influencer_id: idToString(draggedInfluencer.id),
           status: apiStatus,
           feedback: notes,
+          network_id: networkId,
         },
         {
           onSuccess: () => {
@@ -1292,6 +1378,17 @@ export function ManagementTab({
             setSelectedInfluencer(null);
           }}
         >
+          {(() => {
+            // Debug: verificar dados no modal
+            console.log("🔍 Modal opened with influencer:", {
+              id: selectedInfluencer.id,
+              name: selectedInfluencer.name,
+              social_networks: selectedInfluencer.social_networks,
+              hasSocialNetworks: !!selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0,
+              social_networksLength: selectedInfluencer.social_networks?.length || 0,
+            });
+            return null;
+          })()}
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <Avatar
@@ -1306,7 +1403,19 @@ export function ManagementTab({
                 <p className="text-neutral-600">
                   @{selectedInfluencer.username}
                 </p>
-                {selectedInfluencer.socialNetwork && (
+                {/* Mostrar todas as redes sociais */}
+                {selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {selectedInfluencer.social_networks.map((network) => (
+                      <Badge
+                        key={network.id}
+                        text={getSocialNetworkLabel(network.type)}
+                        backgroundColor="bg-primary-50"
+                        textColor="text-primary-900"
+                      />
+                    ))}
+                  </div>
+                ) : selectedInfluencer.socialNetwork ? (
                   <div className="flex items-center gap-2 mt-1">
                     <Icon
                       name={getSocialNetworkIcon(
@@ -1319,7 +1428,7 @@ export function ManagementTab({
                       {getSocialNetworkLabel(selectedInfluencer.socialNetwork)}
                     </span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1355,6 +1464,56 @@ export function ManagementTab({
                 />
               </div>
             </div>
+
+            {/* Redes Sociais */}
+            {selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-neutral-950 mb-3">
+                  Redes Sociais Utilizadas
+                </p>
+                <div className="bg-neutral-50 rounded-2xl p-4">
+                  <div className="flex flex-col gap-3">
+                    {selectedInfluencer.social_networks.map((network) => (
+                      <div
+                        key={network.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon
+                            name={getSocialNetworkIcon(network.type)}
+                            color="#404040"
+                            size={20}
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-neutral-950">
+                              {getSocialNetworkLabel(network.type)}
+                            </p>
+                            {network.username && (
+                              <p className="text-xs text-neutral-600">
+                                @{network.username}
+                              </p>
+                            )}
+                            {network.name && network.name !== network.username && (
+                              <p className="text-xs text-neutral-600">
+                                {network.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {network.members !== undefined && network.members > 0 && (
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-neutral-950">
+                              {network.members.toLocaleString("pt-BR")}
+                            </p>
+                            <p className="text-xs text-neutral-600">seguidores</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Log Histórico Completo */}
             {selectedInfluencer.statusHistory &&
