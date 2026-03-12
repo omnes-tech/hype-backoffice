@@ -128,17 +128,19 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       filtered = filtered.filter((content) => content.phase_id === selectedPhaseFilter);
     }
 
-    // Filtro por status (tratar awaiting_approval como pending, content_approved como approved)
+    // Filtro por status (tratar awaiting_approval como pending, content_approved como approved, Reprovados = correction + rejected)
     if (selectedStatusFilter !== "all") {
       if (selectedStatusFilter === "pending") {
-        // Quando filtrar por "pending", incluir também "awaiting_approval"
-        filtered = filtered.filter((content) => 
+        filtered = filtered.filter((content) =>
           content.status === "pending" || content.status === "awaiting_approval"
         );
       } else if (selectedStatusFilter === "approved") {
-        // Quando filtrar por "approved", incluir também "content_approved"
-        filtered = filtered.filter((content) => 
+        filtered = filtered.filter((content) =>
           content.status === "approved" || content.status === "content_approved"
+        );
+      } else if (selectedStatusFilter === "correction") {
+        filtered = filtered.filter(
+          (content) => content.status === "correction" || content.status === "rejected"
         );
       } else {
         filtered = filtered.filter((content) => content.status === selectedStatusFilter);
@@ -679,117 +681,107 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     );
   };
 
-  // Conteúdos pendentes para ações em massa (só permitir seleção múltipla em pendentes)
   const canSelectMultiple = selectedStatusFilter === "pending" || selectedStatusFilter === "all";
-
-  if (isLoadingContents) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-sm text-neutral-600">Carregando conteúdos...</p>
-        </div>
-      </div>
-    );
-  }
+  const listTitleByStatus: Record<string, string> = {
+    pending: "Conteúdos pendentes",
+    approved: "Conteúdos aprovados",
+    correction: "Conteúdos reprovados",
+  };
 
   return (
     <>
-      <div className="flex flex-col gap-6">
-        <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <h3 className="text-lg font-semibold text-neutral-950">
-                Conteúdos da campanha
-              </h3>
-              <Badge
-                text={`${filteredContents.length} de ${normalizedContents.length} conteúdo(s)`}
-                backgroundColor="bg-tertiary-50"
-                textColor="text-tertiary-900"
-              />
-              {selectedContents.size > 0 && canSelectMultiple && (
-                <Badge
-                  text={`${selectedContents.size} selecionado(s)`}
-                  backgroundColor="bg-primary-50"
-                  textColor="text-primary-900"
-                />
-              )}
-            </div>
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex-1 min-w-[200px]">
-                <Input
-                  label="Buscar por influenciador"
-                  placeholder="Nome do influenciador..."
-                  value={searchInfluencer}
-                  onChange={(e) => setSearchInfluencer(e.target.value)}
-                  icon={<Icon name="Search" color="#737373" size={16} />}
-                />
-              </div>
-              <div className="w-48">
-                <Select
-                  label="Filtrar por status"
-                  placeholder="Todos os status"
-                  options={statusOptions}
-                  value={selectedStatusFilter}
-                  onChange={setSelectedStatusFilter}
-                />
-              </div>
-              {campaignPhases.length > 0 && (
-                <div className="w-48">
-                  <Select
-                    label="Filtrar por fase"
-                    placeholder="Todas as fases"
-                    options={phaseOptions}
-                    value={selectedPhaseFilter}
-                    onChange={setSelectedPhaseFilter}
-                  />
-                </div>
-              )}
-              {socialNetworkOptions.length > 0 && (
-                <div className="w-48">
-                  <Select
-                    label="Filtrar por rede social"
-                    placeholder="Todas as redes"
-                    options={[{ value: "", label: "Todas as redes" }, ...socialNetworkOptions]}
-                    value={filterSocialNetwork}
-                    onChange={setFilterSocialNetwork}
-                  />
-                </div>
-              )}
-              {selectedContents.size > 0 && canSelectMultiple && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkActionType("approve");
-                      setIsBulkActionModalOpen(true);
-                    }}
-                    disabled={isBulkApproving}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon name="Check" color="#16a34a" size={16} />
-                      <span>Aprovar selecionados</span>
-                    </div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkActionType("reject");
-                      setIsBulkActionModalOpen(true);
-                    }}
-                    disabled={isBulkRejecting}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon name="X" color="#dc2626" size={16} />
-                      <span>Reprovar selecionados</span>
-                    </div>
-                  </Button>
-                </div>
-              )}
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold text-neutral-950">
+            Aprovações de conteúdo
+          </h2>
+          <p className="text-base text-[#4d4d4d] leading-5">
+            Revise as mídias e legendas gravadas antes da publicação nas redes
+            sociais.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-[12px] p-5 flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 min-w-0">
+            <Input
+              label="Buscar influenciador"
+              placeholder="Nome ou @username"
+              value={searchInfluencer}
+              onChange={(e) => setSearchInfluencer(e.target.value)}
+            />
+          </div>
+          <div className="w-full sm:w-[258px]">
+            <Select
+              label="Fases"
+              placeholder="Todas as fases"
+              options={phaseOptions}
+              value={selectedPhaseFilter}
+              onChange={setSelectedPhaseFilter}
+            />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h3 className="text-xl font-semibold text-neutral-950">
+              {listTitleByStatus[selectedStatusFilter] || "Conteúdos pendentes"} (
+              {filteredContents.length})
+            </h3>
+            <div className="flex gap-1">
+              {(["pending", "approved", "correction"] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSelectedStatusFilter(key)}
+                  className={`h-11 px-4 py-2.5 rounded-[24px] text-base font-semibold transition-colors ${
+                    selectedStatusFilter === key
+                      ? "bg-primary-600 text-white"
+                      : "border border-[#e5e5e5] text-[#737373] hover:bg-neutral-50"
+                  }`}
+                >
+                  {key === "pending" ? "Pendentes" : key === "approved" ? "Aprovados" : "Reprovados"}
+                </button>
+              ))}
             </div>
           </div>
 
-          {filteredContents.length === 0 ? (
+          {canSelectMultiple && filteredContents.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-1">
+                <Checkbox
+                  checked={
+                    filteredContents.length > 0 &&
+                    selectedContents.size === filteredContents.length
+                  }
+                  onCheckedChange={handleSelectAll}
+                  className="rounded-[4px] border-[#c8c8c8] bg-[#f5f5f5] size-6"
+                />
+                <label className="text-base text-neutral-950 cursor-pointer">
+                  Selecionar todos ({filteredContents.length})
+                </label>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (selectedContents.size > 0) {
+                    setBulkActionType("approve");
+                    setIsBulkActionModalOpen(true);
+                  } else {
+                    toast.error("Selecione pelo menos um conteúdo");
+                  }
+                }}
+                className="h-11 px-6 rounded-[24px] border-[#e5e5e5] text-base font-semibold text-neutral-950"
+              >
+                Múltiplas aprovações
+              </Button>
+            </div>
+          )}
+
+          {isLoadingContents ? (
+            <div className="text-center py-12">
+              <p className="text-neutral-500">Carregando conteúdos...</p>
+            </div>
+          ) : filteredContents.length === 0 ? (
             <div className="text-center py-12">
               <Icon name="FileCheck" color="#A3A3A3" size={48} />
               <p className="text-neutral-600 mt-4">
@@ -797,193 +789,120 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
               </p>
             </div>
           ) : (
-            <>
-              {canSelectMultiple && (
-                <div className="flex items-center gap-2 mb-4">
-                  <Checkbox
-                    checked={
-                      selectedContents.size === filteredContents.length &&
-                      filteredContents.length > 0
-                    }
-                    onCheckedChange={handleSelectAll}
-                  />
-                  <label className="text-sm font-medium text-neutral-950">
-                    Selecionar todos
-                  </label>
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredContents.map((content) => {
-                  const statusColors = getStatusBadgeColor(content.status);
-                  return (
+              <div className="flex flex-wrap gap-x-3 gap-y-6">
+                {filteredContents.map((content) => (
                     <div
                       key={content.id}
-                      className={`bg-neutral-50 rounded-2xl p-4 border transition-colors ${
+                      className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
                         selectedContents.has(content.id)
-                          ? "border-primary-600 bg-primary-50"
-                          : "border-neutral-200"
+                          ? "ring-2 ring-primary-600 ring-offset-2"
+                          : "border-transparent"
                       }`}
                     >
                       {canSelectMultiple && (
-                        <div className="flex items-start gap-2 mb-3">
+                        <div className="absolute top-3 left-3 z-10">
                           <Checkbox
                             checked={selectedContents.has(content.id)}
                             onCheckedChange={() => handleSelectContent(content.id)}
+                            className="rounded-[4px] border-[#c8c8c8] bg-white size-6"
                           />
                         </div>
                       )}
-                      <div className="flex items-center gap-3 mb-3">
-                        <Avatar
-                          src={getUploadUrl(content.influencerAvatar)}
-                          alt={content.influencerName}
-                          size="md"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-neutral-950 truncate">
-                            {content.influencerName}
-                          </p>
-                          <p className="text-xs text-neutral-600">
-                            {new Date(content.submittedAt).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="mb-3">
-                        <Badge
-                          text={getStatusLabel(content.status)}
-                          backgroundColor={statusColors.bg}
-                          textColor={statusColors.text}
-                        />
-                      </div>
-
-                      <div 
-                        className="mb-3 rounded-xl overflow-hidden bg-neutral-200 h-32 cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => handleOpenDetailModal(content)}
-                      >
-                        {renderPreviewGrid(content.previewUrl, content.previewUrls, content.contentType)}
-                      </div>
-
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Icon
-                            name={getSocialNetworkIcon(content.socialNetwork)}
-                            color="#404040"
-                            size={16}
+                      <div className="flex items-center justify-between pl-8">
+                        <div className="w-[60px] h-[60px] rounded-[16px] overflow-hidden shrink-0 flex items-center justify-center bg-neutral-200">
+                          <Avatar
+                            src={getUploadUrl(content.influencerAvatar)}
+                            alt={content.influencerName}
+                            size="2xl"
                           />
-                          <span className="text-sm text-neutral-600">
-                            {content.socialNetwork} • {content.contentType}
+                        </div>
+                        {(content.phase || content.phase_id) && (
+                          <span className="bg-[#c4e3ff] px-4 py-2 rounded-[32px] text-base text-neutral-950">
+                            Fase{" "}
+                            {content.phase?.order ??
+                              ((campaignPhases.findIndex((p) => p.id === content.phase_id) + 1) || "?")}
+                            {campaignPhases.length > 0 ? `/${campaignPhases.length}` : ""}
                           </span>
-                          {content.content_format_type && (
-                            <Badge
-                              text={content.content_format_type}
-                              backgroundColor="bg-primary-200"
-                              textColor="text-primary-700"
-                            />
-                          )}
-                        </div>
-                        {(content.phase_id || content.phase) && (
-                          <Badge
-                            text={content.phase ? `Fase ${content.phase.order}` : getPhaseLabel(content.phase_id)}
-                            backgroundColor="bg-tertiary-600"
-                            textColor="text-neutral-50"
-                          />
                         )}
                       </div>
 
-                      {/* Informações da fase */}
-                      {content.phase && (
-                        <div className="mb-3 text-xs text-neutral-600">
-                          <p className="font-medium mb-1">Fase {content.phase.order}: {content.phase.objective}</p>
-                          {content.phase.publish_date && (
-                            <p>
-                              Publicação: {new Date(content.phase.publish_date).toLocaleDateString("pt-BR")}
-                              {content.phase.publish_time && ` às ${content.phase.publish_time.slice(0, 5)}`}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-3">
+                        <p className="text-lg font-medium text-neutral-950 truncate">
+                          {content.influencerName}
+                        </p>
+                        <p className="text-sm text-[#4d4d4d] truncate">
+                          @{(content.influencerName || "").replace(/\s+/g, "_") || "username"}
+                        </p>
+                      </div>
 
-                      {content.feedback && (
-                        <div className="mb-3 bg-info-50 rounded-xl p-3">
-                          <p className="text-xs font-medium text-info-900 mb-1">
-                            Feedback:
-                          </p>
-                          <p className="text-xs text-info-800">{content.feedback}</p>
-                        </div>
-                      )}
-
-                      {/* Ações disponíveis baseadas no status */}
-                      {(content.status === "pending" || content.status === "awaiting_approval") && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleApprove(content)}
-                            disabled={isApproving}
-                            className="flex-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon name="Check" color="#16a34a" size={16} />
-                              <span>Aprovar</span>
-                            </div>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleReject(content)}
-                            disabled={isRejecting}
-                            className="flex-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon name="X" color="#dc2626" size={16} />
-                              <span>Reprovar</span>
-                            </div>
-                          </Button>
-                        </div>
-                      )}
-
-                      {content.status === "correction" && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleApprove(content)}
-                            disabled={isApproving}
-                            className="flex-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon name="Check" color="#16a34a" size={16} />
-                              <span>Aprovar</span>
-                            </div>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleReject(content)}
-                            disabled={isRejecting}
-                            className="flex-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon name="X" color="#dc2626" size={16} />
-                              <span>Reprovar novamente</span>
-                            </div>
-                          </Button>
-                        </div>
-                      )}
-
-                      {content.postUrl && (
-                        <Button
-                          variant="outline"
-                          className="w-full mt-2"
-                          onClick={() => window.open(content.postUrl, "_blank")}
+                      <div className="flex flex-col gap-3">
+                        <p className="text-sm text-[#4d4d4d] leading-5 truncate">
+                          {content.caption || "Sem legenda"}
+                        </p>
+                        <div
+                          className="h-[137px] rounded-lg overflow-hidden bg-neutral-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => handleOpenDetailModal(content)}
                         >
-                          <div className="flex items-center gap-2">
-                            <Icon name="ExternalLink" color="#404040" size={16} />
-                            <span>Ver post</span>
+                          {renderPreviewGrid(content.previewUrl, content.previewUrls, content.contentType)}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2.5 items-center">
+                          <Icon name="Instagram" color="#737373" size={20} />
+                          <Icon name="Music" color="#737373" size={20} />
+                          <Icon name="Youtube" color="#737373" size={20} />
+                        </div>
+                        <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950">
+                          {content.content_format_type || content.contentType || "Conteúdo"}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1 mt-auto">
+                        {(content.status === "pending" ||
+                          content.status === "awaiting_approval") && (
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => handleApprove(content)}
+                              disabled={isApproving || isRejecting}
+                              className="flex-1 h-11 rounded-[24px] bg-primary-600 text-white border-0 font-semibold hover:bg-primary-700"
+                            >
+                              <div className="flex items-center gap-1">
+                                <Icon name="Check" color="#FAFAFA" size={24} />
+                                <span>Aprovar</span>
+                              </div>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleOpenDetailModal(content)}
+                              className="flex-1 h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                            >
+                              Avaliar
+                            </Button>
                           </div>
-                        </Button>
-                      )}
+                        )}
+                        {(content.status === "approved" ||
+                          content.status === "content_approved") && (
+                          <div className="flex items-center gap-1 h-11 px-4 rounded-[24px] border border-[#e5e5e5] bg-white text-[#585858] font-semibold text-base">
+                            <Icon name="Check" color="#585858" size={24} />
+                            <span>Aprovado</span>
+                          </div>
+                        )}
+                        {(content.status === "correction" ||
+                          content.status === "rejected") && (
+                          <Button
+                            variant="outline"
+                            onClick={() => handleOpenDetailModal(content)}
+                            className="h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                          >
+                            Visualizar feedback
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
+                ))}
               </div>
-            </>
           )}
         </div>
       </div>

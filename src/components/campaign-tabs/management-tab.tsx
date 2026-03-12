@@ -25,7 +25,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
-import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
@@ -85,51 +84,52 @@ const idToString = (id: string | number): string => {
   return typeof id === 'number' ? String(id) : id;
 };
 
+// Cores e labels alinhados ao Figma (FORÇA TAREFA - Gerenciamento)
 const kanbanColumns = [
-  { id: "applications", label: "Inscrições", color: "bg-neutral-50" },
-  { id: "curation", label: "Curadoria", color: "bg-blue-50" },
-  { id: "invited", label: "Convidados", color: "bg-yellow-50" },
+  { id: "applications", label: "Inscrições", color: "bg-[#f5f5f5]" },
+  { id: "curation", label: "Curadoria", color: "bg-[#f0f6ff]" },
+  { id: "invited", label: "Convidados", color: "bg-[#fdfce9]" },
   {
     id: "contract_pending",
     label: "Contrato Pendente",
-    color: "bg-teal-50",
+    color: "bg-[#f1fdfa]",
   },
   {
     id: "approved",
     label: "Aprovado / Em Andamento",
-    color: "bg-green-50",
+    color: "bg-[#f1fdf4]",
   },
   {
     id: "script_pending",
     label: "Aguardando Aprovação Roteiro",
-    color: "bg-indigo-50",
+    color: "bg-[#eff2ff]",
   },
   {
     id: "content_pending",
     label: "Aguardando Conteúdo",
-    color: "bg-amber-50",
+    color: "bg-[#fefbeb]",
   },
   {
     id: "pending_approval",
     label: "Aguardando Aprovação Conteúdo",
-    color: "bg-orange-50",
+    color: "bg-[#fef7ed]",
   },
-  { id: "in_correction", label: "Em Correção", color: "bg-yellow-100" },
+  { id: "in_correction", label: "Em Correção", color: "bg-[#fcf9c3]" },
   {
     id: "content_approved",
     label: "Conteúdo Aprovado",
-    color: "bg-purple-50",
+    color: "bg-[#faf5ff]",
   },
   {
     id: "payment_pending",
     label: "Aguardando Pagamento",
-    color: "bg-cyan-50",
+    color: "bg-[#eefeff]",
   },
-  { id: "published", label: "Publicado", color: "bg-success-50" },
+  { id: "published", label: "Publicado", color: "bg-[#f1fdf5]" },
   {
     id: "rejected",
-    label: "Recusado",
-    color: "bg-danger-50",
+    label: "Recusados",
+    color: "bg-[#fdf2f2]",
     highlight: true,
   },
 ];
@@ -140,8 +140,8 @@ function SortableInfluencerCard({
   onClick,
   getCurrentStatus,
   getAvailableActions,
-  getSocialNetworkIcon,
-  getSocialNetworkLabel,
+  getSocialNetworkIcon: _getSocialNetworkIcon,
+  getSocialNetworkLabel: _getSocialNetworkLabel,
   onApprove,
   onMoveToCuration,
   setSelectedInfluencer,
@@ -170,6 +170,8 @@ function SortableInfluencerCard({
     transition,
     isDragging,
   } = useSortable({ id: influencer.id });
+  void _getSocialNetworkIcon;
+  void _getSocialNetworkLabel;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -180,11 +182,18 @@ function SortableInfluencerCard({
   const currentStatus = getCurrentStatus(influencer);
   const availableActions = getAvailableActions(currentStatus);
 
+  const lastHistory = influencer.statusHistory?.length
+    ? influencer.statusHistory[influencer.statusHistory.length - 1]
+    : null;
+  const timestampStr = lastHistory
+    ? `${new Date(lastHistory.timestamp).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })} - ${new Date(lastHistory.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+    : "";
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded-lg p-2 border border-neutral-200 cursor-move hover:shadow-md transition-all"
+      className="bg-white rounded-lg border border-[#e5e5e5] p-3 cursor-move hover:shadow-md transition-all min-w-0"
     >
       <div
         {...attributes}
@@ -192,59 +201,34 @@ function SortableInfluencerCard({
         onClick={() => onClick(influencer)}
         className="cursor-pointer hover:opacity-80 transition-opacity"
       >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Avatar src={influencer.avatar} alt={influencer.name} size="sm" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-neutral-950 truncate">
+        <div className="flex gap-2 items-center min-w-0">
+          <div className="shrink-0 w-11 h-11 rounded-[12px] overflow-hidden">
+            <Avatar src={influencer.avatar} alt={influencer.name} size="lg" />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <p className="text-base font-medium text-neutral-950 truncate">
               {influencer.name}
             </p>
-            <p className="text-[10px] text-neutral-600 truncate">
+            <p className="text-sm text-[#4d4d4d] truncate">
               @{influencer.username}
             </p>
           </div>
         </div>
-        {influencer.socialNetwork && (
-          <div className="flex items-center gap-1 mb-1.5">
-            <Icon
-              name={getSocialNetworkIcon(influencer.socialNetwork)}
-              color="#404040"
-              size={10}
-            />
-            <span className="text-[10px] text-neutral-600">
-              {getSocialNetworkLabel(influencer.socialNetwork)}
-            </span>
-          </div>
-        )}
-        {influencer.statusHistory && influencer.statusHistory.length > 0 && (
-          <div className="mt-1.5 pt-1.5 border-t border-neutral-200">
-            <div className="flex flex-col gap-0.5">
-              {influencer.statusHistory.slice(-1).map((history) => (
-                <div key={history.id} className="text-[10px] text-neutral-500">
-                  <span className="font-medium">
-                    {new Date(history.timestamp).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                    })}
-                  </span>{" "}
-                  <span>
-                    {new Date(history.timestamp).toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {timestampStr && (
+          <div className="border-t border-b border-[#e5e5e5] py-3 flex items-center justify-center mt-3">
+            <p className="text-base font-medium text-neutral-950">
+              {timestampStr}
+            </p>
           </div>
         )}
       </div>
       {availableActions.length > 0 && (
-        <div className="mt-1.5 pt-1.5 border-t border-neutral-200 flex flex-col gap-1">
+        <div className="mt-3 flex flex-col gap-1">
           {availableActions.map((action) => (
-            <Button
+            <button
               key={action.action}
-              variant="outline"
-              className="text-[10px] h-6 px-2"
+              type="button"
+              className="w-full h-11 px-4 rounded-[24px] border border-[#e5e5e5] flex items-center justify-center text-base font-semibold text-[#585858] hover:bg-neutral-50 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 if (action.action === "approve" && action.targetStatus) {
@@ -255,17 +239,14 @@ function SortableInfluencerCard({
                 } else if (action.action === "curation") {
                   onMoveToCuration(influencer);
                 } else if (action.action === "invite" && action.targetStatus) {
-                  // Convidar influenciador - usar onApprove com status invited
                   onApprove(influencer, action.targetStatus);
                 } else if (action.action === "applications" && action.targetStatus) {
-                  // Reativar - mover para applications
                   onApprove(influencer, action.targetStatus);
                 }
               }}
-              style={{ fontSize: "10px", height: "24px", padding: "0 8px" }}
             >
               {action.label}
-            </Button>
+            </button>
           ))}
         </div>
       )}
@@ -312,20 +293,17 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`${column.color} rounded-xl p-2.5 min-w-[200px] max-w-[200px] min-h-[300px] shrink-0 transition-colors ${isOver ? "ring-2 ring-primary-500 ring-offset-2" : ""
-        }`}
+      className={`${column.color} rounded-[12px] p-3 min-w-[260px] w-[260px] min-h-[300px] shrink-0 transition-colors flex flex-col gap-5 ${isOver ? "ring-2 ring-primary-500 ring-offset-2" : ""}`}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between shrink-0">
         <h4
-          className={`text-xs font-semibold ${column.highlight ? "text-danger-600" : "text-neutral-950"}`}
+          className={`text-base font-medium ${column.highlight ? "text-[#ff4a4a]" : "text-neutral-950"}`}
         >
           {column.label}
         </h4>
-        <Badge
-          text={influencers.length.toString()}
-          backgroundColor="bg-neutral-200"
-          textColor="text-neutral-700"
-        />
+        <div className="flex items-center justify-center w-8 h-8 rounded-[32px] bg-[#e5e5e5] shrink-0">
+          <span className="text-sm text-neutral-950">{influencers.length}</span>
+        </div>
       </div>
       <SortableContext
         items={influencerIds}
@@ -401,7 +379,7 @@ function DragOverlayCard({
 
 export function ManagementTab({
   influencers,
-  campaignPhases = [],
+  campaignPhases: _campaignPhases = [],
   campaignUsers = [],
   openChatInfluencerId,
 }: ManagementTabProps) {
@@ -719,17 +697,10 @@ export function ManagementTab({
   };
 
   const getInfluencersByStatus = (status: string) => {
-    let filtered = extendedInfluencers.filter((inf) => {
+    return extendedInfluencers.filter((inf) => {
       const currentStatus = getCurrentStatus(inf);
       return currentStatus === status;
     });
-
-    // Filter by phase if selected
-    if (selectedPhaseFilter !== "all") {
-      filtered = filtered.filter((inf) => inf.phase === selectedPhaseFilter);
-    }
-
-    return filtered;
   };
 
   const updateInfluencerStatus = (
@@ -950,14 +921,6 @@ export function ManagementTab({
     };
     return labels[network || ""] || network || "N/A";
   };
-
-  const phaseOptions = [
-    { value: "all", label: "Todas as fases" },
-    ...campaignPhases.map((phase, index) => ({
-      value: phase.id,
-      label: `Fase ${index + 1}`,
-    })),
-  ];
 
   const handleInfluencerClick = (influencer: ExtendedInfluencer) => {
     // Debug: verificar se social_networks está presente
@@ -1304,37 +1267,71 @@ export function ManagementTab({
     );
   };
 
+  const columnsToShow =
+    selectedPhaseFilter === "all"
+      ? kanbanColumns
+      : kanbanColumns.filter((col) => col.id === selectedPhaseFilter);
+
   return (
     <>
-      <div className="flex flex-col gap-6">
-        {/* Controles */}
-        <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-48">
-              <Select
-                placeholder="Filtrar por fase"
-                options={phaseOptions}
-                value={selectedPhaseFilter}
-                onChange={setSelectedPhaseFilter}
-              />
-            </div>
-            {/* Removido botão "Lista" - apenas Kanban é usado agora */}
-          </div>
+      <div className="flex flex-col gap-8">
+        {/* Cabeçalho da seção - alinhado ao Figma */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold text-neutral-950">
+            Gerenciamento da campanha
+          </h2>
+          <p className="text-base text-[#4d4d4d] leading-5">
+            Organize participantes, acompanhe o andamento das entregas e ajuste
+            configurações essenciais para manter a campanha sob controle
+          </p>
         </div>
 
-        {/* Kanban Board */}
-        <DndContext
+        {/* Card único: pills de filtro + Kanban - alinhado ao Figma */}
+        <div className="bg-white rounded-[12px] pt-5 overflow-hidden">
+          {/* Pills de status (Geral + colunas) */}
+          <div className="flex flex-wrap gap-2 px-5 mb-6">
+            <button
+              type="button"
+              onClick={() => setSelectedPhaseFilter("all")}
+              className={`px-4 py-3 rounded-[32px] text-base transition-colors ${
+                selectedPhaseFilter === "all"
+                  ? "bg-primary-600 text-white"
+                  : "border border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+              }`}
+            >
+              Geral
+            </button>
+            {kanbanColumns.map((col) => (
+              <button
+                key={col.id}
+                type="button"
+                onClick={() => setSelectedPhaseFilter(col.id)}
+                className={`px-4 py-3 rounded-[32px] text-base transition-colors ${
+                  selectedPhaseFilter === col.id
+                    ? "bg-primary-600 text-white"
+                    : "border border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                }`}
+              >
+                {col.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Kanban Board */}
+          <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="bg-white rounded-3xl p-6 border border-neutral-200 overflow-x-auto">
-              <div className="flex gap-4 min-w-max">
-                {kanbanColumns.map((column) => {
+            <div className="px-5 pb-5 overflow-x-auto">
+              <div className="flex gap-3 min-w-max">
+                {columnsToShow.map((column) => {
                   const columnInfluencers = getInfluencersByStatus(column.id);
-                  const influencerIds = columnInfluencers.map((inf) => idToString(inf.id));
+                  const influencerIds = columnInfluencers.map((inf) =>
+                    idToString(inf.id)
+                  );
                   return (
                     <KanbanColumn
                       key={column.id}
@@ -1367,6 +1364,7 @@ export function ManagementTab({
               ) : null}
             </DragOverlay>
           </DndContext>
+        </div>
       </div>
 
       {/* Modal do influenciador */}

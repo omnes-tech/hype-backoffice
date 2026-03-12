@@ -106,9 +106,12 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     // Filtro por status (tratar awaiting_approval como pending)
     if (selectedStatusFilter !== "all") {
       if (selectedStatusFilter === "pending") {
-        // Quando filtrar por "pending", incluir também "awaiting_approval"
         filtered = filtered.filter((script) =>
           script.status === "pending" || script.status === "awaiting_approval"
+        );
+      } else if (selectedStatusFilter === "correction") {
+        filtered = filtered.filter(
+          (script) => script.status === "correction" || script.status === "rejected"
         );
       } else {
         filtered = filtered.filter((script) => script.status === selectedStatusFilter);
@@ -305,291 +308,238 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     })),
   ];
 
-  const statusOptions = [
-    { value: "all", label: "Todos os status" },
-    { value: "pending", label: "Pendente" },
-    { value: "approved", label: "Aprovado" },
-    { value: "correction", label: "Correção Solicitada" },
-  ];
+  const statusFilterLabels: Record<string, string> = {
+    pending: "Pendentes",
+    approved: "Aprovados",
+    correction: "Reprovados",
+  };
+  const listTitleByStatus: Record<string, string> = {
+    pending: "Roteiro pendentes",
+    approved: "Roteiro aprovados",
+    correction: "Roteiro reprovados",
+  };
 
   return (
     <>
-      <div className="flex flex-col gap-6">
-        {/* Filtros */}
-        <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <h3 className="text-lg font-semibold text-neutral-950">
-                Aprovações de roteiro
-              </h3>
-              <Badge
-                text={`${filteredScripts.length} de ${normalizedScripts.length} roteiro(s)`}
-                backgroundColor="bg-primary-50"
-                textColor="text-primary-900"
-              />
-              {selectedScripts.size > 0 && (
-                <Badge
-                  text={`${selectedScripts.size} selecionado(s)`}
-                  backgroundColor="bg-tertiary-50"
-                  textColor="text-tertiary-900"
-                />
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mb-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                label="Buscar por influenciador"
-                placeholder="Nome do influenciador..."
-                value={searchInfluencer}
-                onChange={(e) => setSearchInfluencer(e.target.value)}
-                icon={<Icon name="Search" color="#737373" size={16} />}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Filtrar por fase"
-                placeholder="Todas as fases"
-                options={phaseOptions}
-                value={selectedPhaseFilter}
-                onChange={setSelectedPhaseFilter}
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                label="Filtrar por status"
-                placeholder="Todos os status"
-                options={statusOptions}
-                value={selectedStatusFilter}
-                onChange={setSelectedStatusFilter}
-              />
-            </div>
-          </div>
-
-          {selectedScripts.size > 0 && (
-            <div className="flex items-center justify-end pt-4 border-t border-neutral-200">
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setBulkActionType("approve");
-                    setIsBulkActionModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="Check" color="#16a34a" size={16} />
-                    <span>Aprovar selecionados</span>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setBulkActionType("reject");
-                    setIsBulkActionModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="X" color="#dc2626" size={16} />
-                    <span>Reprovar selecionados</span>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          )}
+      <div className="flex flex-col gap-8">
+        {/* Cabeçalho da seção - alinhado ao Figma */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold text-neutral-950">
+            Aprovações de Roteiro
+          </h2>
+          <p className="text-base text-[#4d4d4d] leading-5">
+            Revise, aprove ou solicite ajustes nos textos enviados pelos
+            influenciadores antes da etapa de gravação.
+          </p>
         </div>
 
-        {/* Lista de roteiros */}
-        <div className="bg-white rounded-3xl p-6 border border-neutral-200">
+        {/* Card 1: Buscar influenciador + Fases - alinhado ao Figma */}
+        <div className="bg-white rounded-[12px] p-5 flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 min-w-0">
+            <Input
+              label="Buscar influenciador"
+              placeholder="Nome ou @username"
+              value={searchInfluencer}
+              onChange={(e) => setSearchInfluencer(e.target.value)}
+            />
+          </div>
+          <div className="w-full sm:w-[258px]">
+            <Select
+              label="Fases"
+              placeholder="Todas as fases"
+              options={phaseOptions}
+              value={selectedPhaseFilter}
+              onChange={setSelectedPhaseFilter}
+            />
+          </div>
+        </div>
+
+        {/* Card 2: Status pills + lista de roteiros */}
+        <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
+          {/* Header: título dinâmico + pills Pendentes | Aprovados | Reprovados */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h3 className="text-xl font-semibold text-neutral-950">
+              {listTitleByStatus[selectedStatusFilter] || "Roteiro pendentes"} (
+              {filteredScripts.length})
+            </h3>
+            <div className="flex gap-1">
+              {(["pending", "approved", "correction"] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSelectedStatusFilter(key)}
+                  className={`h-11 px-4 py-2.5 rounded-[24px] text-base font-semibold transition-colors ${
+                    selectedStatusFilter === key
+                      ? "bg-primary-600 text-white"
+                      : "border border-[#e5e5e5] text-[#737373] hover:bg-neutral-50"
+                  }`}
+                >
+                  {statusFilterLabels[key]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Selecionar todos + Múltiplas aprovações */}
+          {filteredScripts.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-1">
+                <Checkbox
+                  checked={
+                    filteredScripts.length > 0 &&
+                    selectedScripts.size === filteredScripts.length
+                  }
+                  onCheckedChange={handleSelectAll}
+                  className="rounded-[4px] border-[#c8c8c8] bg-[#f5f5f5] size-6"
+                />
+                <label className="text-base text-neutral-950 cursor-pointer">
+                  Selecionar todos ({filteredScripts.length})
+                </label>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (selectedScripts.size > 0) {
+                    setBulkActionType("approve");
+                    setIsBulkActionModalOpen(true);
+                  } else {
+                    toast.error("Selecione pelo menos um roteiro");
+                  }
+                }}
+                className="h-11 px-6 rounded-[24px] border-[#e5e5e5] text-base font-semibold text-neutral-950"
+              >
+                Múltiplas aprovações
+              </Button>
+            </div>
+          )}
+
           {isLoadingScripts ? (
             <div className="text-center py-12">
-              <p className="text-neutral-600">Carregando roteiros...</p>
+              <p className="text-neutral-500">Carregando roteiros...</p>
             </div>
           ) : filteredScripts.length === 0 ? (
             <div className="text-center py-12">
               <Icon name="FileText" color="#A3A3A3" size={48} />
-              <p className="text-neutral-600 mt-4">
-                Nenhum roteiro encontrado
-              </p>
+              <p className="text-neutral-600 mt-4">Nenhum roteiro encontrado</p>
             </div>
           ) : (
-            <>
-              <div className="flex items-center gap-2 mb-4">
-                <Checkbox
-                  checked={selectedScripts.size === filteredScripts.length}
-                  onCheckedChange={handleSelectAll}
-                />
-                <label className="text-sm font-medium text-neutral-950">
-                  Selecionar todos
-                </label>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredScripts.map((script) => (
-                  <div
-                    key={script.id}
-                    className={`bg-neutral-50 rounded-2xl p-4 border transition-colors ${selectedScripts.has(script.id)
-                      ? "border-primary-600 bg-primary-50"
-                      : "border-neutral-200"
-                      }`}
-                  >
-                    <div className="flex items-start gap-3 mb-3">
-                      <Checkbox
-                        checked={selectedScripts.has(script.id)}
-                        onCheckedChange={() => handleSelectScript(script.id)}
-                      />
+            <div className="flex flex-wrap gap-x-3 gap-y-6">
+              {filteredScripts.map((script) => (
+                <div
+                  key={script.id}
+                  className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
+                    selectedScripts.has(script.id)
+                      ? "ring-2 ring-primary-600 ring-offset-2"
+                      : "border-transparent"
+                  }`}
+                >
+                  {/* Checkbox para múltiplas aprovações */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <Checkbox
+                      checked={selectedScripts.has(script.id)}
+                      onCheckedChange={() => handleSelectScript(script.id)}
+                      className="rounded-[4px] border-[#c8c8c8] bg-white size-6"
+                    />
+                  </div>
+
+                  {/* Top: avatar + fase */}
+                  <div className="flex items-center justify-between pl-8">
+                    <div className="w-[60px] h-[60px] rounded-[16px] overflow-hidden shrink-0 flex items-center justify-center bg-neutral-200">
                       <Avatar
                         src={script.influencerAvatar || ""}
                         alt={script.influencerName || script.influencer_name || ""}
-                        size="lg"
+                        size="2xl"
                       />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-semibold text-neutral-950 truncate">
-                          {script.influencerName || script.influencer_name || "Sem nome"}
-                        </p>
-                        <p className="text-sm text-neutral-600 truncate">
-                          @{(script.influencerName || script.influencer_name || "").split(" ")[0]}
-                        </p>
-                      </div>
                     </div>
-
-                    <div className="mb-3">
-                      {getStatusBadge(script.status)}
-                    </div>
-
-                    {/* Informações da fase */}
                     {(script.phase || script.phase_id) && (
-                      <div className="mb-3">
-                        <p className="text-xs text-neutral-500 mb-1">
-                          Fase {script.phase?.order || getPhaseNumber(script.phase_id) || "?"}:
-                        </p>
-                        {script.phase ? (
-                          <>
-                            <p className="text-sm text-neutral-950">
-                              {script.phase.objective}
-                            </p>
-                            {script.phase.publish_date && (
-                              <p className="text-xs text-neutral-600 mt-1">
-                                Publicação: {new Date(script.phase.publish_date).toLocaleDateString("pt-BR")}
-                                {script.phase.publish_time && ` às ${script.phase.publish_time.slice(0, 5)}`}
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-sm text-neutral-600">Informações da fase não disponíveis</p>
-                        )}
-                      </div>
+                      <span className="bg-[#c4e3ff] px-4 py-2 rounded-[32px] text-base text-neutral-950">
+                        Fase{" "}
+                        {script.phase?.order ??
+                          getPhaseNumber(script.phase_id) ??
+                          "?"}
+                        {campaignPhases.length > 0
+                          ? `/${campaignPhases.length}`
+                          : ""}
+                      </span>
                     )}
-
-                    {/* Informações de rede social e formato */}
-                    {(script.content_format || script.content_format_type) && (
-                      <div className="mb-3">
-                        <p className="text-xs text-neutral-500 mb-1">Formato:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {script.content_format_type && (
-                            <Badge
-                              text={script.content_format_type}
-                              backgroundColor="bg-primary-200"
-                              textColor="text-primary-700"
-                            />
-                          )}
-                          {!script.content_format_type && script.content_format && (
-                            <>
-                              {/* Suporte para content_format como objeto único */}
-                              {isContentFormatObject(script.content_format) && script.content_format.formats && (
-                                <>
-                                  {(() => {
-                                    const contentFormat = script.content_format as { social_network: string; formats: Array<{ type: string; quantity: number }> };
-                                    return contentFormat.formats.map((format: any, idx: number) => (
-                                      <Badge
-                                        key={idx}
-                                        text={`${contentFormat.social_network} - ${format.type} (${format.quantity}x)`}
-                                        backgroundColor="bg-primary-50"
-                                        textColor="text-primary-700"
-                                      />
-                                    ));
-                                  })()}
-                                </>
-                              )}
-                              {/* Suporte para content_format como array (retrocompatibilidade) */}
-                              {Array.isArray(script.content_format) && script.content_format.length > 0 && (
-                                <>
-                                  {script.content_format.map((contentFormat: any, formatIdx: number) => (
-                                    <div key={formatIdx} className="flex flex-wrap gap-1">
-                                      {contentFormat.formats?.map((format: any, idx: number) => (
-                                        <Badge
-                                          key={idx}
-                                          text={`${contentFormat.social_network} - ${format.type} (${format.quantity}x)`}
-                                          backgroundColor="bg-primary-50"
-                                          textColor="text-primary-700"
-                                        />
-                                      ))}
-                                    </div>
-                                  ))}
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mb-3">
-                      <p className="text-xs text-neutral-500 mb-1">Roteiro:</p>
-                      <p className="text-sm text-neutral-950 line-clamp-3">
-                        {script.script || script.scriptText || script.script_text || "Sem texto"}
-                      </p>
-                    </div>
-                    {script.file_url && (
-                      <div className="mb-3">
-                        <a
-                          href={script.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
-                        >
-                          <Icon name="File" color="#2563eb" size={14} />
-                          <span>Ver arquivo anexado</span>
-                        </a>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleApprove(script)}
-                        className="flex-1"
-                        disabled={isApproving || isRejecting}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon name="Check" color="#16a34a" size={16} />
-                          <span>Aprovar</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleReject(script)}
-                        className="flex-1"
-                        disabled={isApproving || isRejecting}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon name="X" color="#dc2626" size={16} />
-                          <span>Reprovar</span>
-                        </div>
-                      </Button>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="w-full mt-2 text-sm"
-                      onClick={() => handleOpenDetailModal(script)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon name="ExternalLink" color="#404040" size={14} />
-                        <span>Ver roteiro completo</span>
-                      </div>
-                    </Button>
                   </div>
-                ))}
-              </div>
-            </>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-lg font-medium text-neutral-950 truncate">
+                      {script.influencerName || script.influencer_name || "Sem nome"}
+                    </p>
+                    <p className="text-sm text-[#4d4d4d] truncate">
+                      @
+                      {(script.influencerName || script.influencer_name || "")
+                        .replace(/\s+/g, "_") || "username"}
+                    </p>
+                  </div>
+
+                  {/* Ícones de rede (Instagram, TikTok, YouTube) */}
+                  <div className="flex gap-2.5 items-center">
+                    <Icon name="Instagram" color="#737373" size={20} />
+                    <Icon name="Music" color="#737373" size={20} />
+                    <Icon name="Youtube" color="#737373" size={20} />
+                  </div>
+
+                  {/* Preview do roteiro */}
+                  <p className="text-sm text-[#4d4d4d] leading-5 h-[59px] overflow-hidden text-ellipsis line-clamp-3">
+                    {script.script || script.scriptText || script.script_text || "Sem texto"}
+                  </p>
+
+                  {/* Tag formato (Stories, Post estático, Reels) */}
+                  {(script.content_format_type || script.content_format) && (
+                    <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950 inline-flex justify-center w-fit">
+                      {script.content_format_type ||
+                        (isContentFormatObject(script.content_format) &&
+                        script.content_format.formats?.[0]?.type) ||
+                        "Conteúdo"}
+                    </span>
+                  )}
+
+                  {/* Ações por status */}
+                  <div className="flex flex-col gap-1 mt-auto">
+                    {(script.status === "pending" ||
+                      script.status === "awaiting_approval") && (
+                      <div className="flex gap-1">
+                        <Button
+                          onClick={() => handleApprove(script)}
+                          disabled={isApproving || isRejecting}
+                          className="flex-1 h-11 rounded-[24px] bg-primary-600 text-white border-0 font-semibold hover:bg-primary-700"
+                        >
+                          <div className="flex items-center gap-1">
+                            <Icon name="Check" color="#FAFAFA" size={24} />
+                            <span>Aprovar</span>
+                          </div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleOpenDetailModal(script)}
+                          className="flex-1 h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                        >
+                          Avaliar
+                        </Button>
+                      </div>
+                    )}
+                    {script.status === "approved" && (
+                      <div className="flex items-center gap-1 h-11 px-4 rounded-[24px] border border-[#e5e5e5] bg-white text-[#585858] font-semibold text-base">
+                        <Icon name="Check" color="#585858" size={24} />
+                        <span>Aprovado</span>
+                      </div>
+                    )}
+                    {(script.status === "correction" || script.status === "rejected") && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenDetailModal(script)}
+                        className="h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                      >
+                        Visualizar feedback
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
