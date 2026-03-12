@@ -268,7 +268,7 @@ export interface CampaignScript {
   script_text?: string;
   scriptText?: string;
   file_url?: string;
-  status: "pending" | "awaiting_approval" | "approved" | "correction";
+  status: "pending" | "awaiting_approval" | "approved" | "correction" | "rejected";
   phase_id?: string | null;
   submitted_at?: string;
   submittedAt?: string;

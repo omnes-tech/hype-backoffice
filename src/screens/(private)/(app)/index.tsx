@@ -151,7 +151,7 @@ function RouteComponent() {
             <p className="text-neutral-600 mt-4 text-center text-sm">
               Nenhuma campanha encontrada
             </p>
-            <Link to="/campaigns" className="mt-4">
+            <Link to="/campaigns/new" className="mt-4">
               <Button>
                 <p className="text-neutral-50 font-semibold">
                   Criar primeira campanha

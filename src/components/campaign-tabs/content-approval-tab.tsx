@@ -30,7 +30,7 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("pending");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [searchInfluencer, setSearchInfluencer] = useState("");
-  const [filterSocialNetwork, setFilterSocialNetwork] = useState("");
+  const [filterSocialNetwork, _setFilterSocialNetwork] = useState("");
   
   // Estados de UI
   const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
@@ -167,30 +167,6 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
     return filtered;
   }, [normalizedContents, selectedPhaseFilter, selectedStatusFilter, searchInfluencer, filterSocialNetwork]);
 
-  // Opções de redes sociais disponíveis
-  const socialNetworkOptions = useMemo(() => {
-    const networks = new Set<string>();
-    normalizedContents.forEach((content) => {
-      const network = content.socialNetwork || content.social_network;
-      // Garantir que network é uma string
-      if (network && typeof network === 'string') {
-        networks.add(network);
-      }
-    });
-    const networkLabels: { [key: string]: string } = {
-      instagram: "Instagram",
-      tiktok: "TikTok",
-      youtube: "YouTube",
-      ugc: "UGC",
-    };
-    return Array.from(networks)
-      .filter((network): network is string => typeof network === 'string')
-      .map((network) => ({
-        value: network.toLowerCase(),
-        label: networkLabels[network.toLowerCase()] || network,
-      }));
-  }, [normalizedContents]);
-
   // Hooks para mutations
   const { mutate: approveContent, isPending: isApproving } = useApproveContent(campaignId || "");
   const { mutate: rejectContent, isPending: isRejecting } = useRejectContent(campaignId || "");
@@ -246,63 +222,6 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       label: `Fase ${index + 1}`,
     })),
   ];
-
-  const statusOptions = [
-    { value: "all", label: "Todos os status" },
-    { value: "pending", label: "Pendentes" },
-    { value: "approved", label: "Aprovados" },
-    { value: "correction", label: "Ajuste solicitado" },
-    { value: "rejected", label: "Rejeitados" },
-    { value: "published", label: "Publicados" },
-  ];
-
-  const getPhaseLabel = (phaseId?: string | null) => {
-    if (!phaseId) return "Sem fase";
-    const phaseIndex = campaignPhases.findIndex((p) => p.id === phaseId);
-    return phaseIndex >= 0 ? `Fase ${phaseIndex + 1}` : "Sem fase";
-  };
-
-  const getStatusLabel = (status: string) => {
-    // Mapear awaiting_approval para Pendente visualmente
-    // Mapear content_approved para Aprovado visualmente
-    const normalizedStatus = status === "awaiting_approval" 
-      ? "pending" 
-      : status === "content_approved"
-      ? "approved"
-      : status;
-    
-    const labels: { [key: string]: string } = {
-      pending: "Pendente",
-      awaiting_approval: "Pendente",
-      approved: "Aprovado",
-      content_approved: "Aprovado",
-      correction: "Ajuste solicitado",
-      rejected: "Rejeitado",
-      published: "Publicado",
-    };
-    return labels[normalizedStatus] || status;
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    // Mapear awaiting_approval para pending visualmente
-    // Mapear content_approved para approved visualmente
-    const normalizedStatus = status === "awaiting_approval" 
-      ? "pending" 
-      : status === "content_approved"
-      ? "approved"
-      : status;
-    
-    const colors: { [key: string]: { bg: string; text: string } } = {
-      pending: { bg: "bg-warning-200", text: "text-warning-900" },
-      awaiting_approval: { bg: "bg-warning-200", text: "text-warning-900" },
-      approved: { bg: "bg-success-200", text: "text-success-900" },
-      content_approved: { bg: "bg-success-200", text: "text-success-900" },
-      correction: { bg: "bg-info-200", text: "text-info-900" },
-      rejected: { bg: "bg-danger-200", text: "text-danger-900" },
-      published: { bg: "bg-primary-200", text: "text-primary-900" },
-    };
-    return colors[normalizedStatus] || { bg: "bg-neutral-200", text: "text-neutral-900" };
-  };
 
   const handleSelectContent = (contentId: string) => {
     setSelectedContents((prev) => {
@@ -449,19 +368,6 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
         }
       );
     }
-  };
-
-  const getSocialNetworkIcon = (network: string | undefined) => {
-    // Garantir que network é uma string
-    const networkStr = typeof network === 'string' ? network : "";
-    const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
-    return icons[networkStr.toLowerCase()] || "Share2";
   };
 
   // Função para detectar se é vídeo ou imagem baseado na URL

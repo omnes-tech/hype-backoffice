@@ -257,10 +257,10 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   };
 
   const getStatusBadge = (status: CampaignScript["status"]) => {
-    // Mapear awaiting_approval para pending visualmente
-    const normalizedStatus = status === "awaiting_approval" ? "pending" : status;
-
-    const statusConfig = {
+    const statusConfig: Record<
+      CampaignScript["status"],
+      { text: string; bg: string; textColor: string }
+    > = {
       pending: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
       awaiting_approval: { text: "Pendente", bg: "bg-yellow-50", textColor: "text-yellow-900" },
       approved: { text: "Aprovado", bg: "bg-green-50", textColor: "text-green-900" },
@@ -269,9 +269,10 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
         bg: "bg-orange-50",
         textColor: "text-orange-900",
       },
+      rejected: { text: "Rejeitado", bg: "bg-red-50", textColor: "text-red-900" },
     };
 
-    const config = statusConfig[normalizedStatus] || statusConfig.pending;
+    const config = statusConfig[status] || statusConfig.pending;
     return (
       <Badge
         text={config.text}

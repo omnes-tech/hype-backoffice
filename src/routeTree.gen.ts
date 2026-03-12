@@ -23,6 +23,7 @@ import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
 import { Route as privateappCampaignsRouteImport } from './screens/(private)/(app)/campaigns'
+import { Route as privateappCampaignsNewRouteImport } from './screens/(private)/(app)/campaigns.new'
 import { Route as privateappCampaignsCampaignIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId'
 import { Route as privateappCampaignsCampaignIdEditRouteImport } from './screens/(private)/(app)/campaigns.$campaignId.edit'
 import { Route as privateappCampaignsCampaignIdInfluencerInfluencerIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId.influencer.$influencerId'
@@ -97,6 +98,11 @@ const privateappCampaignsRoute = privateappCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => privateappLayoutRoute,
 } as any)
+const privateappCampaignsNewRoute = privateappCampaignsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => privateappCampaignsRoute,
+} as any)
 const privateappCampaignsCampaignIdRoute =
   privateappCampaignsCampaignIdRouteImport.update({
     id: '/$campaignId',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/': typeof privateappIndexRoute
   '/onboarding/': typeof privateOnboardingIndexRoute
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
+  '/campaigns/new': typeof privateappCampaignsNewRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
 }
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/': typeof privateappIndexRoute
   '/onboarding': typeof privateOnboardingIndexRoute
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
+  '/campaigns/new': typeof privateappCampaignsNewRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
 }
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/(private)/(app)/': typeof privateappIndexRoute
   '/(private)/onboarding/': typeof privateOnboardingIndexRoute
   '/(private)/(app)/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
+  '/(private)/(app)/campaigns/new': typeof privateappCampaignsNewRoute
   '/(private)/(app)/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/(private)/(app)/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
 }
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding/'
     | '/campaigns/$campaignId'
+    | '/campaigns/new'
     | '/campaigns/$campaignId/edit'
     | '/campaigns/$campaignId/influencer/$influencerId'
   fileRoutesByTo: FileRoutesByTo
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/campaigns/$campaignId'
+    | '/campaigns/new'
     | '/campaigns/$campaignId/edit'
     | '/campaigns/$campaignId/influencer/$influencerId'
   id:
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/(private)/(app)/'
     | '/(private)/onboarding/'
     | '/(private)/(app)/campaigns/$campaignId'
+    | '/(private)/(app)/campaigns/new'
     | '/(private)/(app)/campaigns/$campaignId/edit'
     | '/(private)/(app)/campaigns/$campaignId/influencer/$influencerId'
   fileRoutesById: FileRoutesById
@@ -325,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateappCampaignsRouteImport
       parentRoute: typeof privateappLayoutRoute
     }
+    '/(private)/(app)/campaigns/new': {
+      id: '/(private)/(app)/campaigns/new'
+      path: '/new'
+      fullPath: '/campaigns/new'
+      preLoaderRoute: typeof privateappCampaignsNewRouteImport
+      parentRoute: typeof privateappCampaignsRoute
+    }
     '/(private)/(app)/campaigns/$campaignId': {
       id: '/(private)/(app)/campaigns/$campaignId'
       path: '/$campaignId'
@@ -369,11 +388,13 @@ const privateappCampaignsCampaignIdRouteWithChildren =
 
 interface privateappCampaignsRouteChildren {
   privateappCampaignsCampaignIdRoute: typeof privateappCampaignsCampaignIdRouteWithChildren
+  privateappCampaignsNewRoute: typeof privateappCampaignsNewRoute
 }
 
 const privateappCampaignsRouteChildren: privateappCampaignsRouteChildren = {
   privateappCampaignsCampaignIdRoute:
     privateappCampaignsCampaignIdRouteWithChildren,
+  privateappCampaignsNewRoute: privateappCampaignsNewRoute,
 }
 
 const privateappCampaignsRouteWithChildren =

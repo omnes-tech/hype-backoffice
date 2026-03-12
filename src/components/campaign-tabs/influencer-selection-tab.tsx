@@ -317,7 +317,7 @@ export function InfluencerSelectionTab({
   // Hooks para dados reais
   const { data: muralStatus } = useMuralStatus(campaignId);
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
-  const { mutate: deactivateMural, isPending: isDeactivatingMural } = useDeactivateMural(campaignId);
+  const { mutate: deactivateMural } = useDeactivateMural(campaignId);
   const { data: recommendations = [], isLoading: isLoadingRecommendations } = useCampaignRecommendations(campaignId);
   const { data: catalogData = [], isLoading: isLoadingCatalog } = useInfluencersCatalog({
     social_network: filterSocialNetwork || undefined,
@@ -335,7 +335,6 @@ export function InfluencerSelectionTab({
   const { data: campaignUsers = [] } = useCampaignUsers(campaignId);
 
   const isMuralActive = muralStatus?.active || false;
-  const muralEndDate = muralStatus?.end_date || "";
 
   // Função para verificar se um influenciador está em curadoria
   const isInfluencerInCuration = (influencerId: string | number): boolean => {
@@ -496,34 +495,6 @@ export function InfluencerSelectionTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMuralActive, allVacanciesFilled]);
 
-  const handleMuralToggle = (checked: boolean) => {
-    if (checked) {
-      if (onOpenMuralModal) onOpenMuralModal();
-      else setShowMuralDateModal(true);
-    } else {
-      // Permitir desativação a qualquer momento
-      deactivateMural(undefined, {
-        onSuccess: () => {
-          toast.success("Descobrir desativado com sucesso!");
-        },
-        onError: (error: any) => {
-          toast.error(error?.message || "Erro ao desativar Descobrir");
-        },
-      });
-    }
-  };
-
-  const handleDeactivateMural = () => {
-    deactivateMural(undefined, {
-      onSuccess: () => {
-        toast.success("Descobrir desativado com sucesso!");
-      },
-      onError: (error: any) => {
-        toast.error(error?.message || "Erro ao desativar Descobrir");
-      },
-    });
-  };
-
   const handleActivateMural = () => {
     if (!tempMuralEndDate) {
       toast.error("Por favor, selecione uma data limite");
@@ -543,17 +514,6 @@ export function InfluencerSelectionTab({
         },
       }
     );
-  };
-
-  const getSocialNetworkIcon = (network?: string) => {
-    const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
-    return icons[network || ""] || "Share2";
   };
 
   const getSocialNetworkLabel = (network?: string) => {

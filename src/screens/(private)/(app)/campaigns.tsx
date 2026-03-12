@@ -4,27 +4,12 @@ import { createFileRoute, Outlet, useLocation, Link } from "@tanstack/react-rout
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { CreateCampaignStepOne } from "@/components/forms/create-campaign-step-one";
-import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-two";
-import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
-import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
-import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
-import { CreateCampaignStepSix } from "@/components/forms/create-campaign-step-six";
-import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
 import { CampaignCard } from "@/components/campaign-card";
 import { InputSearch } from "@/components/ui/input-search";
 import { Icon } from "@/components/ui/icon";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Avatar } from "@/components/ui/avatar";
-import { toast } from "sonner";
-import type { CampaignFormData } from "@/shared/types";
-import { useCampaigns, useCreateCampaign } from "@/hooks/use-campaigns";
-import type { CreateCampaignData } from "@/shared/services/campaign";
-import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
-import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCampaigns } from "@/hooks/use-campaigns";
 import { useWorkspaceContext } from "@/contexts/workspace-context";
 import { getUploadUrl } from "@/lib/utils/api";
 
@@ -32,51 +17,11 @@ export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
 });
 
-const initialFormData: CampaignFormData = {
-  title: "",
-  description: "",
-  mainNiche: "",
-  subniches: "",
-  influencersCount: "",
-  minFollowers: "",
-  state: "",
-  city: "",
-  gender: "",
-  paymentType: "",
-  paymentFixedAmount: "",
-  paymentSwapItem: "",
-  paymentSwapMarketValue: "",
-  paymentCpaActions: "",
-  paymentCpaValue: "",
-  paymentCpmValue: "",
-  benefits: "",
-  generalObjective: "",
-  whatToDo: "",
-  whatNotToDo: "",
-  banner: "",
-  imageRightsPeriod: "",
-  brandFiles: "",
-  phasesCount: "1",
-  phases: [
-    {
-      id: "1",
-      objective: "",
-      postDate: "",
-      formats: [],
-      files: "",
-    },
-  ],
-};
-
 function RouteComponent() {
   const location = useLocation();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all_campaigns");
-  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
-  const [formData, setFormData] = useState<CampaignFormData>(initialFormData);
 
   const {
     workspaces,
@@ -89,8 +34,6 @@ function RouteComponent() {
   const { data: campaignsData = [], isLoading, error } = useCampaigns({
     enabled: hasWorkspace,
   });
-  const createCampaignMutation = useCreateCampaign();
-  const queryClient = useQueryClient();
 
   const campaigns = useMemo(() => {
     return campaignsData.map((campaign: any) => {
@@ -243,246 +186,6 @@ function RouteComponent() {
     );
   }
 
-  const totalSteps = 7;
-  const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setCurrentStep(1);
-    setFormData({ ...initialFormData });
-  };
-
-  const updateFormData = (field: keyof CampaignFormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  // Transformar dados do formulário para o formato da API
-  const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
-    // Processar múltiplos subnichos separados por vírgula
-    // Os valores são IDs dos nichos vindos da API
-    // Enviar apenas os IDs (números) como array
-    const secondary_niches = formData.subniches 
-      ? formData.subniches.split(",").filter(Boolean).map(id => parseInt(id, 10)).filter(id => !isNaN(id))
-      : [];
-
-    // Construir payment_method_details baseado no tipo de pagamento
-    const buildPaymentDetails = () => {
-      const baseDetails: {
-        amount?: number;
-        currency?: string;
-        description?: string;
-      } = {
-        description: Array.isArray(formData.benefits)
-          ? formData.benefits.filter(item => item.trim() !== "").join("\n")
-          : formData.benefits || "",
-      };
-
-      switch (formData.paymentType) {
-        case "fixed":
-          if (formData.paymentFixedAmount) {
-            baseDetails.amount = currencyToNumber(formData.paymentFixedAmount);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "swap":
-          baseDetails.description = `${formData.paymentSwapItem || ""}${
-            formData.paymentSwapMarketValue
-              ? ` - Valor de mercado: R$ ${formData.paymentSwapMarketValue}`
-              : ""
-          }`;
-          if (formData.paymentSwapMarketValue) {
-            baseDetails.amount = currencyToNumber(formData.paymentSwapMarketValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "cpa":
-          baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions || ""}${
-            formData.paymentCpaValue ? ` - Valor: R$ ${formData.paymentCpaValue}` : ""
-          }`;
-          if (formData.paymentCpaValue) {
-            baseDetails.amount = currencyToNumber(formData.paymentCpaValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "cpm":
-          if (formData.paymentCpmValue) {
-            baseDetails.amount = currencyToNumber(formData.paymentCpmValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "price":
-          // Preço definido pelo influenciador - sem detalhes específicos
-          break;
-      }
-
-      return baseDetails;
-    };
-
-    return {
-      title: formData.title,
-      description: formData.description,
-      objective: formData.generalObjective || "awareness",
-      secondary_niches,
-      max_influencers: parseInt(unformatNumber(formData.influencersCount)) || 0,
-      payment_method: formData.paymentType || "fixed",
-      payment_method_details: buildPaymentDetails(),
-      benefits: Array.isArray(formData.benefits)
-        ? formData.benefits.filter(item => item.trim() !== "")
-        : formData.benefits
-          ? [formData.benefits].filter(item => item.trim() !== "")
-          : [],
-      rules_does: Array.isArray(formData.whatToDo) 
-        ? formData.whatToDo.filter(item => item.trim() !== "")
-        : formData.whatToDo 
-          ? [formData.whatToDo].filter(item => item.trim() !== "")
-          : [],
-      rules_does_not: Array.isArray(formData.whatNotToDo)
-        ? formData.whatNotToDo.filter(item => item.trim() !== "")
-        : formData.whatNotToDo
-          ? [formData.whatNotToDo].filter(item => item.trim() !== "")
-          : [],
-      segment_min_followers: formData.minFollowers ? parseInt(unformatNumber(formData.minFollowers)) : undefined,
-      segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
-      segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,
-      segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
-      image_rights_period: formData.imageRightsPeriod ? parseInt(unformatNumber(formData.imageRightsPeriod)) : 0,
-      // banner não é enviado aqui, será feito upload separado
-    };
-  };
-
-  // Transformar fases do formulário para o formato da API
-  const transformPhasesToApiData = (phases: CampaignFormData["phases"]): CreatePhaseData[] => {
-    return phases
-      .filter((phase) => phase.objective && phase.postDate)
-      .map((phase) => {
-        // Agrupar formatos por rede social
-        const formatsByNetwork: { [key: string]: { type: string; options: Array<{ type: string; quantity: number }> } } = {};
-
-        phase.formats.forEach((format) => {
-          const network = format.socialNetwork || "instagram";
-          if (!formatsByNetwork[network]) {
-            formatsByNetwork[network] = {
-              type: network,
-              options: [],
-            };
-          }
-          formatsByNetwork[network].options.push({
-            type: format.contentType || "post",
-            quantity: parseInt(format.quantity) || 1,
-          });
-        });
-
-        return {
-          objective: phase.objective,
-          post_date: phase.postDate,
-          formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
-          // files deve ser array de URLs (strings), não enviar se vazio
-          files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
-        };
-      });
-  };
-
-  // Handler para submissão do formulário
-  const handleSubmitCampaign = async () => {
-    try {
-      setIsCreatingCampaign(true);
-      
-      // Validar dados obrigatórios
-      if (!formData.title || !formData.description) {
-        toast.error("Por favor, preencha todos os campos obrigatórios");
-        setIsCreatingCampaign(false);
-        return;
-      }
-
-      if (formData.mainNiche && (!formData.subniches || formData.subniches.split(",").filter(Boolean).length === 0)) {
-        toast.error("Selecione pelo menos um subnicho da campanha.");
-        setIsCreatingCampaign(false);
-        return;
-      }
-
-      // Transformar dados do formulário
-      const campaignData = transformFormDataToApiData(formData);
-
-      // Criar campanha
-      const createdCampaign = await createCampaignMutation.mutateAsync(campaignData);
-
-      // Criar fases se houver
-      console.log("=== INÍCIO CRIAÇÃO DE FASES ===");
-      console.log("formData.phases:", formData.phases);
-      console.log("formData.phases.length:", formData.phases?.length);
-      
-      if (formData.phases && formData.phases.length > 0) {
-        console.log("Fases no formData:", formData.phases);
-        const phasesData = transformPhasesToApiData(formData.phases);
-        console.log("Fases transformadas para API:", phasesData);
-        console.log("Quantidade de fases transformadas:", phasesData.length);
-
-        if (phasesData.length === 0) {
-          console.warn("Nenhuma fase válida para criar. Verifique se objective e postDate estão preenchidos.");
-          const invalidPhases = formData.phases.filter((p) => !p.objective || !p.postDate);
-          console.warn("Fases inválidas:", invalidPhases);
-          toast.warning("Nenhuma fase válida foi encontrada. Verifique se todos os campos obrigatórios estão preenchidos.");
-        } else {
-          console.log(`Criando ${phasesData.length} fase(s)...`);
-          for (let i = 0; i < phasesData.length; i++) {
-            const phaseData = phasesData[i];
-            try {
-              console.log(`[${i + 1}/${phasesData.length}] Chamando createCampaignPhase...`);
-              console.log("Campaign ID:", createdCampaign.id);
-              console.log("Phase Data:", JSON.stringify(phaseData, null, 2));
-              const result = await createCampaignPhase(createdCampaign.id, phaseData);
-              console.log("✅ Fase criada com sucesso:", result);
-            } catch (error: any) {
-              console.error(`❌ Erro ao criar fase ${i + 1}:`, error);
-              console.error("Erro completo:", JSON.stringify(error, null, 2));
-              const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
-              toast.error(`Erro ao criar fase ${i + 1}: ${errorMessage}`);
-            }
-          }
-          
-          // Invalidar cache do dashboard para atualizar as fases
-          queryClient.invalidateQueries({
-            queryKey: ["campaigns", createdCampaign.id, "dashboard"],
-          });
-          console.log("Cache invalidado para dashboard");
-        }
-      } else {
-        console.warn("Nenhuma fase encontrada no formData");
-        console.warn("formData.phases é:", formData.phases);
-      }
-      console.log("=== FIM CRIAÇÃO DE FASES ===");
-
-      // Fazer upload do banner se houver
-      const bannerFile = (formData as any).bannerFile;
-      if (bannerFile instanceof File) {
-        try {
-          await uploadCampaignBanner(createdCampaign.id, bannerFile);
-          // Invalidar cache de campanhas para atualizar o banner
-          queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        } catch (error: any) {
-          console.error("Erro ao fazer upload do banner:", error);
-          // Não bloquear o fluxo se o upload do banner falhar
-          toast.error("Campanha criada, mas houve um erro ao fazer upload do banner.");
-        }
-      }
-
-      // Invalidar cache de campanhas para atualizar a lista
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      
-      toast.success("Campanha criada com sucesso!");
-      setIsCreatingCampaign(false);
-      setIsModalOpen(false);
-      setCurrentStep(1);
-      setFormData({ ...initialFormData });
-    } catch (error: any) {
-      console.error("Erro ao criar campanha:", error);
-      toast.error(
-        error?.message || "Erro ao criar campanha. Tente novamente."
-      );
-      setIsCreatingCampaign(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="w-full min-h-[calc(100vh-10rem)] flex items-center justify-center">
@@ -563,15 +266,14 @@ function RouteComponent() {
               />
             </div>
 
-            <Button onClick={() => setIsModalOpen(true)}>
-              <div className="flex items-center gap-2">
-                <Icon name="Plus" color="#FAFAFA" size={16} />
-
-                <p className="text-neutral-50 font-semibold">
-                  Criar campanha
-                </p>
-              </div>
-            </Button>
+            <Link
+              to="/campaigns/new"
+              params={{}}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
+            >
+              <Icon name="Plus" color="#FAFAFA" size={16} />
+              <span className="font-semibold">Criar campanha</span>
+            </Link>
           </div>
         </div>
 
@@ -603,129 +305,17 @@ function RouteComponent() {
                   {emptyMessageByFilter.description}
                 </span>
               </div>
-              <Button onClick={() => setIsModalOpen(true)}>
+              <Link
+                to="/campaigns/new"
+                params={{}}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
+              >
                 Criar campanha
-              </Button>
+              </Link>
             </div>
           </div>
         )}
       </div>
-
-      {isModalOpen && (
-        <Modal title="Criar campanha" onClose={handleCloseModal}>
-          <div className="flex flex-col gap-1 mb-10">
-            <ProgressBar
-              progressPercentage={progressPercentage}
-              color="bg-tertiary-600"
-            />
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-neutral-700">
-                {currentStep === 1 && "Informações básicas"}
-                {currentStep === 2 && "Perfil dos Influenciadores"}
-                {currentStep === 3 && "Briefing e Objetivos"}
-                {currentStep === 4 && "Detalhes da campanha"}
-                {currentStep === 5 && "Arquivos e configurações"}
-                {currentStep === 6 && "Fases da campanha"}
-                {currentStep === 7 && "Revisão e criação da campanha"}
-              </span>
-
-              <span className="text-xs text-neutral-700">
-                Etapa {currentStep} de {totalSteps}
-              </span>
-            </div>
-          </div>
-
-          {currentStep === 1 && (
-            <CreateCampaignStepOne
-              formData={formData}
-              updateFormData={updateFormData}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <CreateCampaignStepTwo
-              formData={formData}
-              updateFormData={updateFormData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 3 && (
-            <CreateCampaignStepThree
-              formData={formData}
-              updateFormData={updateFormData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 4 && (
-            <CreateCampaignStepFour
-              formData={formData}
-              updateFormData={updateFormData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 5 && (
-            <CreateCampaignStepFive
-              formData={formData}
-              updateFormData={updateFormData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 6 && (
-            <CreateCampaignStepSix
-              formData={formData}
-              updateFormData={updateFormData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onNext={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-            />
-          )}
-
-          {currentStep === 7 && (
-            <CreateCampaignStepSeven
-              formData={formData}
-              onBack={() => {
-                setCurrentStep(currentStep - 1);
-              }}
-              onEdit={(step) => {
-                setCurrentStep(step);
-              }}
-              onSubmitCampaign={handleSubmitCampaign}
-              isLoading={isCreatingCampaign || createCampaignMutation.isPending}
-            />
-          )}
-        </Modal>
-      )}
     </>
   );
 }

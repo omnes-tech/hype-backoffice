@@ -16,6 +16,8 @@ function RouteComponent() {
 
   if (pathname === "/campaigns") {
     title = "Campanhas";
+  } else if (pathname === "/campaigns/new") {
+    title = "Criação de campanha";
   } else if (pathname.includes("/influencer/")) {
     title = "Perfil do influenciador";
   } else if (pathname.includes("/edit")) {
