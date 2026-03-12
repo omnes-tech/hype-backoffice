@@ -127,3 +127,33 @@
   padding: 12px 16px;
   font-size: 0.875rem;
 }
+
+/* Skeleton loading shimmer */
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  background-color: var(--color-neutral-200);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}

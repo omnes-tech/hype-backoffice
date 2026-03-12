@@ -1,6 +1,128 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type { Influencer } from "../types";
 
+/** Métricas por rede (ex.: instagram, tiktok, youtube) */
+export interface MetricsByNetwork {
+  gender_split?: { women_percent?: number; men_percent?: number };
+  followers?: number;
+  likes?: number;
+  average_reach?: number;
+  engagement_percent?: number;
+}
+
+/** Item de top conteúdos */
+export interface TopContentItem {
+  id: string;
+  image_url?: string | null;
+  views?: number;
+  likes?: number;
+  post_url?: string | null;
+}
+
+/** Campanha do influenciador no Hypeapp */
+export interface HypeappCampaignItem {
+  id: string;
+  logo_url?: string | null;
+  campaign_name?: string | null;
+  brand_name?: string | null;
+  date?: string | null;
+  rating?: number | null;
+  description?: string | null;
+  delivery_thumbnails?: string[];
+  views?: number;
+  likes?: number;
+}
+
+/** Resposta do GET /campaigns/:campaignId/influencer/:influencerId (perfil do influenciador na campanha) */
+export interface CampaignInfluencerProfileResponse {
+  campaign: {
+    id: string;
+    title: string;
+  };
+  influencer: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string | null;
+    followers: number;
+    engagement: number;
+    niche?: string;
+    niche_name: string | null;
+    sub_niche_names?: string[];
+    status?: string;
+    phase?: string;
+    social_networks?: Array<{
+      id: number | string;
+      type: string;
+      name: string;
+      username?: string;
+      members?: number;
+      status?: string;
+    }>;
+    location?: { state?: string; city?: string };
+    bio?: string | null;
+    rating?: number | null;
+    rating_max?: number;
+  };
+  metrics_by_network?: Record<string, MetricsByNetwork>;
+  total_posts_in_hypeapp?: number;
+  campaigns_participated_in_hypeapp?: number;
+  trust_index?: number | null;
+  top_contents?: TopContentItem[];
+  hypeapp_campaigns?: HypeappCampaignItem[];
+}
+
+/**
+ * Busca dados do perfil do influenciador no contexto da campanha.
+ * GET /campaigns/:campaignId/influencer/:influencerId
+ * influencerId = id do campaign_user (mesmo da lista do dashboard).
+ * Retorna 404 se campanha ou influenciador não existirem.
+ */
+export async function getCampaignInfluencerProfile(
+  campaignId: string,
+  influencerId: string
+): Promise<CampaignInfluencerProfileResponse> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/influencer/${influencerId}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+    }
+  );
+
+  if (!request.ok) {
+    if (request.status === 404) {
+      const error = new Error("Influenciador ou campanha não encontrados") as any;
+      error.status = 404;
+      throw error;
+    }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer profile" };
+    }
+    const error = new Error(
+      errorData?.message || "Failed to get influencer profile"
+    ) as any;
+    error.status = request.status;
+    throw error;
+  }
+
+  const response = await request.json();
+  return response.data;
+}
+
 export interface InfluencerStatusUpdate {
   influencer_id: string;
   status: string;

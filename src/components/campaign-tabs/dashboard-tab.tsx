@@ -1,10 +1,139 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData } from "@/shared/types";
 import { getUploadUrl } from "@/lib/utils/api";
 import { useNiches } from "@/hooks/use-niches";
+import { CheckIcon } from "../icons/CheckIcon";
+
+/** Bloco animado de skeleton (shimmer) para estados de carregamento */
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
+}
+
+/** Skeleton do layout da aba Dashboard — espelha a estrutura real para transição suave */
+export function DashboardTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Status da campanha */}
+      <div className="bg-white rounded-xl p-5 border border-neutral-200">
+        <Skeleton className="h-8 w-64 mb-5" />
+        <div className="flex flex-wrap items-stretch gap-8">
+          <div className="flex flex-col items-center gap-3 shrink-0">
+            <Skeleton className="size-20 rounded-full" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <div className="flex flex-1 flex-wrap gap-4 min-w-0">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-1 min-w-[140px] rounded-lg p-4 flex flex-col justify-between gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Duas colunas */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Coluna esquerda: Resumo */}
+        <div className="flex-1 min-w-0 bg-white rounded-lg border border-neutral-200 overflow-hidden">
+          <Skeleton className="h-[278px] w-full rounded-none" />
+          <div className="flex flex-wrap border-b border-neutral-200">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-1 min-w-[120px] border-r border-neutral-200 p-5 flex flex-col gap-3">
+                <Skeleton className="h-4 w-14" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+            ))}
+          </div>
+          <div className="p-5 flex flex-col gap-4">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-full max-w-md" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="p-5 flex flex-col gap-4">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-full max-w-sm" />
+          </div>
+          <div className="flex flex-col sm:flex-row p-4 gap-0">
+            <div className="flex-1 min-w-0 p-4">
+              <div className="rounded-lg p-4 flex flex-col gap-4">
+                <Skeleton className="h-6 w-28" />
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Skeleton className="size-6 rounded shrink-0" />
+                    <Skeleton className="h-4 flex-1 max-w-[200px]" />
+                  </div>
+                ))}
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 p-4">
+              <div className="rounded-lg p-4 flex flex-col gap-4">
+                <Skeleton className="h-6 w-36" />
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Skeleton className="size-6 rounded shrink-0" />
+                    <Skeleton className="h-4 flex-1 max-w-[180px]" />
+                  </div>
+                ))}
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna direita: Fases, Segmentação, Benefícios */}
+        <div className="w-full lg:w-[min(100%,457px)] flex flex-col gap-4 shrink-0">
+          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between p-5">
+              <Skeleton className="h-6 w-44" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <div className="border-t border-neutral-200">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-16 rounded-full" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <Skeleton className="size-4 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
+            <div className="p-5">
+              <Skeleton className="h-6 w-32" />
+            </div>
+            <div className="border-t border-neutral-200">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-6 py-4 border-b border-neutral-200 last:border-b-0">
+                  <Skeleton className="size-10 rounded-full shrink-0" />
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
+            <div className="p-5">
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="px-6 pb-4 pt-0 flex flex-wrap gap-2">
+              <Skeleton className="h-9 w-28 rounded-xl" />
+              <Skeleton className="h-9 w-24 rounded-xl" />
+              <Skeleton className="h-9 w-36 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface DashboardTabProps {
   campaign: CampaignFormData;
@@ -34,391 +163,379 @@ const contentTypeLabels: { [key: string]: string } = {
   image: "Imagem",
 };
 
+function ProgressCircle({ percentage }: { percentage: number }) {
+  const size = 80;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-neutral-200, #E5E5E5)"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-primary-500, #9e2cfa)"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-300"
+        />
+      </svg>
+      <span className="absolute text-base font-bold text-neutral-950">
+        {Math.min(100, Math.max(0, percentage))}%
+      </span>
+    </div>
+  );
+}
+
 export function DashboardTab({ campaign, metrics, progressPercentage }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const { data: niches = [] } = useNiches();
 
-  // Mapear IDs dos nichos para nomes
   const nicheNames = useMemo(() => {
     if (!campaign.subniches) return "";
-    
     const nicheIds = campaign.subniches.split(",").filter(Boolean);
     const names = nicheIds.map((id) => {
       const niche = niches.find((n) => n.id.toString() === id.trim());
       return niche?.name || id;
     });
-    
     return names.join(", ");
   }, [campaign.subniches, niches]);
 
+  const periodLabel = useMemo(() => {
+    if (!campaign.phases?.length) return "-";
+    const dates = campaign.phases
+      .map((p) => p.postDate && new Date(p.postDate).getTime())
+      .filter(Boolean) as number[];
+    if (!dates.length) return "-";
+    const min = new Date(Math.min(...dates));
+    const max = new Date(Math.max(...dates));
+    return `${min.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} - ${max.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`;
+  }, [campaign.phases]);
+
+  const remunerationLabel = useMemo(() => {
+    if (campaign.paymentType === "fixed" && campaign.paymentFixedAmount) return campaign.paymentFixedAmount;
+    if (campaign.paymentType === "swap") return "Permuta";
+    if (campaign.paymentType === "cpa") return "CPA";
+    if (campaign.paymentType === "cpm") return "CPM";
+    return "-";
+  }, [campaign.paymentType, campaign.paymentFixedAmount]);
+
+  const locationLabel = useMemo(() => {
+    if (campaign.state && campaign.city) return `${campaign.city}, ${campaign.state}`;
+    if (campaign.state) return campaign.state;
+    if (campaign.city) return campaign.city;
+    return "Brasil (Geral)";
+  }, [campaign.state, campaign.city]);
+
+  const genderLabel = useMemo(() => {
+    if (campaign.gender === "male") return "Masculino";
+    if (campaign.gender === "female") return "Feminino";
+    if (campaign.gender === "all") return "Todos";
+    return campaign.gender || "Todos";
+  }, [campaign.gender]);
+
+  const followersLabel = useMemo(() => {
+    const n = parseInt(campaign.minFollowers || "0", 10);
+    if (!n) return "-";
+    if (n >= 1000) return `${n / 1000}k+ seguidores`;
+    return `${n.toLocaleString("pt-BR")} seguidores`;
+  }, [campaign.minFollowers]);
+
+  const whatToDoList = Array.isArray(campaign.whatToDo) ? campaign.whatToDo.filter((i) => i.trim() !== "") : [];
+  const whatNotToDoList = Array.isArray(campaign.whatNotToDo) ? campaign.whatNotToDo.filter((i) => i.trim() !== "") : [];
+  const benefitsList = Array.isArray(campaign.benefits) ? campaign.benefits.filter((i) => i.trim() !== "") : [];
+
   const togglePhase = (phaseId: string) => {
-    const newExpanded = new Set(expandedPhases);
-    if (newExpanded.has(phaseId)) {
-      newExpanded.delete(phaseId);
-    } else {
-      newExpanded.add(phaseId);
-    }
-    setExpandedPhases(newExpanded);
+    const next = new Set(expandedPhases);
+    if (next.has(phaseId)) next.delete(phaseId);
+    else next.add(phaseId);
+    setExpandedPhases(next);
   };
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Status da campanha */}
-      <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-950 mb-4">
+      {/* Status da campanha — círculo de progresso + 4 cards (Figma) */}
+      <div className="bg-white rounded-xl p-5">
+        <h3 className="text-2xl font-semibold text-neutral-950 mb-5">
           Status da campanha
         </h3>
-        <div className="flex flex-col gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-neutral-600">Progresso da campanha</span>
-              <span className="text-sm text-neutral-600">{progressPercentage}%</span>
-            </div>
-            <ProgressBar
-              progressPercentage={progressPercentage}
-              color="bg-tertiary-500"
-            />
+        <div className="flex flex-wrap items-stretch gap-8">
+          <div className="flex flex-col items-center gap-3 shrink-0">
+            <ProgressCircle percentage={progressPercentage} />
+            <span className="text-base text-neutral-950">Progresso</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 bg-neutral-50 rounded-2xl">
-              <p className="text-sm text-neutral-600 mb-1">Influenciadores ativos</p>
-              <p className="text-2xl font-semibold text-neutral-950">
-                {metrics.activeInfluencers}
-              </p>
+          <div className="flex flex-1 flex-wrap gap-4 min-w-0">
+            <div className="flex-1 min-w-[140px] bg-neutral-100 rounded-lg p-4 flex flex-col justify-between">
+              <p className="text-base font-medium text-neutral-500">Influenciadores</p>
+              <p className="text-2xl font-bold text-neutral-950">{metrics.activeInfluencers}</p>
             </div>
-            <div className="p-4 bg-neutral-50 rounded-2xl">
-              <p className="text-sm text-neutral-600 mb-1">Conteúdos publicados</p>
-              <p className="text-2xl font-semibold text-neutral-950">
-                {metrics.publishedContent}
-              </p>
+            <div className="flex-1 min-w-[140px] bg-neutral-100 rounded-lg p-4 flex flex-col justify-between">
+              <p className="text-base font-medium text-neutral-500">Conteúdos publicados</p>
+              <p className="text-2xl font-bold text-neutral-950">{metrics.publishedContent}</p>
             </div>
-            <div className="p-4 bg-neutral-50 rounded-2xl">
-              <p className="text-sm text-neutral-600 mb-1">Alcance total</p>
-              <p className="text-2xl font-semibold text-neutral-950">
-                {metrics.reach.toLocaleString("pt-BR")}
-              </p>
+            <div className="flex-1 min-w-[140px] bg-neutral-100 rounded-lg p-4 flex flex-col justify-between">
+              <p className="text-base font-medium text-neutral-500">Alcance total</p>
+              <p className="text-2xl font-bold text-neutral-950">{metrics.reach.toLocaleString("pt-BR")}</p>
             </div>
-            <div className="p-4 bg-neutral-50 rounded-2xl">
-              <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
-              <p className="text-2xl font-semibold text-neutral-950">
-                {metrics.engagement.toFixed(2)}%
-              </p>
+            <div className="flex-1 min-w-[140px] bg-neutral-100 rounded-lg p-4 flex flex-col justify-between">
+              <p className="text-base font-medium text-neutral-500">Engajamento</p>
+              <p className="text-2xl font-bold text-neutral-950">{metrics.engagement.toFixed(2)}%</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Fases da campanha */}
-      <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-          Fases da campanha
-        </h3>
-        <div className="flex flex-col gap-3">
-          {campaign.phases && campaign.phases.length > 0 ? (
-            campaign.phases.map((phase, index) => {
-              const isExpanded = expandedPhases.has(phase.id);
-              return (
-                <div
-                  key={phase.id}
-                  className="border border-neutral-200 rounded-2xl overflow-hidden"
-                >
-                  <button
-                    onClick={() => togglePhase(phase.id)}
-                    className="w-full p-4 bg-neutral-50 hover:bg-neutral-100 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          text={`Fase ${index + 1}`}
-                          backgroundColor="bg-tertiary-600"
-                          textColor="text-neutral-50"
-                        />
-                        <span className="text-sm text-neutral-950">
-                          {phase.postDate
-                            ? new Date(phase.postDate).toLocaleDateString("pt-BR")
-                            : "-"}
-                        </span>
-                      </div>
-                      <Icon
-                        name={isExpanded ? "ChevronUp" : "ChevronDown"}
-                        size={20}
-                        color="#404040"
-                      />
-                    </div>
+      {/* Duas colunas: Resumo (esquerda) | Fases + Segmentação + Benefícios (direita) */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Coluna esquerda: Resumo da campanha */}
+        <div className="flex-1 min-w-0 bg-white rounded-lg overflow-hidden">
+          {/* Imagem com overlay "Resumo da campanha" */}
+          {campaign.banner && (
+            <div className="relative h-[278px] w-full overflow-hidden">
+              <img
+                src={getUploadUrl(campaign.banner) || ""}
+                alt="Resumo da campanha"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
+              <p className="absolute left-5 bottom-4 text-xl font-semibold text-white">
+                Resumo da campanha
+              </p>
+            </div>
+          )}
+          {/* Nicho | Sub-Nicho | Período | Remuneração */}
+          <div className="flex flex-wrap">
+            <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] p-5 flex flex-col gap-3">
+              <p className="text-sm text-neutral-500">Nicho</p>
+              <p className="text-base font-medium text-neutral-950">{nicheNames || "-"}</p>
+            </div>
+            <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
+              <p className="text-sm text-neutral-500">Sub-Nicho</p>
+              <p className="text-base font-medium text-neutral-950">{nicheNames || "-"}</p>
+            </div>
+            <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
+              <p className="text-sm text-neutral-500">Período</p>
+              <p className="text-base font-medium text-neutral-950">{periodLabel}</p>
+            </div>
+            <div className="flex-1 min-w-[120px] pl-4 pr-5 py-5 flex flex-col gap-3">
+              <p className="text-sm text-neutral-500">Remuneração</p>
+              <p className="text-base font-medium text-neutral-950">{remunerationLabel}</p>
+            </div>
+          </div>
+          {/* Descrição */}
+          <div className="p-5 flex flex-col">
+            <p className="text-lg font-semibold text-neutral-950">Descrição</p>
+            <p className="text-base text-neutral-500">{campaign.description || "-"}</p>
+          </div>
+          {/* Objetivo geral */}
+          <div className="p-5 flex flex-col">
+            <p className="text-lg font-semibold text-neutral-950">Objetivo geral</p>
+            <p className="text-base text-neutral-500">{campaign.generalObjective || "-"}</p>
+          </div>
+          {/* O que fazer | O que não fazer — lado a lado (Figma) */}
+          <div className="flex flex-col sm:flex-row gap-0">
+            <div className="flex-1 min-w-0 p-4">
+              <div className="bg-success-50 rounded-lg p-4 flex flex-col gap-4">
+                <p className="text-lg font-semibold text-neutral-950">O que fazer</p>
+                <ul className="flex flex-col gap-3">
+                  {whatToDoList.slice(0, 3).map((item, i) => (
+                    <li key={i} className="flex gap-1 items-center">
+                      <CheckIcon className="shrink-0" />
+                      <span className="text-base text-neutral-950">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {whatToDoList.length > 3 && (
+                  <button type="button" className="text-base font-medium text-neutral-500 underline text-left">
+                    Ver mais ({whatToDoList.length})
                   </button>
-                  {isExpanded && (
-                    <div className="p-4 bg-white border-t border-neutral-200">
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-2">Objetivo</p>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 p-4">
+              <div className="bg-danger-50 rounded-lg p-4 flex flex-col gap-4">
+                <p className="text-lg font-semibold text-neutral-950">O que não fazer</p>
+                <ul className="flex flex-col gap-3">
+                  {whatNotToDoList.slice(0, 3).map((item, i) => (
+                    <li key={i} className="flex gap-1 items-center">
+                      <Icon name="X" size={24} color="#dc2626" className="shrink-0" />
+                      <span className="text-base text-neutral-950">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {whatNotToDoList.length > 3 && (
+                  <button type="button" className="text-base font-medium text-neutral-500 underline text-left">
+                    Ver mais ({whatNotToDoList.length})
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna direita: Fases, Segmentação, Benefícios */}
+        <div className="w-full lg:w-[min(100%,457px)] flex flex-col gap-4 shrink-0">
+          {/* Fases da campanha */}
+          <div className="bg-white rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-5">
+              <h3 className="text-xl font-semibold text-neutral-950">Fases da campanha</h3>
+              {campaign.phases && campaign.phases.length > 0 && (
+                <button type="button" className="text-base font-medium text-neutral-500 underline">
+                  Ver mais ({campaign.phases.length} Fases)
+                </button>
+              )}
+            </div>
+            {campaign.phases && campaign.phases.length > 0 ? (
+              <div className="border-t border-[#E5E5E5]">
+                {campaign.phases.slice(0, 5).map((phase, index) => {
+                  const isExpanded = expandedPhases.has(phase.id);
+                  return (
+                    <div key={phase.id} className="border-b border-[#E5E5E5] last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => togglePhase(phase.id)}
+                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-neutral-50"
+                      >
+                        <div className="flex items-center gap-3">
                           <Badge
-                            text={
-                              phase.objective === "engagement"
-                                ? "Engajamento"
-                                : phase.objective === "conversion"
-                                ? "Conversão"
-                                : phase.objective
-                            }
-                            backgroundColor="bg-primary-50"
+                            text={`Fase ${index + 1}`}
+                            backgroundColor="bg-primary-100"
                             textColor="text-primary-900"
                           />
+                          <span className="text-base text-neutral-500">
+                            {phase.postDate ? new Date(phase.postDate).toLocaleDateString("pt-BR") : "-"}
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-2">
-                            Data e horário da postagem
-                          </p>
-                          <p className="text-base text-neutral-950">
-                            {phase.postDate
-                              ? new Date(phase.postDate).toLocaleDateString("pt-BR", {
-                                  day: "2-digit",
-                                  month: "long",
-                                  year: "numeric",
-                                })
-                              : "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-neutral-600 mb-2">
-                            Formatos de conteúdo
-                          </p>
-                          <div className="flex flex-col gap-2">
-                            {phase.formats && phase.formats.length > 0 ? (
-                              phase.formats.map((format) => (
-                                <div
-                                  key={format.id}
-                                  className="p-3 bg-neutral-50 rounded-xl border border-neutral-200"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex flex-col gap-1">
-                                      <p className="text-sm font-medium text-neutral-950">
-                                        {socialNetworkLabels[format.socialNetwork] ||
-                                          format.socialNetwork}
-                                      </p>
-                                      <p className="text-xs text-neutral-600">
-                                        {contentTypeLabels[format.contentType] ||
-                                          format.contentType}
-                                      </p>
-                                    </div>
-                                    <Badge
-                                      text={`${format.quantity}x`}
-                                      backgroundColor="bg-tertiary-50"
-                                      textColor="text-tertiary-900"
-                                    />
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-neutral-600">
-                                Nenhum formato definido
+                        <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} size={16} color="#404040" />
+                      </button>
+                      {isExpanded && (
+                        <div className="px-5 pb-4 pt-0 border-t border-neutral-100 bg-neutral-50/50">
+                          <div className="flex flex-col gap-4 pt-2">
+                            <div>
+                              <p className="text-sm text-neutral-500 mb-1">Objetivo</p>
+                              <Badge
+                                text={phase.objective === "engagement" ? "Engajamento" : phase.objective === "conversion" ? "Conversão" : phase.objective}
+                                backgroundColor="bg-primary-50"
+                                textColor="text-primary-900"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-sm text-neutral-500 mb-1">Data e horário da postagem</p>
+                              <p className="text-base text-neutral-950">
+                                {phase.postDate ? new Date(phase.postDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "-"}
+                                {phase.postTime ? ` às ${phase.postTime}` : ""}
                               </p>
+                            </div>
+                            {phase.formats && phase.formats.length > 0 && (
+                              <div>
+                                <p className="text-sm text-neutral-500 mb-2">Formatos de conteúdo</p>
+                                <div className="flex flex-col gap-2">
+                                  {phase.formats.map((format) => (
+                                    <div key={format.id} className="p-3 bg-white rounded-xl border border-[#E5E5E5] flex justify-between items-center">
+                                      <div>
+                                        <p className="text-sm font-medium text-neutral-950">
+                                          {socialNetworkLabels[format.socialNetwork] || format.socialNetwork}
+                                        </p>
+                                        <p className="text-xs text-neutral-600">
+                                          {contentTypeLabels[format.contentType] || format.contentType}
+                                        </p>
+                                      </div>
+                                      <Badge text={`${format.quantity}x`} backgroundColor="bg-tertiary-50" textColor="text-tertiary-900" />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
-                        {phase.files && (
-                          <div>
-                            <p className="text-sm text-neutral-600 mb-1">Arquivos</p>
-                            <p className="text-base text-neutral-950">{phase.files}</p>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-sm text-neutral-600">
-                Nenhuma fase cadastrada para esta campanha
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Resumo da campanha */}
-      <div className="bg-white rounded-3xl p-6 border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-950 mb-4">
-          Resumo da campanha
-        </h3>
-        <div className="flex flex-col gap-6">
-          {/* Banner */}
-          {campaign.banner && (
-            <div>
-              <p className="text-sm text-neutral-600 mb-2">Banner</p>
-              <div className="rounded-2xl overflow-hidden border border-neutral-200 w-full">
-                <img
-                  src={getUploadUrl(campaign.banner) || ""}
-                  alt="Banner da campanha"
-                  className="w-full h-80 object-cover"
-                />
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {/* Informações básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-neutral-600 mb-1">Nicho</p>
-              {nicheNames ? (
-                <Badge
-                  text={nicheNames}
-                  backgroundColor="bg-tertiary-50"
-                  textColor="text-tertiary-900"
-                />
-              ) : (
-                <p className="text-base text-neutral-950">-</p>
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600 mb-1">Tipo de remuneração</p>
-              <p className="text-base text-neutral-950">
-                {campaign.paymentType === "fixed"
-                  ? "Valor fixo"
-                  : campaign.paymentType === "price"
-                  ? "Preço do influenciador"
-                  : campaign.paymentType === "swap"
-                  ? "Permuta"
-                  : campaign.paymentType === "cpa"
-                  ? "CPA (Custo Por Ação)"
-                  : campaign.paymentType === "cpm"
-                  ? "CPM (Custo Por Mil)"
-                  : campaign.paymentType}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600 mb-1">Período de direitos de imagem</p>
-              <p className="text-base text-neutral-950">
-                {campaign.imageRightsPeriod} {campaign.imageRightsPeriod === "1" ? "mês" : "meses"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600 mb-1">Quantidade de influenciadores</p>
-              <p className="text-base text-neutral-950">{campaign.influencersCount}</p>
-            </div>
+            ) : (
+              <div className="px-5 py-6 text-center text-sm text-neutral-500 border-t border-[#E5E5E5]">
+                Nenhuma fase cadastrada para esta campanha
+              </div>
+            )}
           </div>
 
           {/* Segmentação */}
-          <div>
-            <p className="text-sm text-neutral-600 mb-2 font-medium">Segmentação</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-neutral-50 rounded-2xl p-4">
-              <div>
-                <p className="text-xs text-neutral-600 mb-1">Seguidores mínimos</p>
-                <p className="text-sm font-semibold text-neutral-950">
-                  {parseInt(campaign.minFollowers).toLocaleString("pt-BR")}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-neutral-600 mb-1">Localização</p>
-                <p className="text-sm font-semibold text-neutral-950">
-                  {campaign.city && campaign.state
-                    ? `${campaign.city}, ${campaign.state}`
-                    : campaign.state || campaign.city || "Não especificado"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-neutral-600 mb-1">Gênero</p>
-                <p className="text-sm font-semibold text-neutral-950">
-                  {campaign.gender === "male"
-                    ? "Masculino"
-                    : campaign.gender === "female"
-                    ? "Feminino"
-                    : campaign.gender === "all"
-                    ? "Todos"
-                    : campaign.gender}
-                </p>
-              </div>
+          <div className="bg-white rounded-lg overflow-hidden">
+            <div className="p-5">
+              <h3 className="text-xl font-semibold text-neutral-950">Segmentação</h3>
             </div>
-          </div>
-
-          {/* Datas das fases */}
-          {campaign.phases && campaign.phases.length > 0 && (
-            <div>
-              <p className="text-sm text-neutral-600 mb-2 font-medium">Datas das fases</p>
-              <div className="flex flex-col gap-2">
-                {campaign.phases.map((phase, index) => (
-                  <div
-                    key={phase.id}
-                    className="bg-neutral-50 rounded-xl p-3 border border-neutral-200"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge
-                        text={`Fase ${index + 1}`}
-                        backgroundColor="bg-tertiary-600"
-                        textColor="text-neutral-50"
-                      />
-                      {phase.postDate && (
-                        <span className="text-sm text-neutral-950">
-                          {new Date(phase.postDate).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                          {phase.postTime && ` às ${phase.postTime}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            <div className="border-t border-[#E5E5E5]">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#E5E5E5]">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+                  <Icon name="MapPin" size={24} color="#404040" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-500">Localização</p>
+                  <p className="text-base font-semibold text-neutral-950">{locationLabel}</p>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Descrição */}
-          <div>
-            <p className="text-sm text-neutral-600 mb-1">Descrição</p>
-            <p className="text-base text-neutral-950">{campaign.description}</p>
-          </div>
-
-          {/* Objetivo geral */}
-          <div>
-            <p className="text-sm text-neutral-600 mb-1">Objetivo geral</p>
-            <p className="text-base text-neutral-950">{campaign.generalObjective}</p>
-          </div>
-
-          {/* O que fazer */}
-          <div>
-            <p className="text-sm text-success-600 font-medium mb-1">O que fazer</p>
-            <div className="text-base text-neutral-950 whitespace-pre-line">
-              {Array.isArray(campaign.whatToDo) 
-                ? campaign.whatToDo.length > 0 
-                  ? (
-                      <ul className="list-disc list-inside space-y-1">
-                        {campaign.whatToDo.filter(item => item.trim() !== "").map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    )
-                  : "-"
-                : campaign.whatToDo || "-"}
-            </div>
-          </div>
-
-          {/* O que não fazer */}
-          <div>
-            <p className="text-sm text-error-600 font-medium mb-1">O que não fazer</p>
-            <div className="text-base text-neutral-950 whitespace-pre-line">
-              {Array.isArray(campaign.whatNotToDo)
-                ? campaign.whatNotToDo.length > 0
-                  ? (
-                      <ul className="list-disc list-inside space-y-1">
-                        {campaign.whatNotToDo.filter(item => item.trim() !== "").map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    )
-                  : "-"
-                : campaign.whatNotToDo || "-"}
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#E5E5E5]">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+                  <Icon name="Calendar" size={24} color="#404040" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-500">Idade</p>
+                  <p className="text-base font-semibold text-neutral-950">Não informado</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#E5E5E5]">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+                  <Icon name="Users" size={24} color="#404040" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-500">Gênero</p>
+                  <p className="text-base font-semibold text-neutral-950">{genderLabel}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-5">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+                  <Icon name="Users" size={24} color="#404040" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-500">Seguidores</p>
+                  <p className="text-base font-semibold text-neutral-950">{followersLabel}</p>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Benefícios */}
-          <div>
-            <p className="text-sm text-neutral-600 mb-1">Benefícios</p>
-            <div className="text-base text-neutral-950 whitespace-pre-line">
-              {Array.isArray(campaign.benefits)
-                ? campaign.benefits.filter(item => item.trim() !== "").join("\n")
-                : campaign.benefits || "-"}
+          <div className="bg-white rounded-lg overflow-hidden">
+            <div className="p-5">
+              <h3 className="text-xl font-semibold text-neutral-950">Benefícios</h3>
+            </div>
+            <div className="px-6 pb-4 pt-0 flex flex-wrap gap-2">
+              {benefitsList.length > 0 ? (
+                benefitsList.map((b, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center px-3 py-2 rounded-xl bg-primary-100 text-primary-900 text-base"
+                  >
+                    {b}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-neutral-500">Nenhum benefício informado</span>
+              )}
             </div>
           </div>
         </div>
@@ -426,4 +543,3 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
     </div>
   );
 }
-

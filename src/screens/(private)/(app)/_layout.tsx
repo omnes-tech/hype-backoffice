@@ -16,6 +16,8 @@ function RouteComponent() {
 
   if (pathname === "/campaigns") {
     title = "Campanhas";
+  } else if (pathname.includes("/influencer/")) {
+    title = "Perfil do influenciador";
   } else if (pathname.includes("/edit")) {
     title = "Editar campanha";
   } else if (pathname.startsWith("/campaigns/")) {
@@ -30,10 +32,10 @@ function RouteComponent() {
             <Sidebar />
           </Panel>
 
-          <PanelResizeHandle className="w-px bg-neutral-200 hover:bg-neutral-300 transition-colors duration-150" />
+          <PanelResizeHandle className="w-px bg-[#D8D8D8] hover:bg-[#D8D8D8] transition-colors duration-150" />
 
           <Panel defaultSize={85} minSize={80}>
-            <div className="w-full h-full flex flex-col bg-neutral-50">
+            <div className="w-full h-full flex flex-col bg-[#EEEEEE]">
               <Header title={title} />
 
               <main className="w-full flex-1 overflow-y-auto p-6">

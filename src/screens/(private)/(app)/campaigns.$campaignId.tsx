@@ -4,10 +4,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Badge } from "@/components/ui/badge";
 import { Tabs } from "@/components/ui/tabs";
 
-import { DashboardTab } from "@/components/campaign-tabs/dashboard-tab";
+import { DashboardTab, DashboardTabSkeleton } from "@/components/campaign-tabs/dashboard-tab";
 import { ManagementTab } from "@/components/campaign-tabs/management-tab";
 import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-selection-tab";
 import { ApplicationsTab } from "@/components/campaign-tabs/applications-tab";
@@ -54,7 +53,7 @@ function RouteComponent() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
-  
+
   // Ler search params da URL para navegação de notificações
   const searchParams = new URLSearchParams(location.search);
   const tabFromUrl = searchParams.get("tab");
@@ -76,11 +75,6 @@ function RouteComponent() {
       });
     }
   }, [tabFromUrl, location.search, location.pathname, navigate]);
-
-  // Se estiver na rota de edição, renderizar apenas o Outlet
-  if (location.pathname.includes("/edit")) {
-    return <Outlet />;
-  }
 
   // Query principal da campanha (dados básicos)
   const {
@@ -122,15 +116,15 @@ function RouteComponent() {
     // Processar subnichos
     const subnicheIds = Array.isArray(campaign.secondary_niches)
       ? campaign.secondary_niches
-          .map((n: any) => {
-            const name = typeof n === 'object' ? n.name : String(n);
-            return getSubnicheValueByLabel(name);
-          })
-          .filter(Boolean)
-      : campaign.secondary_niches 
+        .map((n: any) => {
+          const name = typeof n === 'object' ? n.name : String(n);
+          return getSubnicheValueByLabel(name);
+        })
+        .filter(Boolean)
+      : campaign.secondary_niches
         ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
         : [];
-    
+
     // Determinar o nicho principal a partir do primeiro subnicho selecionado
     let mainNicheId = "";
     if (subnicheIds.length > 0 && niches.length > 0) {
@@ -148,11 +142,11 @@ function RouteComponent() {
       subniches: subnicheIds.join(","),
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
-      state: Array.isArray(campaign.segment_state) 
-        ? campaign.segment_state.join(",") 
+      state: Array.isArray(campaign.segment_state)
+        ? campaign.segment_state.join(",")
         : campaign.segment_state || "",
-      city: Array.isArray(campaign.segment_city) 
-        ? campaign.segment_city.join(",") 
+      city: Array.isArray(campaign.segment_city)
+        ? campaign.segment_city.join(",")
         : campaign.segment_city || "",
       gender: Array.isArray(campaign.segment_genders)
         ? campaign.segment_genders.join(", ")
@@ -169,9 +163,9 @@ function RouteComponent() {
         : "",
       paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
         ? campaign.payment_method_details.description
-            .replace("Ações que geram CPA:", "")
-            .split(" - Valor:")[0]
-            ?.trim() || ""
+          .replace("Ações que geram CPA:", "")
+          .split(" - Valor:")[0]
+          ?.trim() || ""
         : "",
       paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
         ? formatCurrency(campaign.payment_method_details.amount.toString())
@@ -181,15 +175,15 @@ function RouteComponent() {
         : "",
       benefits: campaign.benefits
         ? (Array.isArray(campaign.benefits)
-            ? campaign.benefits
-            : campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line).length > 0
-              ? campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line)
-              : [""])
+          ? campaign.benefits
+          : campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line).length > 0
+            ? campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line)
+            : [""])
         : [""],
       generalObjective: campaign.objective || "",
-      whatToDo: Array.isArray(campaign.rules_does) 
-        ? campaign.rules_does 
-        : campaign.rules_does 
+      whatToDo: Array.isArray(campaign.rules_does)
+        ? campaign.rules_does
+        : campaign.rules_does
           ? [campaign.rules_does]
           : [""],
       whatNotToDo: Array.isArray(campaign.rules_does_not)
@@ -252,9 +246,9 @@ function RouteComponent() {
     const averageEngagement =
       postsWithEngagement.length > 0
         ? postsWithEngagement.reduce(
-            (sum, post) => sum + (post.metrics?.engagement || 0),
-            0
-          ) / postsWithEngagement.length
+          (sum, post) => sum + (post.metrics?.engagement || 0),
+          0
+        ) / postsWithEngagement.length
         : metrics?.engagement || 0;
 
     return {
@@ -267,6 +261,14 @@ function RouteComponent() {
 
   // Loading state (agora só 2 queries: campaign e dashboard)
   const isLoading = isLoadingCampaign || isLoadingDashboard;
+
+  // Se estiver na rota de edição ou no perfil do influenciador, renderizar apenas o Outlet (após todos os hooks)
+  if (location.pathname.includes("/edit")) {
+    return <Outlet />;
+  }
+  if (location.pathname.includes("/influencer/")) {
+    return <Outlet />;
+  }
 
   // Error handling
   if (campaignError) {
@@ -290,10 +292,37 @@ function RouteComponent() {
 
   if (isLoading || !campaignFormData) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-sm text-neutral-600">Carregando campanha...</p>
+      <div className="flex flex-col h-full max-w-7xl mx-auto">
+        <div className="flex-1 pb-6">
+          <div className="bg-white rounded-xl overflow-hidden">
+            <div className="px-4 pt-4 pb-0 flex flex-col gap-5">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-1 text-sm text-neutral-500">
+                  <span>Campanhas</span>
+                  <Icon name="ChevronRight" size={16} color="#7c7c7c" />
+                  <span className="text-neutral-400">Detalhes da campanha</span>
+                </div>
+                <div className="flex gap-3">
+                  <div className="skeleton h-9 w-24 rounded-md" />
+                  <div className="skeleton h-9 w-20 rounded-md" />
+                  <div className="skeleton h-9 w-28 rounded-md" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="skeleton h-8 w-72 max-w-full" />
+                <div className="flex items-center gap-2.5">
+                  <div className="skeleton h-4 w-28" />
+                  <span className="size-1 rounded-full bg-neutral-300" aria-hidden />
+                  <div className="skeleton h-4 w-24" />
+                  <div className="skeleton h-8 w-20 rounded-xl" />
+                </div>
+              </div>
+            </div>
+            <Tabs tabs={tabs} activeTab="dashboard" onTabChange={() => {}} />
+          </div>
+          <div className="mt-6">
+            <DashboardTabSkeleton />
+          </div>
         </div>
       </div>
     );
@@ -333,9 +362,9 @@ function RouteComponent() {
           />
         );
       case "applications":
-        return <ApplicationsTab influencers={influencers} />;
+        return <ApplicationsTab influencers={influencers} isLoading={isLoadingDashboard} />;
       case "curation":
-        return <CurationTab influencers={influencers} />;
+        return <CurationTab influencers={influencers} isLoading={isLoadingDashboard} />;
       case "approval":
         return (
           <ContentApprovalTab
@@ -373,88 +402,82 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-50">
-      {/* Header fixo */}
-      <div className="bg-white/95 backdrop-blur-sm border-b border-neutral-200 sticky top-0 z-10">
-        <div className="p-6 pb-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex flex-col justify-start gap-4">
-              <Button
-                variant="outline"
+    <div className="flex flex-col h-full max-w-7xl mx-auto">
+      <div className="flex-1 pb-6">
+        <div className="bg-white rounded-xl overflow-hidden">
+          {/* Breadcrumb + título + status + ações */}
+          <div className="px-4 pt-4 pb-0 flex flex-col gap-5">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <button
+                type="button"
                 onClick={() => navigate({ to: "/campaigns" })}
-                style={{ width: "40%", height: "36px" }}
+                className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
               >
-                <div className="flex items-center gap-2">
-                  <Icon name="ArrowLeft" size={16} color="#404040" />
-                  <span className="text-neutral-700 font-medium">Voltar</span>
-                </div>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-semibold text-neutral-950">
-                  {campaignFormData.title}
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge
-                    text={campaign?.status === "published" ? "Ativa" : "Rascunho"}
-                    backgroundColor={
-                      campaign?.status === "published"
-                        ? "bg-success-50"
-                        : "bg-neutral-100"
-                    }
-                    textColor={
-                      campaign?.status === "published"
-                        ? "text-success-600"
-                        : "text-neutral-700"
-                    }
-                  />
-                  <span className="text-sm text-neutral-600">
-                    {campaignFormData.influencersCount} influenciadores •{" "}
-                    {progressPercentage}% concluído
+                <span>Campanhas</span>
+                <Icon name="ChevronRight" size={16} color="#7c7c7c" />
+                <span className="text-neutral-950">Detalhes da campanha</span>
+              </button>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => setShowMuralDateModal(true)}
+                  className="bg-primary-500 hover:bg-primary-600 text-white border-0"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="Send" color="#fff" size={16} />
+                    <span>Publicar</span>
+                  </div>
+                </Button>
+                {((campaign?.status as any)?.value === "draft" || campaign?.status === "draft") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon name="Pencil" color="#404040" size={16} />
+                      <span>Editar</span>
+                    </div>
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => setIsShareModalOpen(true)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="Share2" color="#404040" size={16} />
+                    <span>Compartilhar</span>
+                  </div>
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <h1 className="text-[28px] font-semibold text-neutral-950 leading-tight">
+                {campaignFormData.title}
+              </h1>
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm text-neutral-500">
+                  {campaignFormData.influencersCount} influenciadores
+                </span>
+                <span className="size-1 rounded-full bg-neutral-400" aria-hidden />
+                <span className="text-sm text-neutral-500">
+                  {progressPercentage}% Concluído
+                </span>
+                <div className="px-3 py-2 rounded-xl bg-neutral-200">
+                  <span className="text-sm font-normal text-neutral-950">
+                    {campaign?.status === "published" ? "Ativa" : "Rascunho"}
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => setShowMuralDateModal(true)}
-                className="bg-primary-500 hover:bg-primary-600 text-white border-0"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon name="Send" color="#fff" size={16} />
-                  <span>Publicar</span>
-                </div>
-              </Button>
-              {((campaign?.status as any)?.value === "draft" || campaign?.status === "draft") && (
-                <Button
-                  variant="outline"
-                  onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="Pencil" color="#404040" size={16} />
-                    <span>Editar</span>
-                  </div>
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => setIsShareModalOpen(true)}
-              >
-                <div className="flex items-center gap-2">
-                  <Icon name="Share2" color="#404040" size={16} />
-                  <span>Compartilhar</span>
-                </div>
-              </Button>
-            </div>
           </div>
+
+          {/* Tabs (estilo Figma: borda inferior roxa na ativa) */}
+          <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
 
-        {/* Tabs */}
-        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-
-      {/* Conteúdo das tabs */}
-      <div className="flex-1 overflow-y-auto p-6 px-0">
-        {renderTabContent()}
+        {/* Conteúdo das tabs */}
+        <div className="mt-6">
+          {renderTabContent()}
+        </div>
       </div>
 
       {/* Modal de compartilhamento */}
