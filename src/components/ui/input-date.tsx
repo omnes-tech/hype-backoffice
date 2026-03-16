@@ -105,8 +105,9 @@ export function InputDate({
           onChange={handleChange}
           onBlur={handleBlur}
           onFocus={handleFocus}
+          onClick={handlePickerClick}
           disabled={disabled}
-          className="w-full h-full rounded-2xl outline-none placeholder:text-neutral-400 text-neutral-950 bg-transparent min-w-0"
+          className="w-full h-full rounded-2xl outline-none placeholder:text-neutral-400 text-neutral-950 bg-transparent min-w-0 cursor-pointer"
         />
 
         <input

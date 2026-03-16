@@ -132,6 +132,7 @@ export interface CampaignFormData {
   paymentCpaActions: string; // Quais ações geram CPA
   paymentCpaValue: string; // Valor do CPA
   paymentCpmValue: string; // Valor do CPM
+  benefitsBonus?: string; // Descrição do bônus por performance (quando toggle ativo)
   benefits: string | string[]; // Aceita string (compatibilidade) ou array de strings
   generalObjective: string;
   whatToDo: string | string[]; // Aceita string (compatibilidade) ou array de strings
@@ -142,6 +143,8 @@ export interface CampaignFormData {
   brandFiles: string;
   phasesCount: string;
   phases: CampaignPhase[];
+  /** Revisão: campanha pública ou privada */
+  campaignVisibility?: "public" | "private";
 }
 
 export interface Influencer {

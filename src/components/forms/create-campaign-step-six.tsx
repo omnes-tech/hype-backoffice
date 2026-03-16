@@ -516,16 +516,6 @@ export function CreateCampaignStepSix({
             </div>
           </Button>
         </div>
-
-        <div className="w-fit">
-          <Button onClick={handleNext} type="button">
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-neutral-50 font-semibold">Avançar</p>
-
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-            </div>
-          </Button>
-        </div>
       </div>
     </form>
   );

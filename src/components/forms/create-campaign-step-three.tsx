@@ -1,11 +1,58 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/text-area";
 import type { CampaignFormData } from "@/shared/types";
 import { handleCurrencyInput } from "@/shared/utils/masks";
+
+/** Toggle no estilo Figma: 37×20px, pill, verde (on) / cinza (off), knob cinza escuro */
+function ToggleSwitch({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+}) {
+  const trackWidth = 37;
+  const trackHeight = 20;
+  const knobSize = 16;
+  const knobOffset = (trackHeight - knobSize) / 2;
+  const travel = trackWidth - knobSize - knobOffset * 2;
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className="relative shrink-0 cursor-pointer rounded-[1.667px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+      style={{
+        width: trackWidth,
+        height: trackHeight,
+        borderRadius: trackHeight / 2,
+      }}
+    >
+      <span
+        className="absolute inset-0 rounded-full transition-colors duration-200"
+        style={{
+          backgroundColor: checked ? "var(--color-success-500)" : "#d4d4d4",
+          borderRadius: trackHeight / 2,
+        }}
+      />
+      <span
+        className="pointer-events-none absolute rounded-full transition-transform duration-200 ease-out"
+        style={{
+          width: knobSize,
+          height: knobSize,
+          top: knobOffset,
+          left: knobOffset,
+          backgroundColor: "#262626",
+          transform: checked ? `translateX(${travel}px)` : "translateX(0)",
+        }}
+      />
+    </button>
+  );
+}
 
 interface CreateCampaignStepThreeProps {
   formData: CampaignFormData;
@@ -20,210 +67,293 @@ export function CreateCampaignStepThree({
   onBack,
   onNext,
 }: CreateCampaignStepThreeProps) {
-  // Converter strings para arrays se necessário (compatibilidade com dados antigos)
+  const [includeBonus, setIncludeBonus] = useState(!!formData.benefitsBonus?.trim());
   const [benefitsItems, setBenefitsItems] = useState<string[]>(() => {
     if (Array.isArray(formData.benefits)) {
-      return formData.benefits;
+      return formData.benefits.filter((item) => item.trim() !== "");
     }
-    if (formData.benefits) {
-      // Se for string, dividir por linhas que começam com ponto ou traço
-      return formData.benefits
+    if (formData.benefits && typeof formData.benefits === "string") {
+      const parsed = formData.benefits
         .split(/\n/)
-        .map(line => line.trim())
-        .filter(line => line && (line.startsWith('.') || line.startsWith('-') || line.startsWith('•')))
-        .map(line => line.replace(/^[.\-•]\s*/, '').trim())
-        .filter(line => line);
+        .map((line) => line.trim())
+        .filter((line) => line && (line.startsWith(".") || line.startsWith("-") || line.startsWith("•") || line.length > 0))
+        .map((line) => line.replace(/^[.\-•]\s*/, "").trim())
+        .filter(Boolean);
+      return parsed.length > 0 ? parsed : [""];
     }
     return [""];
   });
+  const [newBenefit, setNewBenefit] = useState("");
 
-  // Atualizar formData quando os itens mudarem (sem dependência de formData para evitar loops)
   useEffect(() => {
-    const filtered = benefitsItems.filter(item => item.trim() !== "");
+    const filtered = benefitsItems.filter((item) => item.trim() !== "");
     updateFormData("benefits", filtered.length > 0 ? filtered : [""]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [benefitsItems]);
 
-  const addBenefitsItem = () => {
-    setBenefitsItems([...benefitsItems, ""]);
-  };
-
-  const removeBenefitsItem = (index: number) => {
-    if (benefitsItems.length > 1) {
-      setBenefitsItems(benefitsItems.filter((_, i) => i !== index));
+  useEffect(() => {
+    if (!includeBonus) {
+      updateFormData("benefitsBonus", "");
     }
+  }, [includeBonus, updateFormData]);
+
+  const addBenefit = () => {
+    const value = newBenefit.trim();
+    if (!value) return;
+    setBenefitsItems((prev) => (prev[0] === "" ? [value] : [...prev, value]));
+    setNewBenefit("");
   };
 
-  const updateBenefitsItem = (index: number, value: string) => {
-    const updated = [...benefitsItems];
-    updated[index] = value;
-    setBenefitsItems(updated);
+  const removeBenefit = (index: number) => {
+    setBenefitsItems((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length === 0 ? [""] : next;
+    });
   };
+
+  const inputClass =
+    "w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none";
+  const labelClass = "text-base font-medium leading-5 text-[#0A0A0A]";
+
   const renderPaymentFields = () => {
     switch (formData.paymentType) {
       case "fixed":
         return (
-          <Input
-            label="Valor a ser pago (independente de número de seguidores e métricas)"
-            placeholder="Ex: R$ 1.000,00"
-            value={formData.paymentFixedAmount ? `R$ ${formData.paymentFixedAmount}` : ""}
-            onChange={(e) =>
-              handleCurrencyInput(e, (value) =>
-                updateFormData("paymentFixedAmount", value)
-              )
-            }
-          />
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>
+              Valor a ser pago (independente de número de seguidores e métricas)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: R$ 1.000,00"
+              value={formData.paymentFixedAmount ? `R$ ${formData.paymentFixedAmount}` : ""}
+              onChange={(e) =>
+                handleCurrencyInput(e, (value) =>
+                  updateFormData("paymentFixedAmount", value)
+                )
+              }
+              className={inputClass}
+            />
+          </div>
         );
-
       case "price":
-        // Preço definido pelo influenciador - sem campos adicionais
         return null;
-
       case "swap":
         return (
-          <>
-            <Input
-              label="Item oferecido"
-              placeholder="Ex: Kit de produtos, Cupom de desconto"
-              value={formData.paymentSwapItem}
-              onChange={(e) => updateFormData("paymentSwapItem", e.target.value)}
-            />
-            <Input
-              label="Valor de mercado"
-              placeholder="Ex: R$ 500,00"
-              value={formData.paymentSwapMarketValue ? `R$ ${formData.paymentSwapMarketValue}` : ""}
-              onChange={(e) =>
-                handleCurrencyInput(e, (value) =>
-                  updateFormData("paymentSwapMarketValue", value)
-                )
-              }
-            />
-          </>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Item oferecido</label>
+              <input
+                type="text"
+                placeholder="Ex: Kit de produtos, Cupom de desconto"
+                value={formData.paymentSwapItem}
+                onChange={(e) => updateFormData("paymentSwapItem", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Valor de mercado</label>
+              <input
+                type="text"
+                placeholder="Ex: R$ 500,00"
+                value={formData.paymentSwapMarketValue ? `R$ ${formData.paymentSwapMarketValue}` : ""}
+                onChange={(e) =>
+                  handleCurrencyInput(e, (value) =>
+                    updateFormData("paymentSwapMarketValue", value)
+                  )
+                }
+                className={inputClass}
+              />
+            </div>
+          </div>
         );
-
       case "cpa":
         return (
-          <>
-            <Textarea
-              label="Quais ações geram CPA?"
-              placeholder="Descreva quais ações dos influenciadores gerarão CPA (ex: clique no link, compra realizada, cadastro)"
-              value={formData.paymentCpaActions}
-              onChange={(e) => updateFormData("paymentCpaActions", e.target.value)}
-            />
-            <Input
-              label="Valor do CPA"
-              placeholder="Ex: R$ 50,00"
-              value={formData.paymentCpaValue ? `R$ ${formData.paymentCpaValue}` : ""}
-              onChange={(e) =>
-                handleCurrencyInput(e, (value) =>
-                  updateFormData("paymentCpaValue", value)
-                )
-              }
-            />
-          </>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Quais ações geram CPA?</label>
+              <textarea
+                placeholder="Descreva quais ações dos influenciadores gerarão CPA (ex: clique no link, compra realizada, cadastro)"
+                value={formData.paymentCpaActions}
+                onChange={(e) => updateFormData("paymentCpaActions", e.target.value)}
+                className={`${inputClass} min-h-[100px] rounded-[12px] resize-y`}
+                rows={3}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Valor do CPA</label>
+              <input
+                type="text"
+                placeholder="Ex: R$ 50,00"
+                value={formData.paymentCpaValue ? `R$ ${formData.paymentCpaValue}` : ""}
+                onChange={(e) =>
+                  handleCurrencyInput(e, (value) =>
+                    updateFormData("paymentCpaValue", value)
+                  )
+                }
+                className={inputClass}
+              />
+            </div>
+          </div>
         );
-
       case "cpm":
         return (
-          <Input
-            label="Valor do CPM"
-            placeholder="Ex: R$ 10,00"
-            value={formData.paymentCpmValue ? `R$ ${formData.paymentCpmValue}` : ""}
-            onChange={(e) =>
-              handleCurrencyInput(e, (value) =>
-                updateFormData("paymentCpmValue", value)
-              )
-            }
-          />
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>Valor do CPM</label>
+            <input
+              type="text"
+              placeholder="Ex: R$ 10,00"
+              value={formData.paymentCpmValue ? `R$ ${formData.paymentCpmValue}` : ""}
+              onChange={(e) =>
+                handleCurrencyInput(e, (value) =>
+                  updateFormData("paymentCpmValue", value)
+                )
+              }
+              className={inputClass}
+            />
+          </div>
         );
-
       default:
         return null;
     }
   };
 
   return (
-    <form className="flex flex-col gap-10">
+    <form
+      className="flex flex-col gap-8"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onNext();
+      }}
+    >
+      {/* Header – Figma */}
       <div className="flex flex-col gap-4">
-        <Select
-          label="Tipo de remuneração"
-          placeholder="Escolha como os influenciadores serão pagos"
-          value={formData.paymentType}
-          onChange={(value) => updateFormData("paymentType", value)}
-          options={[
-            { label: "Valor fixo por influenciador", value: "fixed" },
-            { label: "Preço definido pelo influenciador", value: "price" },
-            { label: "Permuta", value: "swap" },
-            { label: "CPA (Custo Por Ação)", value: "cpa" },
-            { label: "CPM (Custo Por Mil)", value: "cpm" },
-          ]}
-        />
+        <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
+          Remuneração e benefícios
+        </h2>
+        <p className="text-lg leading-8 text-[#404040]">
+          Deixar claro como o influenciador será compensado (dinheiro e/ou
+          vantagens), sem travar quem ainda não quer definir valor exato agora
+        </p>
+      </div>
+
+      {/* Card único – Figma */}
+      <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
+        {/* Tipo de remuneração */}
+        <div className="flex flex-col gap-1">
+          <Select
+            label="Tipo de remuneração"
+            placeholder="Escolha como os influenciadores serão pagos"
+            value={formData.paymentType}
+            onChange={(value) => updateFormData("paymentType", value)}
+            options={[
+              { label: "Valor fixo por influenciador", value: "fixed" },
+              { label: "Preço definido pelo influenciador", value: "price" },
+              { label: "Permuta", value: "swap" },
+              { label: "CPA (Custo Por Ação)", value: "cpa" },
+              { label: "CPM (Custo Por Mil)", value: "cpm" },
+            ]}
+          />
+        </div>
 
         {renderPaymentFields()}
 
-        {/* Benefícios - Lista de itens */}
-        <div className="flex flex-col gap-3 w-full">
-          <label className="text-neutral-950 font-medium">
-            Benefícios Inclusos na Campanha
-          </label>
-          <div className="flex flex-col gap-2 w-full">
-            {benefitsItems.map((item, index) => (
-              <div key={index} className="flex items-center gap-2 w-full">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Ex: Cupom de desconto de R$250,00 para gastar em nossa loja online"
-                    value={item}
-                    onChange={(e) => updateBenefitsItem(index, e.target.value)}
-                  />
-                </div>
-                {benefitsItems.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeBenefitsItem(index)}
-                    className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors shrink-0"
-                  >
-                    <Icon name="X" color="#DC2626" size={20} />
-                  </button>
-                )}
-              </div>
-            ))}
+        {/* Incluir bônus por performance? */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
+            <div className="flex flex-1 flex-col gap-2">
+              <p className="text-lg font-medium text-black">
+                Incluir bônus por perfomance?
+              </p>
+              <p className="text-base text-[#626262]">
+                Ative para oferecer vantagens extras além do cachê, ou caso a
+                campanha seja exclusivamente por permuta
+              </p>
+            </div>
+            <ToggleSwitch checked={includeBonus} onCheckedChange={setIncludeBonus} />
+          </div>
+
+          {includeBonus && (
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Descrição do bônus</label>
+              <input
+                type="text"
+                placeholder="Detalhe as regras ou condições para o uso do bônus"
+                value={formData.benefitsBonus ?? ""}
+                onChange={(e) => updateFormData("benefitsBonus", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Listagem dos benefícios inclusos */}
+        <div className="flex flex-col gap-4 pt-4">
+          <div className="flex flex-col gap-0">
+            <h3 className="text-lg font-bold leading-8 text-[#0A0A0A]">
+              Listagem dos beneficios inclusos
+            </h3>
+            <p className="text-base leading-8 text-[#404040]">
+              Escreva o benefício e adicione à lista da campanha
+            </p>
+          </div>
+          <div className="flex gap-3 flex-wrap items-end">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Ex: Kit exclusivo com 3 produtos da marca"
+                value={newBenefit}
+                onChange={(e) => setNewBenefit(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className={inputClass}
+              />
+            </div>
             <Button
               type="button"
-              variant="outline"
-              onClick={addBenefitsItem}
-              className="w-fit"
+              onClick={addBenefit}
+              className="shrink-0 rounded-[24px] bg-primary-600 px-4 py-2.5 font-semibold text-white hover:bg-primary-700 w-min"
             >
-              <div className="flex items-center gap-2">
-                <Icon name="Plus" color="#404040" size={16} />
-                <p className="text-neutral-700 font-semibold">
-                  Adicionar benefício
-                </p>
-              </div>
+              <span className="flex items-center gap-2">
+                Adicionar
+                <Icon name="Plus" size={16} color="#FAFAFA" />
+              </span>
             </Button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {benefitsItems.map(
+              (item, index) =>
+                item.trim() !== "" && (
+                  <div
+                    key={`${index}-${item.slice(0, 20)}`}
+                    className="flex items-center justify-between rounded-[12px] border border-[#EDEDED] p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon name="CircleCheck" size={24} color="#22c55e" />
+                      <span className="text-base text-black">{item}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeBenefit(index)}
+                      className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-danger-500 transition-colors"
+                      aria-label="Remover benefício"
+                    >
+                      <Icon name="CircleX" size={24} color="currentColor" />
+                    </button>
+                  </div>
+                )
+            )}
           </div>
         </div>
       </div>
 
+      {/* Botões */}
       <div className="flex items-center justify-between">
-        <div className="w-fit">
-          <Button variant="outline" onClick={onBack}>
-            <div className="flex items-center justify-center gap-2">
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-
-              <p className="text-neutral-700 font-semibold">Voltar</p>
-            </div>
-          </Button>
-        </div>
-
-        <div className="w-fit">
-          <Button onClick={onNext}>
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-neutral-50 font-semibold">Avançar</p>
-
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-            </div>
-          </Button>
-        </div>
+        <Button type="button" variant="outline" onClick={onBack} className="w-min">
+          <div className="flex items-center justify-center gap-2">
+            <Icon name="ArrowLeft" size={16} color="#404040" />
+            <p className="font-semibold text-neutral-700">Voltar</p>
+          </div>
+        </Button>
       </div>
     </form>
   );

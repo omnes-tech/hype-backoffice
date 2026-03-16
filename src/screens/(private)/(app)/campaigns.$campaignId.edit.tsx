@@ -10,7 +10,6 @@ import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-t
 import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
 import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
 import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
-import { CreateCampaignStepSix } from "@/components/forms/create-campaign-step-six";
 import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
 
 import type { CampaignFormData } from "@/shared/types";
@@ -200,7 +199,7 @@ function RouteComponent() {
     }
   }, [campaign, phases, niches]);
 
-  const totalSteps = 7;
+  const totalSteps = 6;
   const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
 
   const updateFormData = (field: keyof CampaignFormData, value: any) => {
@@ -535,18 +534,10 @@ function RouteComponent() {
         );
       case 6:
         return (
-          <CreateCampaignStepSix
+          <CreateCampaignStepSeven
             formData={formData}
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(5)}
-            onNext={() => setCurrentStep(7)}
-          />
-        );
-      case 7:
-        return (
-          <CreateCampaignStepSeven
-            formData={formData}
-            onBack={() => setCurrentStep(6)}
             onEdit={(step) => setCurrentStep(step)}
             onSubmitCampaign={handleSubmitCampaign}
             isLoading={updateCampaignMutation.isPending}

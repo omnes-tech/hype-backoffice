@@ -2,23 +2,73 @@ import { useState, useMemo, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Select } from "@/components/ui/select";
 import type { CampaignFormData } from "@/shared/types";
 import {
   BRAZILIAN_STATES,
-  BRAZILIAN_CITIES,
   getCitiesByState,
 } from "@/shared/data/brazilian-states-cities";
 import { handleNumberInput } from "@/shared/utils/masks";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
+import { useNiches } from "@/hooks/use-niches";
 
 interface CreateCampaignStepTwoProps {
   formData: CampaignFormData;
   updateFormData: (field: keyof CampaignFormData, value: string) => void;
   onBack: () => void;
   onNext: () => void;
+}
+
+/** Toggle no estilo Figma: 37×20px, pill, verde (on) / cinza (off), knob cinza escuro */
+function ToggleSwitch({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+}) {
+  const trackWidth = 37;
+  const trackHeight = 20;
+  const knobSize = 16;
+  const knobOffset = (trackHeight - knobSize) / 2; // 2px
+  const travel = trackWidth - knobSize - knobOffset * 2; // 17px
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className="relative shrink-0 cursor-pointer rounded-[1.667px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+      style={{
+        width: trackWidth,
+        height: trackHeight,
+        borderRadius: trackHeight / 2,
+      }}
+    >
+      {/* Track – verde quando ligado, cinza quando desligado */}
+      <span
+        className="absolute inset-0 rounded-full transition-colors duration-200"
+        style={{
+          backgroundColor: checked ? "var(--color-success-500)" : "#d4d4d4",
+          borderRadius: trackHeight / 2,
+        }}
+      />
+      {/* Knob – cinza escuro (quase preto), desliza da esquerda para a direita */}
+      <span
+        className="pointer-events-none absolute rounded-full transition-transform duration-200 ease-out"
+        style={{
+          width: knobSize,
+          height: knobSize,
+          top: knobOffset,
+          left: knobOffset,
+          backgroundColor: "#262626",
+          transform: checked ? `translateX(${travel}px)` : "translateX(0)",
+        }}
+      />
+    </button>
+  );
 }
 
 export function CreateCampaignStepTwo({
@@ -30,8 +80,18 @@ export function CreateCampaignStepTwo({
   const [selectedStates, setSelectedStates] = useState<string[]>(
     formData.state ? formData.state.split(",").filter(Boolean) : []
   );
+  const [segmentFollowers, setSegmentFollowers] = useState(
+    !!formData.minFollowers && formData.minFollowers.replace(/\D/g, "") !== ""
+  );
+  const [segmentLocation, setSegmentLocation] = useState(
+    !!(formData.state || formData.city)
+  );
+  const [segmentGender, setSegmentGender] = useState(
+    !!formData.gender && formData.gender !== "all"
+  );
 
-  // Sincronizar estados selecionados quando formData mudar
+  const { data: niches = [] } = useNiches();
+
   useEffect(() => {
     if (formData.state) {
       const states = formData.state.split(",").filter(Boolean);
@@ -41,6 +101,26 @@ export function CreateCampaignStepTwo({
     }
   }, [formData.state]);
 
+  useEffect(() => {
+    if (!segmentFollowers) {
+      updateFormData("minFollowers", "");
+    }
+  }, [segmentFollowers, updateFormData]);
+
+  useEffect(() => {
+    if (!segmentLocation) {
+      updateFormData("state", "");
+      updateFormData("city", "");
+      setSelectedStates([]);
+    }
+  }, [segmentLocation, updateFormData]);
+
+  useEffect(() => {
+    if (!segmentGender) {
+      updateFormData("gender", "all");
+    }
+  }, [segmentGender, updateFormData]);
+
   const stateOptions = BRAZILIAN_STATES.map((state) => ({
     value: state.code,
     label: state.name,
@@ -48,12 +128,8 @@ export function CreateCampaignStepTwo({
 
   const cityOptions = useMemo(() => {
     if (selectedStates.length === 0) {
-      return BRAZILIAN_CITIES.map((city) => ({
-        value: `${city.name}-${city.state}`,
-        label: `${city.name} - ${city.state}`,
-      }));
+      return [];
     }
-
     const cities: Array<{ value: string; label: string }> = [];
     selectedStates.forEach((stateCode) => {
       const citiesInState = getCitiesByState(stateCode);
@@ -71,10 +147,25 @@ export function CreateCampaignStepTwo({
     return formData.city ? formData.city.split(",").filter(Boolean) : [];
   }, [formData.city]);
 
+  const mainNicheOptions = useMemo(
+    () =>
+      niches
+        .filter((n) => n.parent_id === null)
+        .map((n) => ({ value: n.id.toString(), label: n.name })),
+    [niches]
+  );
+
+  const subnicheOptions = useMemo(() => {
+    if (!formData.mainNiche) return [];
+    const parentId = parseInt(formData.mainNiche, 10);
+    return niches
+      .filter((n) => n.parent_id === parentId)
+      .map((n) => ({ value: n.id.toString(), label: n.name }));
+  }, [niches, formData.mainNiche]);
+
   const handleStateChange = (values: string[]) => {
     setSelectedStates(values);
     updateFormData("state", values.join(","));
-    // Limpar cidades quando estados mudarem
     updateFormData("city", "");
   };
 
@@ -82,7 +173,6 @@ export function CreateCampaignStepTwo({
     updateFormData("city", values.join(","));
   };
 
-  // Preparar filtros para buscar influenciadores
   const catalogFilters = useMemo(() => {
     const filters: {
       gender?: string;
@@ -90,177 +180,305 @@ export function CreateCampaignStepTwo({
       state?: string;
       city?: string;
     } = {};
-
-    // Mapear gênero
-    if (formData.gender && formData.gender !== "all") {
+    if (segmentGender && formData.gender && formData.gender !== "all") {
       filters.gender = formData.gender;
     }
-
-    // Mapear seguidores mínimos
-    if (formData.minFollowers) {
-      const minFollowersNum = parseInt(
-        formData.minFollowers.replace(/\D/g, ""),
-        10
-      );
-      if (!isNaN(minFollowersNum) && minFollowersNum > 0) {
-        filters.followers_min = minFollowersNum;
-      }
+    if (segmentFollowers && formData.minFollowers) {
+      const min = parseInt(formData.minFollowers.replace(/\D/g, ""), 10);
+      if (!isNaN(min) && min > 0) filters.followers_min = min;
     }
-
-    // Mapear estados (pegar o primeiro estado se houver múltiplos)
-    // Nota: Se a API suportar múltiplos estados, pode ser ajustado para enviar array
-    if (selectedStates.length > 0) {
+    if (segmentLocation && selectedStates.length > 0) {
       filters.state = selectedStates[0];
     }
-
-    // Mapear cidades (pegar a primeira cidade se houver múltiplas)
-    // Nota: Se a API suportar múltiplas cidades, pode ser ajustado para enviar array
-    if (selectedCities.length > 0) {
-      // Extrair apenas o nome da cidade (formato é "NomeCidade-ESTADO")
+    if (segmentLocation && selectedCities.length > 0) {
       const firstCity = selectedCities[0].split("-")[0];
       filters.city = firstCity;
     }
-
     return filters;
-  }, [formData.gender, formData.minFollowers, selectedStates, selectedCities]);
+  }, [
+    formData.gender,
+    formData.minFollowers,
+    segmentGender,
+    segmentFollowers,
+    segmentLocation,
+    selectedStates,
+    selectedCities,
+  ]);
 
-  // Verificar se há filtros aplicados
-  const hasFilters = useMemo(() => {
-    return (
-      (formData.gender && formData.gender !== "all") ||
-      (formData.minFollowers &&
+  const hasFilters = useMemo(
+    () =>
+      (segmentGender && formData.gender && formData.gender !== "all") ||
+      (segmentFollowers &&
+        !!formData.minFollowers &&
         parseInt(formData.minFollowers.replace(/\D/g, ""), 10) > 0) ||
-      selectedStates.length > 0 ||
-      selectedCities.length > 0
-    );
-  }, [formData.gender, formData.minFollowers, selectedStates, selectedCities]);
+      (segmentLocation && selectedStates.length > 0) ||
+      (segmentLocation && selectedCities.length > 0),
+    [
+      segmentGender,
+      segmentFollowers,
+      segmentLocation,
+      formData.gender,
+      formData.minFollowers,
+      selectedStates.length,
+      selectedCities.length,
+    ]
+  );
 
-  // Buscar influenciadores com os filtros (só busca se houver filtros)
   const { data: influencers = [], isLoading: isLoadingInfluencers } =
     useInfluencersCatalog(hasFilters ? catalogFilters : undefined);
 
-  // Contagem de influenciadores encontrados
-  const influencersCount = influencers.length;
+  const totalFollowers = useMemo(
+    () =>
+      influencers.reduce((sum, inf) => sum + (inf.followers || 0), 0),
+    [influencers]
+  );
 
-  // Calcular total de seguidores dos influenciadores filtrados
-  const totalFollowers = useMemo(() => {
-    return influencers.reduce((sum, influencer) => {
-      return sum + (influencer.followers || 0);
-    }, 0);
-  }, [influencers]);
+  const formatNumber = (num: number): string =>
+    num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
-  // Formatar número no padrão brasileiro (XXX.XXX.XXX)
-  const formatNumber = (num: number): string => {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
+  const inputClass =
+    "w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none";
+  const labelClass = "text-base font-medium leading-5 text-[#0A0A0A]";
 
   return (
-    <form className="flex flex-col gap-10">
+    <form
+      className="flex flex-col gap-11"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onNext();
+      }}
+    >
+      {/* Header – Figma */}
       <div className="flex flex-col gap-4">
-        <Input
-          label="Quantos influenciadores deseja na campanha?"
-          placeholder="1"
-          value={formData.influencersCount}
-          onChange={(e) =>
-            handleNumberInput(e, (value) =>
-              updateFormData("influencersCount", value)
-            )
-          }
-        />
+        <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
+          Perfil dos influenciadores
+        </h2>
+        <p className="text-lg leading-8 text-[#404040]">
+          Defina o perfil mínimo dos influenciadores para esta campanha.
+        </p>
+      </div>
 
-        <Input
-          label="Quantidade mínima de seguidores"
-          placeholder="1.000"
-          value={formData.minFollowers}
-          onChange={(e) =>
-            handleNumberInput(e, (value) =>
-              updateFormData("minFollowers", value)
-            )
-          }
-        />
+      {/* Card 1: Quantos influenciadores + segmentar seguidores */}
+      <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Quantos influenciadores?</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Ex.: 10"
+            value={formData.influencersCount}
+            onChange={(e) =>
+              handleNumberInput(e, (value) =>
+                updateFormData("influencersCount", value)
+              )
+            }
+            className={inputClass}
+          />
+        </div>
 
-        <MultiSelect
-          label="Estado"
-          placeholder="Selecione o/os estado(s) desejado(s)"
-          options={stateOptions}
-          value={selectedStates}
-          onChange={handleStateChange}
-        />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-1 items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
+            <div className="flex flex-1 flex-col gap-2">
+              <p className="text-lg font-medium text-black">
+                Deseja segmentar seguidores?
+              </p>
+              <p className="text-base text-[#626262]">
+                Ative para filtrar influenciadores com base em seus seguidores
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={segmentFollowers}
+              onCheckedChange={setSegmentFollowers}
+            />
+          </div>
 
-        <MultiSelect
-          label="Cidade"
-          placeholder={
-            selectedStates.length === 0
-              ? "Selecione primeiro um ou mais estados"
-              : "Selecione a/as cidade(s) desejada(s)"
-          }
-          options={cityOptions}
-          value={selectedCities}
-          onChange={handleCityChange}
-          disabled={selectedStates.length === 0}
-        />
+          {segmentFollowers && (
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>
+                Quantidade mínima de seguidores
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Ex: 1000"
+                value={formData.minFollowers}
+                onChange={(e) =>
+                  handleNumberInput(e, (value) =>
+                    updateFormData("minFollowers", value)
+                  )
+                }
+                className={inputClass}
+              />
+            </div>
+          )}
 
-        <Select
-          label="Gênero"
-          placeholder="Selecione o/os gênero(s)"
-          value={formData.gender}
-          onChange={(value) => updateFormData("gender", value)}
-          openUp
-          options={[
-            { label: "Masculino", value: "male" },
-            { label: "Feminino", value: "female" },
-            { label: "Prefiro não informar", value: "preferNotToInform" },
-            { label: "Outros", value: "outros" },
-            { label: "Todos", value: "all" },
-          ]}
-        />
+          {segmentFollowers && (
+            <div className="flex items-center gap-1">
+              <Icon name="Lightbulb" size={24} color="#626262" />
+              <p className="text-base text-[#626262]">
+                Influenciadores com menos seguidores não serão considerados
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Contador de influenciadores encontrados */}
-        {hasFilters && (
-          <div className="p-4 bg-primary-50 rounded-2xl border border-primary-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isLoadingInfluencers ? (
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                ) : (
-                  <p className="text-xs text-primary-700">
-                    Com esta segmentação você terá um potencial de{" "}
-                    <span className="font-bold text-primary-900">
-                      {influencersCount}
-                    </span>{" "}
-                    influenciadores. Com um público total de{" "}
-                    <span className="font-bold text-primary-900">
-                      {formatNumber(totalFollowers)}
-                    </span>{" "}
-                    de seguidores
-                  </p>
-                )}
-              </div>
+      {/* Card 2: Segmento de conteúdo – Nicho + Subnicho */}
+      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+        <div className="flex flex-col gap-0">
+          <h3 className="text-2xl font-medium leading-8 text-[#0A0A0A]">
+            Segmento de conteúdo
+          </h3>
+          <p className="text-base leading-8 text-[#404040]">
+            Ajuda a encontrar perfis alinhados ao tipo de conteúdo que a
+            campanha precisa.
+          </p>
+        </div>
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <Select
+              label="Nicho"
+              placeholder="Selecione um nicho"
+              options={mainNicheOptions}
+              value={formData.mainNiche}
+              onChange={(value) => {
+                updateFormData("mainNiche", value);
+                updateFormData("subniches", "");
+              }}
+              openUp
+              isSearchable
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <Select
+              label="Subnicho"
+              placeholder="Selecione um subnicho"
+              options={subnicheOptions}
+              value={
+                formData.subniches
+                  ? formData.subniches.split(",").filter(Boolean)[0] ?? ""
+                  : ""
+              }
+              onChange={(value) => updateFormData("subniches", value)}
+              disabled={!formData.mainNiche}
+              openUp
+              isSearchable
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Localização */}
+      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+        <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
+          <div className="flex flex-1 flex-col gap-2">
+            <p className="text-lg font-medium text-black">Localização</p>
+            <p className="text-base text-[#404040]">
+              Defina onde os influenciadores devem estar. A cidade depende do
+              estado
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={segmentLocation}
+            onCheckedChange={setSegmentLocation}
+          />
+        </div>
+        {segmentLocation && (
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <MultiSelect
+                label="Estado"
+                placeholder="Selecione o/os estado(s) desejado(s)"
+                options={stateOptions}
+                value={selectedStates}
+                onChange={handleStateChange}
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <MultiSelect
+                label="Cidade"
+                placeholder={
+                  selectedStates.length === 0
+                    ? "Selecione primeiro um ou mais estados"
+                    : "Selecione a/as cidade(s) desejada(s)"
+                }
+                options={cityOptions}
+                value={selectedCities}
+                onChange={handleCityChange}
+                disabled={selectedStates.length === 0}
+              />
             </div>
           </div>
         )}
       </div>
 
+      {/* Card 4: Segmentar por gênero */}
+      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+        <div className="flex items-center gap-6 rounded-[16px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
+          <div className="flex flex-1 flex-col gap-2">
+            <p className="text-lg font-medium text-black">
+              Segmentar por gênero
+            </p>
+            <p className="text-base text-[#404040]">
+              Selecione o gênero do influenciador aceito para a campanha
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={segmentGender}
+            onCheckedChange={setSegmentGender}
+          />
+        </div>
+        {segmentGender && (
+          <div className="max-w-full">
+            <Select
+              label="Gênero"
+              placeholder="Selecione o/os gênero(s)"
+              value={formData.gender}
+              onChange={(value) => updateFormData("gender", value)}
+              openUp
+              options={[
+                { label: "Masculino", value: "male" },
+                { label: "Feminino", value: "female" },
+                { label: "Prefiro não informar", value: "preferNotToInform" },
+                { label: "Outros", value: "outros" },
+                { label: "Todos", value: "all" },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Contador de influenciadores (quando há filtros) */}
+      {hasFilters && (
+        <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
+          <div className="flex items-center justify-between">
+            {isLoadingInfluencers ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-600 border-b-transparent" />
+            ) : (
+              <p className="text-xs text-primary-700">
+                Com esta segmentação você terá um potencial de{" "}
+                <span className="font-bold text-primary-900">
+                  {influencers.length}
+                </span>{" "}
+                influenciadores. Com um público total de{" "}
+                <span className="font-bold text-primary-900">
+                  {formatNumber(totalFollowers)}
+                </span>{" "}
+                de seguidores
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Botões */}
       <div className="flex items-center justify-between">
-        <div className="w-fit">
-          <Button variant="outline" onClick={onBack}>
-            <div className="flex items-center justify-center gap-2">
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-
-              <p className="text-neutral-700 font-semibold">Voltar</p>
-            </div>
-          </Button>
-        </div>
-
-        <div className="w-fit">
-          <Button onClick={onNext}>
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-neutral-50 font-semibold">Avançar</p>
-
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-            </div>
-          </Button>
-        </div>
+        <Button type="button" variant="outline" onClick={onBack} className="w-min">
+          <div className="flex items-center justify-center gap-2">
+            <Icon name="ArrowLeft" size={16} color="#404040" />
+            <p className="font-semibold text-neutral-700">Voltar</p>
+          </div>
+        </Button>
       </div>
     </form>
   );

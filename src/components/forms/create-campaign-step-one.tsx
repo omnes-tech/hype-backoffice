@@ -165,7 +165,7 @@ export function CreateCampaignStepOne({
           <Button
             type="button"
             onClick={addWhatToDo}
-            className="shrink-0 h-11 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700"
+            className="shrink-0 h-11 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700 w-min"
           >
             <span className="flex items-center gap-2">
               Adicionar
@@ -216,7 +216,7 @@ export function CreateCampaignStepOne({
           <Button
             type="button"
             onClick={addWhatNotToDo}
-            className="shrink-0 h-11 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700"
+            className="shrink-0 h-11 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700 w-min"
           >
             <span className="flex items-center gap-2">
               Adicionar
@@ -245,15 +245,6 @@ export function CreateCampaignStepOne({
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="w-fit self-end">
-        <Button type="button" onClick={handleNext} className="rounded-[24px] bg-primary-600 px-4 py-2.5 font-semibold text-white">
-          <span className="flex items-center gap-2">
-            Continuar
-            <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-          </span>
-        </Button>
       </div>
     </div>
   );

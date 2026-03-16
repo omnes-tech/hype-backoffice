@@ -7,7 +7,6 @@ import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-t
 import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
 import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
 import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
-import { CreateCampaignStepSix } from "@/components/forms/create-campaign-step-six";
 import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
 import type { CampaignFormData } from "@/shared/types";
 import { useCreateCampaign } from "@/hooks/use-campaigns";
@@ -22,12 +21,12 @@ export const Route = createFileRoute("/(private)/(app)/campaigns/new" as "/(priv
   component: CreateCampaignPage,
 });
 
+/** Stepper labels – 6 steps: Briefing, Influenciadores, Remuneração, Materiais, Fases, Revisão */
 const STEP_LABELS = [
   "Briefing",
   "Influenciadores",
   "Remuneração",
   "Materiais",
-  "Detalhes",
   "Fases",
   "Revisão",
 ];
@@ -49,6 +48,7 @@ const initialFormData: CampaignFormData = {
   paymentCpaActions: "",
   paymentCpaValue: "",
   paymentCpmValue: "",
+  benefitsBonus: "",
   benefits: "",
   generalObjective: "",
   whatToDo: "",
@@ -60,6 +60,7 @@ const initialFormData: CampaignFormData = {
   phases: [
     { id: "1", objective: "", postDate: "", formats: [], files: "" },
   ],
+  campaignVisibility: "public",
 };
 
 function CreateCampaignPage() {
@@ -70,7 +71,7 @@ function CreateCampaignPage() {
   const [formData, setFormData] = useState<CampaignFormData>(initialFormData);
 
   const createCampaignMutation = useCreateCampaign();
-  const totalSteps = 7;
+  const totalSteps = 6;
 
   const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -82,10 +83,18 @@ function CreateCampaignPage() {
       : [];
 
     const buildPaymentDetails = () => {
+      const benefitsList = Array.isArray(formData.benefits)
+        ? formData.benefits.filter((item) => item.trim() !== "")
+        : formData.benefits ? [String(formData.benefits).trim()].filter(Boolean) : [];
+      const parts: string[] = [];
+      if (formData.benefitsBonus?.trim()) {
+        parts.push(`Bônus: ${formData.benefitsBonus.trim()}`);
+      }
+      if (benefitsList.length > 0) {
+        parts.push(benefitsList.join("\n"));
+      }
       const baseDetails: { amount?: number; currency?: string; description?: string } = {
-        description: Array.isArray(formData.benefits)
-          ? formData.benefits.filter((item) => item.trim() !== "").join("\n")
-          : (formData.benefits as string) || "",
+        description: parts.join("\n\n") || "",
       };
       switch (formData.paymentType) {
         case "fixed":
@@ -118,6 +127,9 @@ function CreateCampaignPage() {
           break;
         default:
           break;
+      }
+      if (parts.length > 0) {
+        baseDetails.description = [baseDetails.description, parts.join("\n\n")].filter(Boolean).join("\n\n");
       }
       return baseDetails;
     };
@@ -244,33 +256,37 @@ function CreateCampaignPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-8rem)]">
-      {/* Stepper - Figma style */}
-      <div className="flex gap-2 items-center flex-wrap mb-8">
+    <div className="flex flex-col min-h-[calc(100vh-8rem)] max-w-6xl mx-auto">
+      {/* Stepper – design Figma (6 steps, roxo #c252dc, gap 16px/8px) */}
+      <div className="flex gap-4 items-center mb-8 w-full">
         {STEP_LABELS.map((label, index) => {
           const stepNum = index + 1;
           const isActive = currentStep === stepNum;
           return (
-            <div key={label} className="flex gap-2 items-center">
+            <div key={`step-${stepNum}`} className="flex gap-4 items-center shrink-0">
               <div
-                className={`flex gap-2 items-center justify-center pb-3 ${isActive ? "border-b-2 border-primary-600" : ""
-                  }`}
+                className={`flex gap-2 items-center justify-center pb-3 shrink-0 ${
+                  isActive ? "border-b-[3px] border-tertiary-500" : ""
+                }`}
               >
                 <div
-                  className={`flex items-center justify-center rounded-full size-7 text-sm font-bold shrink-0 ${isActive ? "bg-primary-600 text-white" : "border border-[#e5e5e5] text-[#7c7c7c]"
-                    }`}
+                  className={`flex items-center justify-center rounded-full size-7 text-sm font-bold shrink-0 ${
+                    isActive
+                      ? "bg-tertiary-500 text-white"
+                      : "border border-[#e5e5e5] text-[#7c7c7c]"
+                  }`}
                 >
                   {stepNum}
                 </div>
-                <span
-                  className={`text-base whitespace-nowrap ${isActive ? "font-medium text-[#0A0A0A]" : "text-[#7c7c7c]"
-                    }`}
-                >
+                <span className="text-base whitespace-nowrap text-[#7c7c7c]">
                   {label}
                 </span>
               </div>
               {index < STEP_LABELS.length - 1 && (
-                <div className="w-px min-w-px h-4 bg-[#e5e5e5] shrink-0 self-center" aria-hidden />
+                <div
+                  className="h-px flex-1 min-w-[40px] bg-[#e5e5e5] self-center"
+                  aria-hidden
+                />
               )}
             </div>
           );
@@ -319,42 +335,25 @@ function CreateCampaignPage() {
           />
         )}
         {currentStep === 6 && (
-          <CreateCampaignStepSix
+          <CreateCampaignStepSeven
             formData={formData}
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(5)}
-            onNext={handleContinue}
-          />
-        )}
-        {currentStep === 7 && (
-          <CreateCampaignStepSeven
-            formData={formData}
-            onBack={() => setCurrentStep(6)}
             onEdit={(step) => setCurrentStep(step)}
             onSubmitCampaign={handleSubmitCampaign}
+            onSaveDraft={handleSaveDraft}
             isLoading={isCreatingCampaign || createCampaignMutation.isPending}
           />
         )}
       </div>
 
       {/* Sticky footer - Figma style */}
-      {currentStep < 7 && (
+      {currentStep < 6 && (
         <div className="bg-[#FAFAFA] border-t border-[#e5e5e5] p-6 flex justify-end gap-2 rounded-xl mt-10 z-10">
           <Button
             type="button"
-            variant="outline"
-            onClick={handleSaveDraft}
-            className="border-[#e5e5e5] bg-white text-black rounded-[24px] px-4 py-2.5 font-semibold"
-          >
-            <span className="flex items-center gap-2">
-              Salvar rascunho
-              <Icon name="ArrowRight" color="#0A0A0A" size={16} />
-            </span>
-          </Button>
-          <Button
-            type="button"
             onClick={handleContinue}
-            className="bg-primary-600 text-white rounded-[24px] px-4 py-2.5 font-semibold"
+            className="bg-primary-600 text-white rounded-[24px] px-4 py-2.5 font-semibold w-min"
           >
             <span className="flex items-center gap-2">
               Continuar

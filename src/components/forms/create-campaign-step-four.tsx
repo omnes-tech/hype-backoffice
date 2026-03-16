@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/text-area";
+import { Modal } from "@/components/ui/modal";
 import type { CampaignFormData } from "@/shared/types";
+import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFourProps {
   formData: CampaignFormData;
-  updateFormData: (field: keyof CampaignFormData, value: any) => void;
+  updateFormData: (field: keyof CampaignFormData, value: unknown) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -18,199 +18,419 @@ export function CreateCampaignStepFour({
   onBack,
   onNext,
 }: CreateCampaignStepFourProps) {
-  // Converter strings para arrays se necessário (compatibilidade com dados antigos)
-  const [whatToDoItems, setWhatToDoItems] = useState<string[]>(() => {
-    if (Array.isArray(formData.whatToDo)) {
-      return formData.whatToDo;
-    }
-    if (formData.whatToDo) {
-      // Se for string, dividir por linhas que começam com ponto ou traço
-      return formData.whatToDo
-        .split(/\n/)
-        .map(line => line.trim())
-        .filter(line => line && (line.startsWith('.') || line.startsWith('-') || line.startsWith('•')))
-        .map(line => line.replace(/^[.\-•]\s*/, '').trim())
-        .filter(line => line);
-    }
-    return [""];
-  });
-
-  const [whatNotToDoItems, setWhatNotToDoItems] = useState<string[]>(() => {
-    if (Array.isArray(formData.whatNotToDo)) {
-      return formData.whatNotToDo;
-    }
-    if (formData.whatNotToDo) {
-      // Se for string, dividir por linhas que começam com ponto ou traço
-      return formData.whatNotToDo
-        .split(/\n/)
-        .map(line => line.trim())
-        .filter(line => line && (line.startsWith('.') || line.startsWith('-') || line.startsWith('•')))
-        .map(line => line.replace(/^[.\-•]\s*/, '').trim())
-        .filter(line => line);
-    }
-    return [""];
-  });
-
-  // Atualizar formData quando os itens mudarem (sem dependência de formData para evitar loops)
-  useEffect(() => {
-    const filtered = whatToDoItems.filter(item => item.trim() !== "");
-    updateFormData("whatToDo", filtered.length > 0 ? filtered : [""]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whatToDoItems]);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const filesInputRef = useRef<HTMLInputElement>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(
+    formData.banner || null
+  );
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [imagePosition, setImagePosition] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [dragStartPosition, setDragStartPosition] = useState(0);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    const filtered = whatNotToDoItems.filter(item => item.trim() !== "");
-    updateFormData("whatNotToDo", filtered.length > 0 ? filtered : [""]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whatNotToDoItems]);
+    if (formData.banner && !bannerPreview) {
+      setBannerPreview(formData.banner);
+    }
+  }, [formData.banner, bannerPreview]);
 
-  const addWhatToDoItem = () => {
-    setWhatToDoItems([...whatToDoItems, ""]);
-  };
-
-  const removeWhatToDoItem = (index: number) => {
-    if (whatToDoItems.length > 1) {
-      setWhatToDoItems(whatToDoItems.filter((_, i) => i !== index));
+  const handleBannerSelect = (files: FileList | null) => {
+    if (files && files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          if (img.height > 512) {
+            setOriginalImage(result);
+            setOriginalFile(file);
+            setShowCropModal(true);
+            setImagePosition(0);
+          } else {
+            setBannerPreview(result);
+            updateFormData("banner", result);
+            updateFormData("bannerFile", file);
+          }
+        };
+        img.src = result;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const updateWhatToDoItem = (index: number, value: string) => {
-    const updated = [...whatToDoItems];
-    updated[index] = value;
-    setWhatToDoItems(updated);
+  const handleCropConfirm = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (!originalImage || !imageRef.current || !cropContainerRef.current) return;
+    const img = imageRef.current;
+    const container = cropContainerRef.current;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const targetWidth = 1280;
+    const targetHeight = 512;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const containerWidth = container.clientWidth;
+    const scale = containerWidth / img.naturalWidth;
+    const visibleTopInOriginal = Math.max(0, -imagePosition / scale);
+    const visibleHeightInOriginal = Math.min(
+      img.naturalHeight - visibleTopInOriginal,
+      container.clientHeight / scale
+    );
+    const targetAspectRatio = targetWidth / targetHeight;
+    let sourceX = 0;
+    let sourceY = visibleTopInOriginal;
+    let sourceWidth = img.naturalWidth;
+    let sourceHeight = visibleHeightInOriginal;
+    const imageAspectRatio = img.naturalWidth / img.naturalHeight;
+    if (imageAspectRatio > targetAspectRatio) {
+      sourceWidth = img.naturalHeight * targetAspectRatio;
+      sourceX = (img.naturalWidth - sourceWidth) / 2;
+    }
+    if (sourceHeight < targetHeight / scale) {
+      sourceHeight = Math.min(img.naturalHeight - sourceY, targetHeight / scale);
+    }
+    ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const croppedFile = new File([blob], originalFile?.name || "banner.jpg", {
+        type: blob.type || "image/jpeg",
+      });
+      const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      setBannerPreview(croppedDataUrl);
+      updateFormData("banner", croppedDataUrl);
+      updateFormData("bannerFile", croppedFile);
+      setShowCropModal(false);
+      setOriginalImage(null);
+      setOriginalFile(null);
+    }, "image/jpeg", 0.9);
   };
 
-  const addWhatNotToDoItem = () => {
-    setWhatNotToDoItems([...whatNotToDoItems, ""]);
+  const handleCropCancel = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setShowCropModal(false);
+    setOriginalImage(null);
+    setOriginalFile(null);
+    bannerInputRef.current && (bannerInputRef.current.value = "");
   };
 
-  const removeWhatNotToDoItem = (index: number) => {
-    if (whatNotToDoItems.length > 1) {
-      setWhatNotToDoItems(whatNotToDoItems.filter((_, i) => i !== index));
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStartY(e.clientY);
+    setDragStartPosition(imagePosition);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !imageRef.current || !cropContainerRef.current) return;
+    e.preventDefault();
+    const deltaY = e.clientY - dragStartY;
+    const newPosition = dragStartPosition + deltaY;
+    const container = cropContainerRef.current;
+    const img = imageRef.current;
+    const scale = container.clientWidth / img.naturalWidth;
+    const imageDisplayHeight = img.naturalHeight * scale;
+    const minPosition = container.clientHeight - imageDisplayHeight;
+    setImagePosition(Math.max(minPosition, Math.min(0, newPosition)));
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: MouseEvent) => {
+      if (!imageRef.current || !cropContainerRef.current) return;
+      const deltaY = e.clientY - dragStartY;
+      const newPosition = dragStartPosition + deltaY;
+      const container = cropContainerRef.current;
+      const img = imageRef.current;
+      const scale = container.clientWidth / img.naturalWidth;
+      const imageDisplayHeight = img.naturalHeight * scale;
+      const minPosition = container.clientHeight - imageDisplayHeight;
+      setImagePosition(Math.max(minPosition, Math.min(0, newPosition)));
+    };
+    const onUp = () => setIsDragging(false);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [isDragging, dragStartY, dragStartPosition]);
+
+  const handleBrandFilesSelect = (files: FileList | null) => {
+    if (files && files.length > 0) {
+      updateFormData("brandFiles", files[0].name);
     }
   };
 
-  const updateWhatNotToDoItem = (index: number, value: string) => {
-    const updated = [...whatNotToDoItems];
-    updated[index] = value;
-    setWhatNotToDoItems(updated);
+  const handleGenerateBannerAi = () => {
+    // Placeholder: integrar com geração de banner por IA quando disponível
   };
 
   return (
-    <form className="flex flex-col gap-10">
+    <form
+      className="flex flex-col gap-8"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onNext();
+      }}
+    >
+      {/* Header – Figma */}
       <div className="flex flex-col gap-4">
-        <Textarea
-          label="Objetivo geral da campanha"
-          placeholder="Descreva detalhadamente o que você espera alcançar com essa campanha."
-          value={formData.generalObjective}
-          onChange={(e) => updateFormData("generalObjective", e.target.value)}
-        />
+        <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
+          Arquivos e direito
+        </h2>
+        <p className="text-lg leading-8 text-[#404040]">
+          Envie o material que o influenciador deve usar como referência visual
+          na criação do conteúdo
+        </p>
+      </div>
 
-        {/* O que fazer e O que NÃO fazer - Lado a lado */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* O que fazer - Lista de itens */}
-          <div className="flex flex-col gap-3">
-            <label className="text-success-600 font-medium">
-              O que fazer
-            </label>
-            <div className="flex flex-col gap-2">
-              {whatToDoItems.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder="Ex: Mencionar a marca no início do vídeo"
-                    value={item}
-                    onChange={(e) => updateWhatToDoItem(index, e.target.value)}
-                  />
-                  {whatToDoItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeWhatToDoItem(index)}
-                      className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors shrink-0"
-                    >
-                      <Icon name="X" color="#DC2626" size={20} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addWhatToDoItem}
-                className="w-fit"
+      {/* Card – Figma: bg #fafafa, rounded-12, p-6, gap-28 → gap-7 */}
+      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+        {/* Banner da campanha (1280X512 px) */}
+        <div className="flex flex-col gap-2">
+          <label className="text-base font-medium leading-5 text-[#0A0A0A]">
+            Banner da campanha (1280X512 px)
+          </label>
+          {bannerPreview ? (
+            <div className="flex gap-2 flex-wrap items-center rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] p-6">
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                className="hidden"
+                onChange={(e) => handleBannerSelect(e.target.files)}
+              />
+              <div
+                className="h-32 w-[295px] shrink-0 overflow-hidden rounded-[16px] bg-[#F5F5F5]"
+                style={{ aspectRatio: "1280/512" }}
               >
-                <div className="flex items-center gap-2">
-                  <Icon name="Plus" color="#404040" size={16} />
-                  <p className="text-neutral-700 font-semibold">
-                    Adicionar item
+                <img
+                  src={bannerPreview}
+                  alt="Banner da campanha"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-6">
+                <div className="flex flex-col gap-4">
+                  <p className="text-base font-semibold leading-tight text-[#202020]">
+                    Tamanho recomendado: 1280 × 512 px
+                  </p>
+                  <p className="text-base font-normal leading-snug text-[#646464]">
+                    Use uma arte com boa resolução e pouco texto, para ficar
+                    legível em diferentes telas.
                   </p>
                 </div>
-              </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="h-11 rounded-[24px] border-[#E5E5E5] px-4 py-2.5 font-semibold text-black w-max"
+                  >
+                    Alterar imagem
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerPreview(null);
+                      updateFormData("banner", "");
+                      updateFormData("bannerFile", undefined);
+                      bannerInputRef.current && (bannerInputRef.current.value = "");
+                    }}
+                    className="flex h-11 items-center justify-center gap-1 rounded-lg py-2.5 font-bold text-danger-600 transition-colors cursor-pointer"
+                  >
+                    <Icon name="Trash2" size={20} color="#d42424" />
+                    Remover imagem
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => bannerInputRef.current?.click()}
+              onKeyDown={(e) => e.key === "Enter" && bannerInputRef.current?.click()}
+              className="flex flex-col items-center justify-center gap-1 rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] px-5 py-10 cursor-pointer transition-colors hover:bg-[#ebebeb]"
+            >
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                className="hidden"
+                onChange={(e) => handleBannerSelect(e.target.files)}
+              />
+              <Icon name="Upload" size={24} color="#5d1390" />
+              <p className="text-base text-primary-900">Clique para enviar o banner</p>
+            </div>
+          )}
+          {/* Gerar banner com IA – Figma: bg primary-50, border primary-200, text primary-900 */}
+          <button
+            type="button"
+            onClick={handleGenerateBannerAi}
+            className="flex items-center justify-center gap-2 self-start rounded-[24px] border border-primary-200 bg-primary-50 px-4 py-2.5 font-semibold text-primary-900 transition-colors hover:bg-primary-100 w-full cursor-pointer"
+          >
+            <Icon name="Sparkles" size={16} color="#5d1390" />
+            Gerar banner com IA
+          </button>
+        </div>
 
-          {/* O que NÃO fazer - Lista de itens */}
-          <div className="flex flex-col gap-3">
-            <label className="text-danger-600 font-medium">
-              O que NÃO fazer
-            </label>
-            <div className="flex flex-col gap-2">
-              {whatNotToDoItems.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder="Ex: Não mencionar concorrentes"
-                    value={item}
-                    onChange={(e) => updateWhatNotToDoItem(index, e.target.value)}
-                  />
-                  {whatNotToDoItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeWhatNotToDoItem(index)}
-                      className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors shrink-0"
-                    >
-                      <Icon name="X" color="#DC2626" size={20} />
-                    </button>
-                  )}
+        {/* Arquivos da marca */}
+        <div className="flex flex-col gap-2">
+          <label className="text-base font-medium leading-5 text-[#0A0A0A]">
+            Arquivos da marca
+          </label>
+          {formData.brandFiles ? (
+            <div className="flex flex-wrap gap-2 items-center rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] p-6">
+              <input
+                ref={filesInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                className="hidden"
+                onChange={(e) => handleBrandFilesSelect(e.target.files)}
+              />
+              <div className="flex flex-1 flex-col gap-6 min-w-0">
+                <p className="text-base font-normal leading-snug text-[#646464]">
+                  PNG ou JPG, máximo 2MB cada
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => filesInputRef.current?.click()}
+                    className="h-11 rounded-[24px] border-[#E5E5E5] px-4 py-2.5 font-semibold text-black w-max"
+                  >
+                    Alterar imagem
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => updateFormData("brandFiles", "")}
+                    className="flex h-11 items-center justify-center gap-1 rounded-lg py-2.5 font-bold text-danger-600 transition-colors cursor-pointer"
+                  >
+                    <Icon name="Trash2" size={20} color="#d42424" />
+                    Remover imagem
+                  </button>
                 </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addWhatNotToDoItem}
-                className="w-fit"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon name="Plus" color="#404040" size={16} />
-                  <p className="text-neutral-700 font-semibold">
-                    Adicionar item
-                  </p>
-                </div>
-              </Button>
+              </div>
+              <p className="text-base font-medium text-[#0A0A0A] shrink-0">
+                {formData.brandFiles}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => filesInputRef.current?.click()}
+              onKeyDown={(e) =>
+                e.key === "Enter" && filesInputRef.current?.click()
+              }
+              className="flex flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] px-5 py-10 cursor-pointer transition-colors hover:bg-[#ebebeb]"
+            >
+              <input
+                ref={filesInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                className="hidden"
+                onChange={(e) => handleBrandFilesSelect(e.target.files)}
+              />
+              <Icon name="Upload" size={16} color="#5d1390" />
+              <p className="text-base text-primary-900">
+                Fazer upload de arquivos
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Período de direitos de imagem – mantido para o fluxo */}
+        <div className="flex flex-col gap-1">
+          <label className="text-base font-medium leading-5 text-[#0A0A0A]">
+            Período de direitos de imagem (em meses)
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Ex: 12"
+            value={formData.imageRightsPeriod}
+            onChange={(e) =>
+              handleNumberInput(e, (value) =>
+                updateFormData("imageRightsPeriod", value)
+              )
+            }
+            className="w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none"
+          />
         </div>
       </div>
 
+      {/* Botões */}
       <div className="flex items-center justify-between">
-        <div className="w-fit">
-          <Button variant="outline" onClick={onBack}>
-            <div className="flex items-center justify-center gap-2">
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-
-              <p className="text-neutral-700 font-semibold">Voltar</p>
-            </div>
-          </Button>
-        </div>
-
-        <div className="w-fit">
-          <Button onClick={onNext}>
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-neutral-50 font-semibold">Próximo</p>
-
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-            </div>
-          </Button>
-        </div>
+        <Button type="button" variant="outline" onClick={onBack} className="w-min">
+          <div className="flex items-center justify-center gap-2">
+            <Icon name="ArrowLeft" size={16} color="#404040" />
+            <p className="font-semibold text-neutral-700">Voltar</p>
+          </div>
+        </Button>
       </div>
+
+      {/* Modal de ajuste de banner (altura > 512px) */}
+      {showCropModal && originalImage && (
+        <Modal title="Ajustar banner" onClose={handleCropCancel}>
+          <div className="flex flex-col gap-6">
+            <p className="text-sm text-neutral-600">
+              A imagem tem altura maior que 512px. Arraste a imagem para ajustar
+              qual parte ficará visível no banner.
+            </p>
+            <div className="relative w-full overflow-hidden rounded-2xl border-2 border-neutral-200 bg-neutral-100">
+              <div
+                ref={cropContainerRef}
+                className="relative w-full"
+                style={{ aspectRatio: "1280/512", height: "512px" }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <img
+                  ref={imageRef}
+                  src={originalImage}
+                  alt="Banner para ajustar"
+                  className="absolute h-auto w-full select-none"
+                  style={{
+                    transform: `translateY(${imagePosition}px)`,
+                    cursor: isDragging ? "grabbing" : "grab",
+                  }}
+                  draggable={false}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCropCancel}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="button" onClick={handleCropConfirm} className="flex-1">
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </form>
   );
 }
