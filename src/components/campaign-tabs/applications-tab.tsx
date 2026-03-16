@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { Influencer } from "@/shared/types";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
-import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
+import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
 
@@ -100,6 +100,152 @@ interface ApplicationWithProfile {
   profileKey: string; // Chave única: influencerId-profileId
 }
 
+/** Card único para inscrições orgânicas e pré-seleções — layout Figma (node 2392-16329) */
+function ApplicationCard({
+  app,
+  nicheName,
+  isSelected,
+  isUpdatingStatus,
+  sentAt,
+  onSelect,
+  onApprove,
+  onReject,
+  onMoveToCuration,
+  onViewPhases,
+}: {
+  app: ApplicationWithProfile;
+  nicheName: string | null;
+  isSelected: boolean;
+  isUpdatingStatus: boolean;
+  sentAt?: string | null;
+  onSelect: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onMoveToCuration: () => void;
+  onViewPhases: () => void;
+}) {
+  const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+  const sentAtLabel = sentAt
+    ? new Date(sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+
+  return (
+    <div
+      className={`bg-neutral-100 rounded-xl p-3 flex flex-col gap-5 border transition-colors ${isSelected
+        ? "border-primary-500 ring-1 ring-primary-200"
+        : "border-transparent"
+        }`}
+    >
+      {/* Top: avatar + checkbox (-8px) + bookmark amarelo 40px rounded-lg */}
+      <div className="flex items-center justify-between">
+        <div className="relative shrink-0">
+          <img
+            src={getUploadUrl(app.influencerAvatar) ?? undefined}
+            alt={app.influencerName}
+            className="size-[60px] rounded-2xl object-cover bg-neutral-200"
+          />
+          <button
+            type="button"
+            onClick={onSelect}
+            className="absolute -left-2 -top-2 size-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-sm"
+          >
+            {isSelected ? (
+              <Icon name="Check" size={14} color="var(--color-primary-600)" className="text-primary-600" />
+            ) : (
+              <div className="size-3 rounded-full border-2 border-neutral-300" />
+            )}
+          </button>
+        </div>
+        <button
+          type="button"
+          className="size-10 rounded-lg flex items-center justify-center shrink-0 bg-[#ffdf2a]"
+          aria-label="Salvar"
+        >
+          <Icon name="Bookmark" size={24} color="#171717" />
+        </button>
+      </div>
+
+      {/* Nome + @username */}
+      <div className="flex flex-col gap-0.5">
+        <p className="text-lg font-medium text-neutral-950 truncate leading-6">
+          {app.influencerName}
+        </p>
+        <p className="text-sm text-neutral-500 truncate leading-5">
+          @{app.profileUsername}
+        </p>
+      </div>
+
+      {/* Stats: Seguidores | Engajamento — boxes #e4e4e4, label 14px, value 20px */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-neutral-200 rounded-lg p-3 flex flex-col gap-1">
+          <p className="text-sm text-neutral-500">Seguidores</p>
+          <p className="text-xl font-medium text-neutral-950">
+            {followers.toLocaleString("pt-BR")}
+          </p>
+        </div>
+        <div className="bg-neutral-200 rounded-lg p-3 flex flex-col gap-1">
+          <p className="text-sm text-neutral-500">Engajamento</p>
+          <p className="text-xl font-medium text-neutral-950">
+            {app.influencerEngagement}%
+          </p>
+        </div>
+      </div>
+
+      {/* Nicho — tag primary-100, text primary-600, rounded-xl, p-3 */}
+      {nicheName && (
+        <div className="rounded-xl bg-primary-100 px-3 py-3">
+          <p className="text-sm text-primary-600 font-normal">{nicheName}</p>
+        </div>
+      )}
+
+      {/* Enviado em + Aprovar/Reprovar + Ver perfil */}
+      <div className="flex flex-col gap-3">
+        <p className="text-base font-medium text-neutral-500 leading-5">
+          Enviado em: {sentAtLabel}
+        </p>
+        <div className="flex gap-1">
+          <Button
+            onClick={onApprove}
+            disabled={isUpdatingStatus}
+            className="h-11 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
+          >
+            <Icon name="Check" size={24} color="#fafafa" />
+            Aprovar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onReject}
+            disabled={isUpdatingStatus}
+            className="h-11 rounded-full font-semibold text-base border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
+          >
+            <Icon name="X" size={24} color="#525252" />
+            Reprovar
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onViewPhases}
+            className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+          >
+            <Icon name="Link" size={24} color="#737373" />
+            Ver perfil
+          </button>
+          <button
+            type="button"
+            onClick={onMoveToCuration}
+            disabled={isUpdatingStatus}
+            className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+          >
+            <Icon name="ArrowRight" size={16} color="#737373" />
+            Mover para curadoria
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({
@@ -140,146 +286,149 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
     isRejecting,
   } = useBulkInfluencerActions({ campaignId });
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
+  const {
+    mutate: moveToPreSelectionCuration,
+    mutateAsync: moveToPreSelectionCurationAsync,
+    isPending: isMovingToPreSelectionCuration,
+  } = useMoveToPreSelectionCuration(campaignId);
 
-  // Criar lista de inscrições com perfis de rede social (filtrando por status de cada perfil)
-  const applicationsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
-    const applications: ApplicationWithProfile[] = [];
+  // Helper para construir itens do tipo ApplicationWithProfile a partir de perfis com um dado status
+  const buildListByProfileStatus = useMemo(() => {
+    const networkLabels: { [key: string]: string } = {
+      instagram: "Instagram",
+      tiktok: "TikTok",
+      youtube: "YouTube",
+      ugc: "UGC",
+    };
 
-    // Iterar sobre todos os influenciadores e filtrar pelos perfis com status "applications"
-    influencers.forEach((inf) => {
-      const profiles = inf.social_networks || [];
+    return (statusFilter: string): ApplicationWithProfile[] => {
+      const applications: ApplicationWithProfile[] = [];
+      const statusNorm = statusFilter.toLowerCase().trim();
 
-      // Filtrar apenas perfis com status "applications" (comparação case-insensitive e robusta)
-      const applicationsProfiles = profiles.filter((profile) => {
-        // Garantir que o status seja uma string e fazer comparação case-insensitive
-        const profileStatus = String(profile.status || "").toLowerCase().trim();
-        const isApplication = profileStatus === "applications";
+      influencers.forEach((inf) => {
+        const profiles = inf.social_networks || [];
+        const infStatus = String(inf.status || "").toLowerCase().trim();
 
-        // Debug: log para verificar o que está sendo filtrado
-        if (String(inf.id) === "65") {
-          console.log("🔍 ApplicationsTab - Profile filter:", {
-            influencerId: inf.id,
-            influencerName: inf.name,
-            profileId: profile.id,
-            profileType: profile.type,
-            profileStatus: profile.status,
-            profileStatusType: typeof profile.status,
-            profileStatusLower: profileStatus,
-            isApplication,
-            allProfiles: profiles.map(p => ({ id: p.id, type: p.type, status: p.status })),
+        const matchingProfiles = profiles.filter((profile) => {
+          const profileStatus = String(profile.status || "").toLowerCase().trim();
+          return profileStatus === statusNorm;
+        });
+
+        if (matchingProfiles.length === 0) {
+          if (infStatus === statusNorm && profiles.length === 0) {
+            applications.push({
+              influencerId: inf.id,
+              influencerName: inf.name,
+              influencerUsername: inf.username,
+              influencerAvatar: inf.avatar,
+              influencerFollowers: inf.followers,
+              influencerEngagement: inf.engagement,
+              influencerNiche: inf.niche || "",
+              profileId: "",
+              profileType: "",
+              profileTypeLabel: "Geral",
+              profileUsername: inf.username,
+              profileFollowers: inf.followers,
+              profileKey: `${inf.id}-general`,
+            });
+          }
+        } else {
+          matchingProfiles.forEach((profile) => {
+            applications.push({
+              influencerId: inf.id,
+              influencerName: inf.name,
+              influencerUsername: inf.username,
+              influencerAvatar: inf.avatar,
+              influencerFollowers: inf.followers,
+              influencerEngagement: inf.engagement,
+              influencerNiche: inf.niche || "",
+              profileId: String(profile.id),
+              profileType: profile.type,
+              profileTypeLabel: networkLabels[profile.type.toLowerCase()] || profile.name || profile.type,
+              profileUsername: profile.username || inf.username,
+              profileFollowers: profile.members || inf.followers,
+              profileKey: `${inf.id}-${profile.id}`,
+            });
           });
         }
-
-        return isApplication;
       });
 
-      if (applicationsProfiles.length === 0) {
-        // Se não houver perfis com status "applications", mas o influenciador tem status "applications" e não tem perfis,
-        // criar uma inscrição "geral" (fallback para compatibilidade)
-        if (inf.status === "applications" && profiles.length === 0) {
-          applications.push({
-            influencerId: inf.id,
-            influencerName: inf.name,
-            influencerUsername: inf.username,
-            influencerAvatar: inf.avatar,
-            influencerFollowers: inf.followers,
-            influencerEngagement: inf.engagement,
-            influencerNiche: inf.niche || "",
-            profileId: "",
-            profileType: "",
-            profileTypeLabel: "Geral",
-            profileUsername: inf.username,
-            profileFollowers: inf.followers,
-            profileKey: `${inf.id}-general`,
-          });
-        }
-      } else {
-        // Criar uma inscrição para cada perfil com status "applications"
-        applicationsProfiles.forEach((profile) => {
-          const networkLabels: { [key: string]: string } = {
-            instagram: "Instagram",
-            tiktok: "TikTok",
-            youtube: "YouTube",
-            ugc: "UGC",
-          };
-
-          applications.push({
-            influencerId: inf.id,
-            influencerName: inf.name,
-            influencerUsername: inf.username,
-            influencerAvatar: inf.avatar,
-            influencerFollowers: inf.followers,
-            influencerEngagement: inf.engagement,
-            influencerNiche: inf.niche || "",
-            profileId: String(profile.id),
-            profileType: profile.type,
-            profileTypeLabel: networkLabels[profile.type.toLowerCase()] || profile.name || profile.type,
-            profileUsername: profile.username || inf.username,
-            profileFollowers: profile.members || inf.followers,
-            profileKey: `${inf.id}-${profile.id}`,
-          });
-        });
-      }
-    });
-
-    return applications;
+      return applications;
+    };
   }, [influencers]);
 
-  // Filtrar inscrições com perfis baseado nos filtros
-  const filteredApplications = useMemo(() => {
-    return applicationsWithProfiles.filter((app) => {
-      // Filtro de busca por nome/username
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-          app.influencerName.toLowerCase().includes(searchLower) ||
-          app.influencerUsername.toLowerCase().includes(searchLower) ||
-          app.profileUsername.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
-      }
+  // Inscrições orgânicas (perfis com status "applications")
+  const applicationsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
+    return buildListByProfileStatus("applications");
+  }, [buildListByProfileStatus]);
 
-      // Filtro por nicho
-      if (filterNiche) {
-        if (app.influencerNiche !== filterNiche) return false;
-      }
+  // Pré-seleções (perfis com status "pre_selection" ou influenciador com status "pre_selection" sem perfis)
+  const preselectionsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
+    return buildListByProfileStatus("pre_selection");
+  }, [buildListByProfileStatus]);
 
-      // Filtro por seguidores (usar seguidores do perfil se disponível, senão do influenciador)
-      const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
-      if (filterFollowersMin) {
-        const min = parseInt(filterFollowersMin);
-        if (isNaN(min) || followers < min) return false;
-      }
-      if (filterFollowersMax) {
-        const max = parseInt(filterFollowersMax);
-        if (isNaN(max) || followers > max) return false;
-      }
+  // Função de filtro reutilizável para aplicações e pré-seleções
+  const applyFilters = useCallback(
+    (list: ApplicationWithProfile[]) => {
+      return list.filter((app) => {
+        if (searchTerm) {
+          const searchLower = searchTerm.toLowerCase();
+          const matchesSearch =
+            app.influencerName.toLowerCase().includes(searchLower) ||
+            app.influencerUsername.toLowerCase().includes(searchLower) ||
+            app.profileUsername.toLowerCase().includes(searchLower);
+          if (!matchesSearch) return false;
+        }
+        if (filterNiche && app.influencerNiche !== filterNiche) return false;
+        const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+        if (filterFollowersMin) {
+          const min = parseInt(filterFollowersMin);
+          if (isNaN(min) || followers < min) return false;
+        }
+        if (filterFollowersMax) {
+          const max = parseInt(filterFollowersMax);
+          if (isNaN(max) || followers > max) return false;
+        }
+        if (filterEngagementMin) {
+          const min = parseFloat(filterEngagementMin);
+          if (isNaN(min) || app.influencerEngagement < min) return false;
+        }
+        if (filterEngagementMax) {
+          const max = parseFloat(filterEngagementMax);
+          if (isNaN(max) || app.influencerEngagement > max) return false;
+        }
+        return true;
+      });
+    },
+    [
+      searchTerm,
+      filterNiche,
+      filterFollowersMin,
+      filterFollowersMax,
+      filterEngagementMin,
+      filterEngagementMax,
+    ]
+  );
 
-      // Filtro por engajamento
-      if (filterEngagementMin) {
-        const min = parseFloat(filterEngagementMin);
-        if (isNaN(min) || app.influencerEngagement < min) return false;
-      }
-      if (filterEngagementMax) {
-        const max = parseFloat(filterEngagementMax);
-        if (isNaN(max) || app.influencerEngagement > max) return false;
-      }
+  const filteredApplications = useMemo(
+    () => applyFilters(applicationsWithProfiles),
+    [applicationsWithProfiles, applyFilters]
+  );
 
-      return true;
-    });
-  }, [
-    applicationsWithProfiles,
-    searchTerm,
-    filterNiche,
-    filterFollowersMin,
-    filterFollowersMax,
-    filterEngagementMin,
-    filterEngagementMax,
-  ]);
+  const filteredPreselections = useMemo(
+    () => applyFilters(preselectionsWithProfiles),
+    [preselectionsWithProfiles, applyFilters]
+  );
 
-  // Opções de nichos disponíveis
+  // Lista atual conforme o segmento (orgânico ou pré-seleções)
+  const currentFilteredList =
+    segmentTab === "organic" ? filteredApplications : filteredPreselections;
+
+  // Opções de nichos disponíveis (do segmento atual: orgânico ou pré-seleções)
+  const listForNiches = segmentTab === "organic" ? applicationsWithProfiles : preselectionsWithProfiles;
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
-    applicationsWithProfiles.forEach((app) => {
+    listForNiches.forEach((app) => {
       if (app.influencerNiche) {
         const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
         if (niche) uniqueNiches.add(niche.id.toString());
@@ -289,7 +438,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
       const niche = niches.find((n) => n.id.toString() === id);
       return { value: id, label: niche?.name || id };
     });
-  }, [applicationsWithProfiles, niches]);
+  }, [listForNiches, niches]);
 
   const handleSelectApplication = (profileKey: string) => {
     setSelectedInfluencers((prev) => {
@@ -304,19 +453,46 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   };
 
   const handleSelectAll = () => {
-    if (selectedInfluencers.size === filteredApplications.length) {
+    if (selectedInfluencers.size === currentFilteredList.length) {
       setSelectedInfluencers(new Set());
     } else {
-      setSelectedInfluencers(new Set(filteredApplications.map((app) => app.profileKey)));
+      setSelectedInfluencers(new Set(currentFilteredList.map((app) => app.profileKey)));
     }
   };
 
   const handleBulkMoveToCuration = () => {
-    const selectedApps = filteredApplications.filter((app) =>
+    const selectedApps = currentFilteredList.filter((app) =>
       selectedInfluencers.has(app.profileKey)
     );
 
-    // Processar cada perfil individualmente com seu network_id
+    if (segmentTab === "preselection") {
+      Promise.all(
+        selectedApps.map((app) =>
+          moveToPreSelectionCurationAsync({
+            influencerId: app.influencerId,
+            data: {
+              network_id: app.profileId ? Number(app.profileId) : undefined,
+            },
+          })
+        )
+      )
+        .then(() => {
+          setSelectedInfluencers(new Set());
+          setIsBulkActionModalOpen(false);
+          setBulkActionType(null);
+          toast.success(
+            selectedApps.length === 1
+              ? "Perfil movido para curadoria da pré-seleção"
+              : `${selectedApps.length} perfil(is) movido(s) para curadoria da pré-seleção`
+          );
+        })
+        .catch((error: any) => {
+          toast.error(error?.message || "Erro ao mover para curadoria da pré-seleção");
+        });
+      return;
+    }
+
+    // Fluxo orgânico: atualizar status para curadoria
     const promises = selectedApps.map((app) =>
       updateStatus(
         {
@@ -326,9 +502,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
           network_id: app.profileId ? Number(app.profileId) : undefined,
         },
         {
-          onSuccess: () => {
-            // Sucesso individual
-          },
+          onSuccess: () => {},
           onError: (error: any) => {
             toast.error(`Erro ao mover ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
           },
@@ -345,7 +519,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   };
 
   const handleBulkApprove = () => {
-    const selectedApps = filteredApplications.filter((app) =>
+    const selectedApps = currentFilteredList.filter((app) =>
       selectedInfluencers.has(app.profileKey)
     );
 
@@ -409,7 +583,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
 
   const handleBulkReject = () => {
     if (bulkRejectionFeedback.trim()) {
-      const selectedApps = filteredApplications.filter((app) =>
+      const selectedApps = currentFilteredList.filter((app) =>
         selectedInfluencers.has(app.profileKey)
       );
 
@@ -494,6 +668,25 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
     );
   };
 
+  const handleMoveToPreSelectionCuration = (app: ApplicationWithProfile) => {
+    moveToPreSelectionCuration(
+      {
+        influencerId: app.influencerId,
+        data: {
+          network_id: app.profileId ? Number(app.profileId) : undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Movido para curadoria da pré-seleção!");
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Erro ao mover para curadoria da pré-seleção");
+        },
+      }
+    );
+  };
+
   const handleApprove = (app: ApplicationWithProfile) => {
     updateStatus(
       {
@@ -573,7 +766,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   };
 
   const organicCount = applicationsWithProfiles.length;
-  const preselectionCount = 0;
+  const preselectionCount = preselectionsWithProfiles.length;
 
   if (isLoading) {
     return <ApplicationsTabSkeleton />;
@@ -625,13 +818,13 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
               <div className="flex items-center gap-2">
                 <Checkbox
                   checked={
-                    selectedInfluencers.size === filteredApplications.length &&
-                    filteredApplications.length > 0
+                    selectedInfluencers.size === currentFilteredList.length &&
+                    currentFilteredList.length > 0
                   }
                   onCheckedChange={handleSelectAll}
                 />
                 <label className="text-sm font-medium text-neutral-950 cursor-pointer">
-                  Selecionar todos ({filteredApplications.length})
+                  Selecionar todos ({currentFilteredList.length})
                 </label>
               </div>
               {selectedInfluencers.size > 0 && (
@@ -740,21 +933,21 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
               </div>
             </div>
 
-            {applicationsWithProfiles.length === 0 ? (
+            {segmentTab === "organic" && applicationsWithProfiles.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Users" color="#A3A3A3" size={48} />
                 <p className="text-neutral-600 mt-4">
                   Nenhuma inscrição no momento
                 </p>
               </div>
-            ) : segmentTab === "preselection" ? (
+            ) : segmentTab === "preselection" && preselectionsWithProfiles.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Send" color="#A3A3A3" size={48} />
                 <p className="text-neutral-600 mt-4">
                   Nenhuma pré-seleção enviada
                 </p>
               </div>
-            ) : filteredApplications.length === 0 ? (
+            ) : currentFilteredList.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Search" color="#A3A3A3" size={48} />
                 <p className="text-neutral-600 mt-4">
@@ -763,129 +956,36 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredApplications.map((app) => {
-                  const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+                {currentFilteredList.map((app) => {
                   const nicheName = app.influencerNiche
                     ? (niches.find((n) => n.id.toString() === app.influencerNiche.toString())?.name ?? app.influencerNiche)
                     : null;
                   return (
-                    <div
+                    <ApplicationCard
                       key={app.profileKey}
-                      className={`bg-neutral-100 rounded-xl p-4 flex flex-col gap-5 border transition-colors ${selectedInfluencers.has(app.profileKey)
-                        ? "border-primary-500 ring-1 ring-primary-200"
-                        : "border-transparent"
-                        }`}
-                    >
-                      {/* Top: avatar + bookmark + checkbox (Figma) */}
-                      <div className="relative flex items-start justify-between">
-                        <div className="relative">
-                          <img
-                            src={getUploadUrl(app.influencerAvatar) ?? undefined}
-                            alt={app.influencerName}
-                            className="size-[60px] rounded-2xl object-cover bg-neutral-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSelectApplication(app.profileKey)}
-                            className="absolute -top-1 -left-1 size-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-sm"
-                          >
-                            {selectedInfluencers.has(app.profileKey) ? (
-                              <Icon name="Check" size={14} color="var(--color-primary-600)" className="text-primary-600" />
-                            ) : (
-                              <div className="size-3 rounded-full border-2 border-neutral-300" />
-                            )}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          className="size-10 rounded-lg bg-warning-200 flex items-center justify-center shrink-0"
-                          aria-label="Salvar"
-                        >
-                          <Icon name="Bookmark" size={20} color="var(--color-warning-700)" className="text-warning-700" />
-                        </button>
-                      </div>
-                      {/* Nome + @username */}
-                      <div className="space-y-1">
-                        <p className="text-lg font-medium text-neutral-950 truncate">
-                          {app.influencerName}
-                        </p>
-                        <p className="text-sm text-neutral-500 truncate">
-                          @{app.profileUsername}
-                        </p>
-                      </div>
-                      {/* Stats: Seguidores | Engajamento (Figma) */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-neutral-200 rounded-lg p-3">
-                          <p className="text-xs text-neutral-500">Seguidores</p>
-                          <p className="text-sm font-semibold text-neutral-950">
-                            {followers.toLocaleString("pt-BR")}
-                          </p>
-                        </div>
-                        <div className="bg-neutral-200 rounded-lg p-3">
-                          <p className="text-xs text-neutral-500">Engajamento</p>
-                          <p className="text-sm font-semibold text-neutral-950">
-                            {app.influencerEngagement}%
-                          </p>
-                        </div>
-                      </div>
-                      {/* Nicho / benefício (tag) */}
-                      {nicheName && (
-                        <div className="flex flex-wrap">
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-primary-100 text-primary-600 text-sm font-medium">
-                            {nicheName}
-                          </span>
-                        </div>
-                      )}
-                      {/* Enviado em + Aprovar / Reprovar + Ver mais fases (Figma) */}
-                      <div className="space-y-4 pt-1">
-                        <p className="text-sm text-neutral-500">
-                          Enviado em: —
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleApprove(app)}
-                            disabled={isUpdatingStatus}
-                            className="flex-1 h-11 rounded-full font-semibold bg-success-600 hover:bg-success-700 text-white border-0"
-                          >
-                            <Icon name="Check" size={20} color="#fff" className="mr-2" />
-                            Aprovar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleReject(app)}
-                            disabled={isUpdatingStatus}
-                            className="flex-1 h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50"
-                          >
-                            <Icon name="X" size={20} color="var(--color-danger-600)" className="mr-2" />
-                            Reprovar
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleMoveToCuration(app)}
-                            disabled={isUpdatingStatus}
-                            className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700"
-                          >
-                            <Icon name="ArrowRight" size={16} color="#737373" />
-                            Mover para curadoria
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigate({
-                                to: "/campaigns/$campaignId/influencer/$influencerId",
-                                params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
-                              });
-                            }}
-                            className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700"
-                          >
-                            <Icon name="ExternalLink" size={16} color="#737373" />
-                            Ver mais fases
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      app={app}
+                      nicheName={nicheName}
+                      isSelected={selectedInfluencers.has(app.profileKey)}
+                      isUpdatingStatus={
+                        segmentTab === "preselection"
+                          ? isUpdatingStatus || isMovingToPreSelectionCuration
+                          : isUpdatingStatus
+                      }
+                      onSelect={() => handleSelectApplication(app.profileKey)}
+                      onApprove={() => handleApprove(app)}
+                      onReject={() => handleReject(app)}
+                      onMoveToCuration={
+                        segmentTab === "preselection"
+                          ? () => handleMoveToPreSelectionCuration(app)
+                          : () => handleMoveToCuration(app)
+                      }
+                      onViewPhases={() =>
+                        navigate({
+                          to: "/campaigns/$campaignId/influencer/$influencerId",
+                          params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
+                        })
+                      }
+                    />
                   );
                 })}
               </div>

@@ -14,7 +14,7 @@ import type { Influencer } from "@/shared/types";
 import { useCampaignRecommendations } from "@/hooks/use-catalog";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useMuralStatus, useActivateMural, useDeactivateMural } from "@/hooks/use-campaign-mural";
-import { useInviteInfluencer, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
+import { useInviteInfluencer, useAddToPreSelection, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 import { ListSelector } from "@/components/influencer-lists/list-selector";
@@ -269,7 +269,7 @@ export function InfluencerSelectionTab({
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
   const [modalType, setModalType] = useState<
-    "discover" | "invite" | "curation" | "selectList" | null
+    "discover" | "invite" | "curation" | "selectList" | "preselection" | null
   >(null);
   const [inviteMessage, setInviteMessage] = useState("");
   const [curationNotes, setCurationNotes] = useState("");
@@ -283,7 +283,7 @@ export function InfluencerSelectionTab({
   const { data: influencerProfilesData, isLoading: isLoadingProfiles } = useQuery({
     queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
     queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
-    enabled: !!selectedInfluencer && (modalType === "invite" || modalType === "curation"),
+    enabled: !!selectedInfluencer && (modalType === "invite" || modalType === "curation" || modalType === "preselection"),
   });
 
   // Garantir que influencerProfiles seja sempre um array
@@ -331,6 +331,7 @@ export function InfluencerSelectionTab({
     city: filterLocationCity || undefined,
   });
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
+  const { mutate: addToPreSelection, isPending: isAddingToPreSelection } = useAddToPreSelection(campaignId);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
   const { data: campaignUsers = [] } = useCampaignUsers(campaignId);
 
@@ -527,7 +528,7 @@ export function InfluencerSelectionTab({
     return labels[network || ""] || network || "N/A";
   };
 
-  const handleAction = (influencer: Influencer, action: "discover" | "invite" | "curation") => {
+  const handleAction = (influencer: Influencer, action: "discover" | "invite" | "curation" | "preselection") => {
     setSelectedInfluencer(influencer);
     setModalType(action);
   };
@@ -540,15 +541,44 @@ export function InfluencerSelectionTab({
     setSelectedProfileIds([]);
   };
 
-  // Quando os perfis forem carregados, selecionar todos por padrão
+  // Quando os perfis forem carregados, selecionar todos por padrão (convite e pré-seleção)
   useEffect(() => {
-    if (influencerProfiles.length > 0 && modalType === "invite") {
+    if (influencerProfiles.length > 0 && (modalType === "invite" || modalType === "preselection")) {
       setSelectedProfileIds(influencerProfiles.map((p) => p.id));
     }
   }, [influencerProfiles, modalType]);
 
   const handleConfirm = async () => {
     if (!selectedInfluencer) return;
+
+    if (modalType === "preselection") {
+      addToPreSelection(
+        {
+          influencer_id: selectedInfluencer.id,
+          message: inviteMessage || undefined,
+          profile_ids: selectedProfileIds.length > 0 ? selectedProfileIds : undefined,
+        },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "influencers"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "dashboard"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "users"],
+            });
+            toast.success("Influenciador movido para pré-seleção!");
+            handleCloseModal();
+          },
+          onError: (error: any) => {
+            toast.error(error?.message || "Erro ao mover para pré-seleção");
+          },
+        }
+      );
+      return;
+    }
 
     if (modalType === "invite") {
       // Validar se pelo menos um perfil foi selecionado
@@ -735,7 +765,7 @@ export function InfluencerSelectionTab({
                         niches={niches}
                         isInCuration={isInfluencerInCuration(influencer.id)}
                         onInvite={() => handleAction(influencer, "invite")}
-                        onPreSelection={() => handleAction(influencer, "curation")}
+                        onPreSelection={() => handleAction(influencer, "preselection")}
                         onViewProfile={() =>
                           navigate({
                             to: "/campaigns/$campaignId/influencer/$influencerId",
@@ -860,7 +890,7 @@ export function InfluencerSelectionTab({
                     niches={niches}
                     isInCuration={isInfluencerInCuration(influencer.id)}
                     onInvite={() => handleAction(influencer, "invite")}
-                    onPreSelection={() => handleAction(influencer, "curation")}
+                    onPreSelection={() => handleAction(influencer, "preselection")}
                     onViewProfile={() =>
                       navigate({
                         to: "/campaigns/$campaignId/influencer/$influencerId",
@@ -889,17 +919,21 @@ export function InfluencerSelectionTab({
               ? "Ativar Discover"
               : modalType === "invite"
                 ? "Convidar para campanha"
-                : "Adicionar para curadoria"
+                : modalType === "preselection"
+                  ? "Mover para pré-seleção"
+                  : "Adicionar para curadoria"
           }
           onClose={handleCloseModal}
         >
           <div className="flex flex-col gap-6">
-            {modalType === "invite" && (
+            {(modalType === "invite" || modalType === "preselection") && (
               <>
-                {/* Deseja convidar por qual rede social? (Figma) */}
+                {/* Deseja convidar / mover por qual rede social? */}
                 <div className="flex flex-col gap-3">
                   <p className="text-base font-medium text-neutral-950">
-                    Deseja convidar por qual rede social?
+                    {modalType === "invite"
+                      ? "Deseja convidar por qual rede social?"
+                      : "Quais perfis incluir na pré-seleção?"}
                   </p>
                   {isLoadingProfiles ? (
                     <p className="text-sm text-neutral-500">Carregando perfis...</p>
@@ -994,7 +1028,7 @@ export function InfluencerSelectionTab({
                   </div>
                 </div>
 
-                {/* Botões: Cancelar + Enviar convite (Figma) */}
+                {/* Botões: Cancelar + Enviar convite / Mover para pré-seleção */}
                 <div className="flex gap-2.5 justify-end pt-2">
                   <Button
                     variant="outline"
@@ -1007,19 +1041,26 @@ export function InfluencerSelectionTab({
                     onClick={handleConfirm}
                     disabled={
                       isInviting ||
+                      isAddingToPreSelection ||
                       isUpdatingStatus ||
-                      (influencerProfiles.length > 0 && selectedProfileIds.length === 0) ||
-                      (allowedSocialNetworks.length > 0 && influencerProfiles.length === 0)
+                      (modalType === "invite" && influencerProfiles.length > 0 && selectedProfileIds.length === 0) ||
+                      (modalType === "invite" && allowedSocialNetworks.length > 0 && influencerProfiles.length === 0)
                     }
                     className="h-11 px-6 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
                   >
-                    {isInviting ? "Processando..." : "Enviar convite"}
+                    {isInviting
+                      ? "Processando..."
+                      : isAddingToPreSelection
+                        ? "Processando..."
+                        : modalType === "preselection"
+                          ? "Mover para pré-seleção"
+                          : "Enviar convite"}
                   </Button>
                 </div>
               </>
             )}
 
-            {modalType !== "invite" && (
+            {modalType !== "invite" && modalType !== "preselection" && (
               <div className="flex items-center gap-4">
                 <Avatar
                   src={selectedInfluencer?.avatar || ""}
@@ -1083,7 +1124,7 @@ export function InfluencerSelectionTab({
               </div>
             )}
 
-            {modalType !== "selectList" && modalType !== "invite" && (
+            {modalType !== "selectList" && modalType !== "invite" && modalType !== "preselection" && (
               <div className="flex gap-3">
                 <Button variant="outline" onClick={handleCloseModal} className="flex-1">
                   Cancelar
@@ -1091,9 +1132,9 @@ export function InfluencerSelectionTab({
                 <Button
                   onClick={handleConfirm}
                   className="flex-1"
-                  disabled={isInviting || isUpdatingStatus}
+                  disabled={isInviting || isAddingToPreSelection || isUpdatingStatus}
                 >
-                  {isInviting || isUpdatingStatus
+                  {isInviting || isAddingToPreSelection || isUpdatingStatus
                     ? "Processando..."
                     : modalType === "curation"
                       ? "Adicionar para curadoria"

@@ -158,19 +158,22 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
 
     influencers.forEach((inf) => {
       const profiles = inf.social_networks || [];
+      // pre_selection_curation aparece como "curation" (Pendentes) na aba Curadoria
       const statusMap: Record<string, CurationProfileStatus> = {
         curation: "curation",
+        pre_selection_curation: "curation",
         approved: "approved",
         rejected: "rejected",
       };
 
       const relevantProfiles = profiles.filter((profile) => {
         const s = profile.status?.toLowerCase()?.trim();
-        return s === "curation" || s === "approved" || s === "rejected";
+        return s === "curation" || s === "pre_selection_curation" || s === "approved" || s === "rejected";
       });
 
       if (relevantProfiles.length === 0) {
-        if (inf.status === "curation" && profiles.length === 0) {
+        const infStatus = inf.status?.toLowerCase()?.trim();
+        if ((infStatus === "curation" || infStatus === "pre_selection_curation") && profiles.length === 0) {
           applications.push({
             influencerId: inf.id,
             influencerName: inf.name,
@@ -716,17 +719,17 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
                           <div className="flex gap-2">
                             <Button
                               onClick={() => handleApprove(app)}
-                              className="flex-1 h-11 rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0"
+                              className="flex-1 h-11 rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0 w-min"
                             >
-                              <Icon name="Check" size={20} color="#fff" className="mr-2" />
+                              <Icon name="Check" size={20} color="#fff"/>
                               Aprovar
                             </Button>
                             <Button
                               variant="outline"
                               onClick={() => handleReject(app)}
-                              className="flex-1 h-11 rounded-full font-semibold text-neutral-600 border-neutral-200 hover:bg-neutral-50"
+                              className="flex-1 h-11 rounded-full font-semibold text-neutral-600 border-neutral-200 hover:bg-neutral-50 w-min"
                             >
-                              <Icon name="X" size={20} color="#525252" className="mr-2" />
+                              <Icon name="X" size={20} color="#525252"/>
                               Reprovar
                             </Button>
                           </div>

@@ -87,6 +87,8 @@ const idToString = (id: string | number): string => {
 // Cores e labels alinhados ao Figma (FORÇA TAREFA - Gerenciamento)
 const kanbanColumns = [
   { id: "applications", label: "Inscrições", color: "bg-[#f5f5f5]" },
+  { id: "pre_selection", label: "Pré-seleção", color: "bg-[#faf5ff]" },
+  { id: "pre_selection_curation", label: "Curadoria pré-seleção", color: "bg-[#f2e2ff]" },
   { id: "curation", label: "Curadoria", color: "bg-[#f0f6ff]" },
   { id: "invited", label: "Convidados", color: "bg-[#fdfce9]" },
   {
@@ -238,9 +240,13 @@ function SortableInfluencerCard({
                   setIsRejectModalOpen(true);
                 } else if (action.action === "curation") {
                   onMoveToCuration(influencer);
-                } else if (action.action === "invite" && action.targetStatus) {
-                  onApprove(influencer, action.targetStatus);
-                } else if (action.action === "applications" && action.targetStatus) {
+                } else if (
+                  (action.action === "invite" ||
+                    action.action === "applications" ||
+                    action.action === "pre_selection" ||
+                    action.action === "pre_selection_curation") &&
+                  action.targetStatus
+                ) {
                   onApprove(influencer, action.targetStatus);
                 }
               }}
@@ -468,6 +474,8 @@ export function ManagementTab({
     const statusMap: { [key: string]: string } = {
       // Valores do banco de dados mapeados para IDs das colunas do Kanban
       applications: "applications",
+      pre_selection: "pre_selection",
+      pre_selection_curation: "pre_selection_curation",
       curation: "curation",
       invited: "invited",
       contract_pending: "contract_pending",
@@ -839,7 +847,16 @@ export function ManagementTab({
     // Nota: Aprovar/Recusar foram removidos - essas ações devem ser feitas nas guias específicas
     switch (status) {
       case "applications":
-        // Pode mover para curadoria
+        return [
+          { label: "Mover para Pré-seleção", action: "pre_selection", targetStatus: "pre_selection" },
+          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
+        ];
+      case "pre_selection":
+        return [
+          { label: "Mover para Curadoria pré-seleção", action: "pre_selection_curation", targetStatus: "pre_selection_curation" },
+          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
+        ];
+      case "pre_selection_curation":
         return [
           { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
         ];
@@ -1048,31 +1065,35 @@ export function ManagementTab({
       const apiStatus =
         targetStatus === "curation"
           ? "curation"
-          : targetStatus === "approved" || targetStatus === "approved_progress"
-            ? "approved"
-            : targetStatus === "rejected"
-              ? "rejected"
-              : targetStatus === "applications" || targetStatus === "inscriptions"
-                ? "applications"
-                : targetStatus === "invited"
-                  ? "invited"
-                  : targetStatus === "contract_pending"
-                    ? "contract_pending"
-                    : targetStatus === "script_pending"
-                      ? "script_pending"
-                      : targetStatus === "content_pending"
-                        ? "content_pending"
-                        : targetStatus === "pending_approval"
-                          ? "pending_approval"
-                          : targetStatus === "in_correction"
-                            ? "in_correction"
-                            : targetStatus === "content_approved"
-                              ? "content_approved"
-                              : targetStatus === "payment_pending"
-                                ? "payment_pending"
-                                : targetStatus === "published"
-                                  ? "published"
-                                  : targetStatus;
+          : targetStatus === "pre_selection"
+            ? "pre_selection"
+            : targetStatus === "pre_selection_curation"
+              ? "pre_selection_curation"
+              : targetStatus === "approved" || targetStatus === "approved_progress"
+                ? "approved"
+                : targetStatus === "rejected"
+                  ? "rejected"
+                  : targetStatus === "applications" || targetStatus === "inscriptions"
+                    ? "applications"
+                    : targetStatus === "invited"
+                      ? "invited"
+                      : targetStatus === "contract_pending"
+                        ? "contract_pending"
+                        : targetStatus === "script_pending"
+                          ? "script_pending"
+                          : targetStatus === "content_pending"
+                            ? "content_pending"
+                            : targetStatus === "pending_approval"
+                              ? "pending_approval"
+                              : targetStatus === "in_correction"
+                                ? "in_correction"
+                                : targetStatus === "content_approved"
+                                  ? "content_approved"
+                                  : targetStatus === "payment_pending"
+                                    ? "payment_pending"
+                                    : targetStatus === "published"
+                                      ? "published"
+                                      : targetStatus;
 
       // Atualiza o status do influenciador via API
       const notes = getTransitionNote(currentStatus, targetStatus);
@@ -1123,8 +1144,12 @@ export function ManagementTab({
     // Regras de transição válidas conforme documentação de status
     // Baseado em: API_ENDPOINTS_BACKOFFICE_CHAT.md e Untitled.md
     const validTransitions: { [key: string]: string[] } = {
-      // applications → curation, invited, rejected
-      applications: ["curation", "invited", "rejected"],
+      // applications → pre_selection, curation, invited, rejected
+      applications: ["pre_selection", "curation", "invited", "rejected"],
+      // pre_selection → pre_selection_curation, curation, rejected
+      pre_selection: ["pre_selection_curation", "curation", "rejected"],
+      // pre_selection_curation → curation, invited, approved, rejected
+      pre_selection_curation: ["curation", "invited", "approved", "rejected"],
       // curation → invited, approved, rejected
       curation: ["invited", "approved", "rejected"],
       // invited → contract_pending, rejected
@@ -1182,8 +1207,12 @@ export function ManagementTab({
 
     // Transições válidas para movimento manual pelo backoffice
     const userValidTransitions: { [key: string]: string[] } = {
-      // applications → curation, invited, rejected
-      applications: ["curation", "invited", "rejected"],
+      // applications → pre_selection, curation, invited, rejected
+      applications: ["pre_selection", "curation", "invited", "rejected"],
+      // pre_selection → pre_selection_curation, curation, rejected
+      pre_selection: ["pre_selection_curation", "curation", "rejected"],
+      // pre_selection_curation → curation, invited, approved, rejected
+      pre_selection_curation: ["curation", "invited", "approved", "rejected"],
       // curation → invited, approved, rejected
       curation: ["invited", "approved", "rejected"],
       // invited → contract_pending, rejected
@@ -1212,8 +1241,18 @@ export function ManagementTab({
     const notes: { [key: string]: string } = {
       // Transições de applications
       "applications->curation": "Movido para curadoria",
+      "applications->pre_selection": "Movido para pré-seleção",
       "applications->invited": "Convidado para participar",
       "applications->rejected": "Recusado",
+      // Transições de pre_selection
+      "pre_selection->pre_selection_curation": "Movido para curadoria da pré-seleção",
+      "pre_selection->curation": "Movido para curadoria",
+      "pre_selection->rejected": "Recusado",
+      // Transições de pre_selection_curation
+      "pre_selection_curation->curation": "Movido para curadoria",
+      "pre_selection_curation->invited": "Convidado após curadoria da pré-seleção",
+      "pre_selection_curation->approved": "Aprovado após curadoria da pré-seleção",
+      "pre_selection_curation->rejected": "Recusado",
       // Transições de curation
       "curation->invited": "Convidado após curadoria",
       "curation->approved": "Aprovado após curadoria",

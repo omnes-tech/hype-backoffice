@@ -339,6 +339,81 @@ export async function inviteInfluencer(
 }
 
 /**
+ * Move um influenciador para pré-seleção (POST backoffice/campaigns/:campaignId/users/pre-selection).
+ * Body igual ao convite: InviteInfluencerDto (influencer_id obrigatório; network_id/social_network_id/profile_ids e message opcionais).
+ */
+export async function addToPreSelection(
+  campaignId: string,
+  data: InfluencerInviteData
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/users/pre-selection`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to add influencer to pre-selection";
+  }
+}
+
+/** Body para mover da pré-seleção para curadoria da pré-seleção (MoveToCurationDto) */
+export interface MoveToPreSelectionCurationData {
+  network_id?: number;
+  notes?: string;
+}
+
+/**
+ * Move um influenciador da pré-seleção para curadoria da pré-seleção.
+ * POST .../campaigns/:campaignId/users/:influencerId/pre-selection-curation
+ */
+export async function moveToPreSelectionCuration(
+  campaignId: string,
+  influencerId: string,
+  data: MoveToPreSelectionCurationData = {}
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/users/${influencerId}/pre-selection-curation`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!request.ok) {
+    const error = await request.json();
+    throw error || "Failed to move to pre-selection curation";
+  }
+}
+
+/**
  * Busca o histórico de mudanças de status do influenciador
  */
 export async function getInfluencerHistory(
