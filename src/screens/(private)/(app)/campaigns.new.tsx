@@ -299,7 +299,6 @@ function CreateCampaignPage() {
           <CreateCampaignStepOne
             formData={formData}
             updateFormData={updateFormData}
-            onNext={handleContinue}
           />
         )}
         {currentStep === 2 && (

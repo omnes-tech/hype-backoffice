@@ -512,7 +512,7 @@ export function CreateCampaignStepSeven({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between gap-2 border-t border-neutral-200 bg-neutral-050 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 bg-neutral-050 p-6">
         <Button
           type="button"
           onClick={onBack}
@@ -533,6 +533,18 @@ export function CreateCampaignStepSeven({
 
           </div>
         </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        {onSaveDraft && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSaveDraft}
+            disabled={isLoading}
+            className="h-11 rounded-[24px] px-4 w-min border-neutral-300"
+          >
+            <span className="font-semibold text-neutral-800">Salvar rascunho</span>
+          </Button>
+        )}
         <Button
           type="button"
           onClick={onSubmitCampaign}
@@ -551,6 +563,7 @@ export function CreateCampaignStepSeven({
             )}
           </div>
         </Button>
+        </div>
       </div>
     </div >
   );

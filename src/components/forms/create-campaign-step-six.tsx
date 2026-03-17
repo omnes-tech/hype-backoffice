@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -17,14 +16,12 @@ interface CreateCampaignStepSixProps {
   formData: CampaignFormData;
   updateFormData: (field: keyof CampaignFormData, value: any) => void;
   onBack: () => void;
-  onNext: () => void;
 }
 
 export function CreateCampaignStepSix({
   formData,
   updateFormData,
   onBack,
-  onNext,
 }: CreateCampaignStepSixProps) {
   const [phases, setPhases] = useState<CampaignPhase[]>(
     formData.phases && formData.phases.length > 0
@@ -252,67 +249,6 @@ export function CreateCampaignStepSix({
       }
     }
     return undefined;
-  };
-
-  // Validar todas as fases antes de avançar
-  const validateAllPhases = (): boolean => {
-    for (let i = 0; i < phases.length; i++) {
-      const phase = phases[i];
-
-      // Verificar se o objetivo está preenchido
-      if (!phase.objective || phase.objective.trim() === "") {
-        toast.error(`A Fase ${i + 1} precisa ter um objetivo selecionado.`);
-        return false;
-      }
-
-      // Verificar se a data está preenchida
-      if (!phase.postDate || phase.postDate.trim() === "") {
-        toast.error(`A Fase ${i + 1} precisa ter uma data prevista de postagem.`);
-        return false;
-      }
-
-      // Verificar se a data é válida
-      const dateError = getPhaseDateError(i, phase.postDate);
-      if (dateError) {
-        toast.error(`Fase ${i + 1}: ${dateError}`);
-        return false;
-      }
-
-      // Verificar se há pelo menos um formato preenchido
-      if (!phase.formats || phase.formats.length === 0) {
-        toast.error(`A Fase ${i + 1} precisa ter pelo menos um formato e rede social adicionado.`);
-        return false;
-      }
-
-      // Verificar se todos os formatos têm rede social e tipo de conteúdo preenchidos
-      const incompleteFormats = phase.formats.filter(
-        (format) => !format.socialNetwork || !format.contentType
-      );
-
-      if (incompleteFormats.length > 0) {
-        toast.error(`A Fase ${i + 1} tem formato(s) incompleto(s). Preencha a rede social e o tipo de conteúdo.`);
-        return false;
-      }
-
-      // Verificar se todas as quantidades são válidas
-      const invalidQuantities = phase.formats.filter((format) => {
-        const quantity = parseInt(format.quantity || "0", 10);
-        return isNaN(quantity) || quantity < 1;
-      });
-
-      if (invalidQuantities.length > 0) {
-        toast.error(`A Fase ${i + 1} tem formato(s) com quantidade inválida. A quantidade deve ser maior que 0.`);
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleNext = () => {
-    if (validateAllPhases()) {
-      onNext();
-    }
   };
 
   return (

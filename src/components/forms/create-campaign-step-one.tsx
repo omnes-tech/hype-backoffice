@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -11,13 +10,11 @@ const OBJECTIVE_MAX = 1000;
 interface CreateCampaignStepOneProps {
   formData: CampaignFormData;
   updateFormData: (field: keyof CampaignFormData, value: string | string[]) => void;
-  onNext: () => void;
 }
 
 export function CreateCampaignStepOne({
   formData,
   updateFormData,
-  onNext,
 }: CreateCampaignStepOneProps) {
   const [whatToDoItems, setWhatToDoItems] = useState<string[]>(() => {
     if (Array.isArray(formData.whatToDo)) return formData.whatToDo.filter(Boolean);
@@ -64,18 +61,6 @@ export function CreateCampaignStepOne({
 
   const removeWhatNotToDo = (index: number) => {
     setWhatNotToDoItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleNext = () => {
-    if (!formData.title?.trim()) {
-      toast.error("Preencha o título da campanha.");
-      return;
-    }
-    if (!formData.description?.trim()) {
-      toast.error("Preencha a descrição da campanha.");
-      return;
-    }
-    onNext();
   };
 
   const descCount = (formData.description?.length ?? 0);

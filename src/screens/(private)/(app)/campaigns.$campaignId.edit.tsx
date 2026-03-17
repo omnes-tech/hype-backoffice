@@ -493,7 +493,6 @@ function RouteComponent() {
           <CreateCampaignStepOne
             formData={formData}
             updateFormData={updateFormData}
-            onNext={() => setCurrentStep(2)}
           />
         );
       case 2:
