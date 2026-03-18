@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,8 @@ function ApplicationCard({
   onReject,
   onMoveToCuration,
   onViewPhases,
+  /** Pré-seleções enviadas: só visualização (sem aprovar/reprovar/curadoria) */
+  hideWorkflowActions,
 }: {
   app: ApplicationWithProfile;
   nicheName: string | null;
@@ -123,6 +125,7 @@ function ApplicationCard({
   onReject: () => void;
   onMoveToCuration: () => void;
   onViewPhases: () => void;
+  hideWorkflowActions?: boolean;
 }) {
   const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
   const sentAtLabel = sentAt
@@ -144,17 +147,19 @@ function ApplicationCard({
             alt={app.influencerName}
             className="size-[60px] rounded-2xl object-cover bg-neutral-200"
           />
-          <button
-            type="button"
-            onClick={onSelect}
-            className="absolute -left-2 -top-2 size-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-sm"
-          >
-            {isSelected ? (
-              <Icon name="Check" size={14} color="var(--color-primary-600)" className="text-primary-600" />
-            ) : (
-              <div className="size-3 rounded-full border-2 border-neutral-300" />
-            )}
-          </button>
+          {!hideWorkflowActions && (
+            <button
+              type="button"
+              onClick={onSelect}
+              className="absolute -left-2 -top-2 size-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-sm"
+            >
+              {isSelected ? (
+                <Icon name="Check" size={14} color="var(--color-primary-600)" className="text-primary-600" />
+              ) : (
+                <div className="size-3 rounded-full border-2 border-neutral-300" />
+              )}
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -198,49 +203,65 @@ function ApplicationCard({
         </div>
       )}
 
-      {/* Enviado em + Aprovar/Reprovar + Ver perfil */}
+      {/* Enviado em + ações (só inscrições orgânicas) */}
       <div className="flex flex-col gap-3">
         <p className="text-base font-medium text-neutral-500 leading-5">
           Enviado em: {sentAtLabel}
         </p>
-        <div className="flex gap-1">
-          <Button
-            onClick={onApprove}
-            disabled={isUpdatingStatus}
-            className="h-11 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
-          >
-            <Icon name="Check" size={24} color="#fafafa" />
-            Aprovar
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onReject}
-            disabled={isUpdatingStatus}
-            className="h-11 rounded-full font-semibold text-base border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
-          >
-            <Icon name="X" size={24} color="#525252" />
-            Reprovar
-          </Button>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={onViewPhases}
-            className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-          >
-            <Icon name="Link" size={24} color="#737373" />
-            Ver perfil
-          </button>
-          <button
-            type="button"
-            onClick={onMoveToCuration}
-            disabled={isUpdatingStatus}
-            className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-          >
-            <Icon name="ArrowRight" size={16} color="#737373" />
-            Mover para curadoria
-          </button>
-        </div>
+        {!hideWorkflowActions && (
+          <>
+            <div className="flex gap-1">
+              <Button
+                onClick={onApprove}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
+              >
+                <Icon name="Check" size={24} color="#fafafa" />
+                Aprovar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onReject}
+                disabled={isUpdatingStatus}
+                className="h-11 rounded-full font-semibold text-base border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
+              >
+                <Icon name="X" size={24} color="#525252" />
+                Reprovar
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onViewPhases}
+                className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+              >
+                <Icon name="Link" size={24} color="#737373" />
+                Ver perfil
+              </button>
+              <button
+                type="button"
+                onClick={onMoveToCuration}
+                disabled={isUpdatingStatus}
+                className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+              >
+                <Icon name="ArrowRight" size={16} color="#737373" />
+                Mover para curadoria
+              </button>
+            </div>
+          </>
+        )}
+        {hideWorkflowActions && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onViewPhases}
+              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+            >
+              <Icon name="Link" size={24} color="#737373" />
+              Ver perfil
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -269,6 +290,10 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
 
   // Segmento: "organic" (Inscrições Orgânicas) | "preselection" (Pré-seleções Enviadas)
   const [segmentTab, setSegmentTab] = useState<"organic" | "preselection">("organic");
+
+  useEffect(() => {
+    setSelectedInfluencers(new Set());
+  }, [segmentTab]);
 
   // Estados de filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -813,58 +838,60 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
           </div>
 
           <div className="bg-white rounded-xl rounded-tl-none p-6">
-            {/* Toolbar: Selecionar todos + botões em massa (Figma) */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={
-                    selectedInfluencers.size === currentFilteredList.length &&
-                    currentFilteredList.length > 0
-                  }
-                  onCheckedChange={handleSelectAll}
-                />
-                <label className="text-sm font-medium text-neutral-950 cursor-pointer">
-                  Selecionar todos ({currentFilteredList.length})
-                </label>
-              </div>
-              {selectedInfluencers.size > 0 && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkActionType("curation");
-                      setIsBulkActionModalOpen(true);
-                    }}
-                    className="h-11 rounded-full font-semibold"
-                  >
-                    <Icon name="ArrowRight" color="#404040" size={16} className="mr-2" />
-                    Mover para Curadoria
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkActionType("approve");
-                      setIsBulkActionModalOpen(true);
-                    }}
-                    className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50"
-                  >
-                    <Icon name="Check" color="#16a34a" size={16} className="mr-2" />
-                    Aprovar selecionados
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkActionType("reject");
-                      setIsBulkActionModalOpen(true);
-                    }}
-                    className="h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50"
-                  >
-                    <Icon name="X" color="#dc2626" size={16} className="mr-2" />
-                    Reprovar selecionados
-                  </Button>
+            {/* Toolbar: seleção em massa só em Inscrições Orgânicas */}
+            {segmentTab === "organic" && (
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={
+                      selectedInfluencers.size === currentFilteredList.length &&
+                      currentFilteredList.length > 0
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <label className="text-sm font-medium text-neutral-950 cursor-pointer">
+                    Selecionar todos ({currentFilteredList.length})
+                  </label>
                 </div>
-              )}
-            </div>
+                {selectedInfluencers.size > 0 && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setBulkActionType("curation");
+                        setIsBulkActionModalOpen(true);
+                      }}
+                      className="h-11 rounded-full font-semibold"
+                    >
+                      <Icon name="ArrowRight" color="#404040" size={16} className="mr-2" />
+                      Mover para Curadoria
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setBulkActionType("approve");
+                        setIsBulkActionModalOpen(true);
+                      }}
+                      className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50"
+                    >
+                      <Icon name="Check" color="#16a34a" size={16} className="mr-2" />
+                      Aprovar selecionados
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setBulkActionType("reject");
+                        setIsBulkActionModalOpen(true);
+                      }}
+                      className="h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50"
+                    >
+                      <Icon name="X" color="#dc2626" size={16} className="mr-2" />
+                      Reprovar selecionados
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Filtros — uma linha (Figma) */}
             <div className="flex flex-wrap items-end gap-3 mb-6">
@@ -985,6 +1012,7 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
                           params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
                         })
                       }
+                      hideWorkflowActions={segmentTab === "preselection"}
                     />
                   );
                 })}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -68,6 +68,8 @@ interface StatusHistory {
 
 interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
   id: string | number;
+  /** ID do usuário na plataforma (rota /influencer/$influencerId) */
+  user_id?: string | number;
   socialNetwork?: string;
   social_networks?: Array<{
     id: number | string;
@@ -148,6 +150,7 @@ function SortableInfluencerCard({
   onMoveToCuration,
   setSelectedInfluencer,
   setIsRejectModalOpen,
+  hideActionButtons,
 }: {
   influencer: ExtendedInfluencer;
   onClick: (influencer: ExtendedInfluencer) => void;
@@ -163,6 +166,8 @@ function SortableInfluencerCard({
   onMoveToCuration: (influencer: ExtendedInfluencer) => void;
   setSelectedInfluencer: (inf: ExtendedInfluencer | null) => void;
   setIsRejectModalOpen: (open: boolean) => void;
+  /** Coluna Pré-seleção: sem ações no card */
+  hideActionButtons?: boolean;
 }) {
   const {
     attributes,
@@ -224,7 +229,7 @@ function SortableInfluencerCard({
           </div>
         )}
       </div>
-      {availableActions.length > 0 && (
+      {!hideActionButtons && availableActions.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
           {availableActions.map((action) => (
             <button
@@ -329,6 +334,7 @@ function KanbanColumn({
               onMoveToCuration={onMoveToCuration}
               setSelectedInfluencer={setSelectedInfluencer}
               setIsRejectModalOpen={setIsRejectModalOpen}
+              hideActionButtons={column.id === "pre_selection"}
             />
           ))}
           {influencers.length === 0 && (
@@ -392,6 +398,7 @@ export function ManagementTab({
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
+  const navigate = useNavigate();
   const { data: niches = [] } = useNiches();
   const [influencersState, setInfluencersState] = useState<
     ExtendedInfluencer[]
@@ -400,18 +407,18 @@ export function ManagementTab({
     useState<ExtendedInfluencer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  
+
   // Abrir chat automaticamente quando openChatInfluencerId for fornecido (vindo de notificação)
   useEffect(() => {
     if (openChatInfluencerId && influencersState.length > 0 && campaignUsers.length > 0) {
       const influencerIdStr = String(openChatInfluencerId);
       const influencerIdNum = parseInt(influencerIdStr, 10);
-      
+
       // Buscar o influenciador de forma mais robusta
       // Primeiro, tentar encontrar pelo campaignUserId (campaignUsers.id)
       // Depois, tentar encontrar pelo userId (campaignUsers.user_id)
       let influencerToOpen: ExtendedInfluencer | undefined;
-      
+
       if (!isNaN(influencerIdNum)) {
         // 1. Tentar encontrar por user_id primeiro (caso mais comum)
         const campaignUser = campaignUsers.find((u) => {
@@ -421,13 +428,13 @@ export function ManagementTab({
             : u.user_id;
           return userId === influencerIdNum;
         });
-        
+
         if (campaignUser) {
           influencerToOpen = influencersState.find(
             (inf) => String(inf.id) === String(campaignUser.id)
           );
         }
-        
+
         // 2. Se não encontrou, tentar pelo próprio id (influencer.id já é o campaignUserId)
         if (!influencerToOpen) {
           influencerToOpen = influencersState.find(
@@ -443,7 +450,7 @@ export function ManagementTab({
           (inf) => String(inf.id) === influencerIdStr
         );
       }
-      
+
       if (influencerToOpen && !isChatModalOpen) {
         setSelectedInfluencer(influencerToOpen);
         setIsChatModalOpen(true);
@@ -452,7 +459,10 @@ export function ManagementTab({
   }, [openChatInfluencerId, influencersState, campaignUsers, isChatModalOpen]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
-  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
+  /** Todas selecionadas = Geral (Kanban completo). Subconjunto = só essas colunas. */
+  const [selectedPhaseFilterIds, setSelectedPhaseFilterIds] = useState<string[]>(() =>
+    kanbanColumns.map((c) => c.id)
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Hooks para mutations
@@ -518,13 +528,14 @@ export function ManagementTab({
         social_networks: inf.social_networks,
       })),
     });
-    
+
     // Converter TODOS os usuários da campanha para o formato ExtendedInfluencer
     const allCampaignUsers: ExtendedInfluencer[] = campaignUsers.map((user) => {
       const kanbanStatus = mapUserStatusToKanbanColumn(user.status);
       const userWithSocialNetworks = user as any;
       return {
         id: user.id,
+        user_id: user.user_id,
         name: user.name,
         username: user.username || "",
         avatar: user.avatar || "",
@@ -606,12 +617,12 @@ export function ManagementTab({
             socialNetwork: inf.social_networks && inf.social_networks.length > 0
               ? inf.social_networks[0].type
               : [
-                  "instagram",
-                  "tiktok",
-                  "youtube",
-                  "instagram",
-                  "tiktok",
-                ][index % 5],
+                "instagram",
+                "tiktok",
+                "youtube",
+                "instagram",
+                "tiktok",
+              ][index % 5],
             statusHistory: [
               {
                 id: "1",
@@ -652,12 +663,12 @@ export function ManagementTab({
           socialNetwork: inf.social_networks && inf.social_networks.length > 0
             ? inf.social_networks[0].type
             : [
-                "instagram",
-                "tiktok",
-                "youtube",
-                "instagram",
-                "tiktok",
-              ][index % 5],
+              "instagram",
+              "tiktok",
+              "youtube",
+              "instagram",
+              "tiktok",
+            ][index % 5],
           statusHistory: [
             {
               id: "1",
@@ -741,9 +752,9 @@ export function ManagementTab({
   ) => {
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
     const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string' 
-          ? Number(influencer.social_networks[0].id) 
-          : influencer.social_networks[0].id)
+      ? (typeof influencer.social_networks[0].id === 'string'
+        ? Number(influencer.social_networks[0].id)
+        : influencer.social_networks[0].id)
       : undefined;
 
     updateStatus(
@@ -779,9 +790,9 @@ export function ManagementTab({
 
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
     const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string' 
-          ? Number(influencer.social_networks[0].id) 
-          : influencer.social_networks[0].id)
+      ? (typeof influencer.social_networks[0].id === 'string'
+        ? Number(influencer.social_networks[0].id)
+        : influencer.social_networks[0].id)
       : undefined;
 
     updateStatus(
@@ -810,9 +821,9 @@ export function ManagementTab({
   const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
     const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string' 
-          ? Number(influencer.social_networks[0].id) 
-          : influencer.social_networks[0].id)
+      ? (typeof influencer.social_networks[0].id === 'string'
+        ? Number(influencer.social_networks[0].id)
+        : influencer.social_networks[0].id)
       : undefined;
 
     updateStatus(
@@ -1026,9 +1037,9 @@ export function ManagementTab({
         const notes = getTransitionNote(currentStatus, targetStatus);
         // Se o influenciador tiver apenas uma rede social, usar o network_id dela
         const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
-          ? (typeof draggedInfluencer.social_networks[0].id === 'string' 
-              ? Number(draggedInfluencer.social_networks[0].id) 
-              : draggedInfluencer.social_networks[0].id)
+          ? (typeof draggedInfluencer.social_networks[0].id === 'string'
+            ? Number(draggedInfluencer.social_networks[0].id)
+            : draggedInfluencer.social_networks[0].id)
           : undefined;
 
         updateStatus(
@@ -1099,9 +1110,9 @@ export function ManagementTab({
       const notes = getTransitionNote(currentStatus, targetStatus);
       // Se o influenciador tiver apenas uma rede social, usar o network_id dela
       const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
-        ? (typeof draggedInfluencer.social_networks[0].id === 'string' 
-            ? Number(draggedInfluencer.social_networks[0].id) 
-            : draggedInfluencer.social_networks[0].id)
+        ? (typeof draggedInfluencer.social_networks[0].id === 'string'
+          ? Number(draggedInfluencer.social_networks[0].id)
+          : draggedInfluencer.social_networks[0].id)
         : undefined;
 
       updateStatus(
@@ -1306,10 +1317,32 @@ export function ManagementTab({
     );
   };
 
+  const allPhaseIds = kanbanColumns.map((c) => c.id);
+  const isAllPhasesFilterSelected =
+    selectedPhaseFilterIds.length === allPhaseIds.length &&
+    allPhaseIds.every((id) => selectedPhaseFilterIds.includes(id));
+
   const columnsToShow =
-    selectedPhaseFilter === "all"
+    isAllPhasesFilterSelected || selectedPhaseFilterIds.length === 0
       ? kanbanColumns
-      : kanbanColumns.filter((col) => col.id === selectedPhaseFilter);
+      : kanbanColumns.filter((col) => selectedPhaseFilterIds.includes(col.id));
+
+  const togglePhaseFilter = (columnId: string) => {
+    setSelectedPhaseFilterIds((prev) => {
+      const allOn =
+        prev.length === allPhaseIds.length &&
+        allPhaseIds.every((id) => prev.includes(id));
+
+      if (allOn) {
+        return allPhaseIds.filter((id) => id !== columnId);
+      }
+      if (prev.includes(columnId)) {
+        const next = prev.filter((id) => id !== columnId);
+        return next.length === 0 ? [...allPhaseIds] : next;
+      }
+      return [...prev, columnId];
+    });
+  };
 
   return (
     <>
@@ -1331,29 +1364,30 @@ export function ManagementTab({
           <div className="flex flex-wrap gap-2 px-5 mb-6">
             <button
               type="button"
-              onClick={() => setSelectedPhaseFilter("all")}
-              className={`px-4 py-3 rounded-[32px] text-base transition-colors ${
-                selectedPhaseFilter === "all"
-                  ? "bg-primary-600 text-white"
-                  : "border border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-              }`}
+              onClick={() => setSelectedPhaseFilterIds([...allPhaseIds])}
+              className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isAllPhasesFilterSelected
+                ? "bg-primary-600 text-white border-transparent"
+                : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                }`}
             >
               Geral
             </button>
-            {kanbanColumns.map((col) => (
-              <button
-                key={col.id}
-                type="button"
-                onClick={() => setSelectedPhaseFilter(col.id)}
-                className={`px-4 py-3 rounded-[32px] text-base transition-colors ${
-                  selectedPhaseFilter === col.id
-                    ? "bg-primary-600 text-white"
-                    : "border border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                }`}
-              >
-                {col.label}
-              </button>
-            ))}
+            {kanbanColumns.map((col) => {
+              const isActive = selectedPhaseFilterIds.includes(col.id);
+              return (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => togglePhaseFilter(col.id)}
+                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isActive
+                    ? "bg-primary-600 text-white border-transparent"
+                    : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                    }`}
+                >
+                  {col.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Kanban Board */}
@@ -1415,17 +1449,6 @@ export function ManagementTab({
             setSelectedInfluencer(null);
           }}
         >
-          {(() => {
-            // Debug: verificar dados no modal
-            console.log("🔍 Modal opened with influencer:", {
-              id: selectedInfluencer.id,
-              name: selectedInfluencer.name,
-              social_networks: selectedInfluencer.social_networks,
-              hasSocialNetworks: !!selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0,
-              social_networksLength: selectedInfluencer.social_networks?.length || 0,
-            });
-            return null;
-          })()}
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <Avatar
@@ -1621,7 +1644,41 @@ export function ManagementTab({
                   <span>Abrir chat</span>
                 </div>
               </Button>
-              <Button variant="outline" className="flex-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                type="button"
+                onClick={() => {
+                  const fromInf =
+                    selectedInfluencer.user_id != null &&
+                    String(selectedInfluencer.user_id).trim() !== ""
+                      ? String(selectedInfluencer.user_id)
+                      : null;
+                  const campaignUser = campaignUsers.find(
+                    (u) => String(u.id) === String(selectedInfluencer.id)
+                  );
+                  const fromCampaign =
+                    campaignUser?.user_id != null
+                      ? String(campaignUser.user_id)
+                      : null;
+                  const userId = fromInf ?? fromCampaign;
+                  if (!userId) {
+                    toast.error(
+                      "Não foi possível abrir o perfil: usuário sem user_id."
+                    );
+                    return;
+                  }
+                  setIsModalOpen(false);
+                  setSelectedInfluencer(null);
+                  navigate({
+                    to: "/campaigns/$campaignId/influencer/$influencerId",
+                    params: {
+                      campaignId: campaignId ?? "",
+                      influencerId: userId,
+                    },
+                  });
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <Icon name="User" color="#404040" size={16} />
                   <span>Ver perfil completo</span>

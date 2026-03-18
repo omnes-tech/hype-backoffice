@@ -318,7 +318,7 @@ function RouteComponent() {
                 </div>
               </div>
             </div>
-            <Tabs tabs={tabs} activeTab="dashboard" onTabChange={() => {}} />
+            <Tabs tabs={tabs} activeTab="dashboard" onTabChange={() => { }} />
           </div>
           <div className="mt-6">
             <DashboardTabSkeleton />

@@ -10,6 +10,7 @@ interface CreateCampaignStepFourProps {
   updateFormData: (field: keyof CampaignFormData, value: unknown) => void;
   onBack: () => void;
   onNext: () => void;
+  hideBackButton?: boolean;
 }
 
 export function CreateCampaignStepFour({
@@ -17,6 +18,7 @@ export function CreateCampaignStepFour({
   updateFormData,
   onBack,
   onNext,
+  hideBackButton = false,
 }: CreateCampaignStepFourProps) {
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -374,15 +376,16 @@ export function CreateCampaignStepFour({
         </div>
       </div>
 
-      {/* Botões */}
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" onClick={onBack} className="w-min">
-          <div className="flex items-center justify-center gap-2">
-            <Icon name="ArrowLeft" size={16} color="#404040" />
-            <p className="font-semibold text-neutral-700">Voltar</p>
-          </div>
-        </Button>
-      </div>
+      {!hideBackButton && (
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" onClick={onBack} className="w-min">
+            <div className="flex items-center justify-center gap-2">
+              <Icon name="ArrowLeft" size={16} color="#404040" />
+              <p className="font-semibold text-neutral-700">Voltar</p>
+            </div>
+          </Button>
+        </div>
+      )}
 
       {/* Modal de ajuste de banner (altura > 512px) */}
       {showCropModal && originalImage && (

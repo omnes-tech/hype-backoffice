@@ -59,6 +59,7 @@ interface CreateCampaignStepThreeProps {
   updateFormData: (field: keyof CampaignFormData, value: string | string[]) => void;
   onBack: () => void;
   onNext: () => void;
+  hideBackButton?: boolean;
 }
 
 export function CreateCampaignStepThree({
@@ -66,6 +67,7 @@ export function CreateCampaignStepThree({
   updateFormData,
   onBack,
   onNext,
+  hideBackButton = false,
 }: CreateCampaignStepThreeProps) {
   const [includeBonus, setIncludeBonus] = useState(!!formData.benefitsBonus?.trim());
   const [benefitsItems, setBenefitsItems] = useState<string[]>(() => {
@@ -346,15 +348,16 @@ export function CreateCampaignStepThree({
         </div>
       </div>
 
-      {/* Botões */}
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" onClick={onBack} className="w-min">
-          <div className="flex items-center justify-center gap-2">
-            <Icon name="ArrowLeft" size={16} color="#404040" />
-            <p className="font-semibold text-neutral-700">Voltar</p>
-          </div>
-        </Button>
-      </div>
+      {!hideBackButton && (
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" onClick={onBack} className="w-min">
+            <div className="flex items-center justify-center gap-2">
+              <Icon name="ArrowLeft" size={16} color="#404040" />
+              <p className="font-semibold text-neutral-700">Voltar</p>
+            </div>
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

@@ -18,6 +18,8 @@ interface CreateCampaignStepTwoProps {
   updateFormData: (field: keyof CampaignFormData, value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  /** Quando true, o rodapé global da página mostra Voltar (ex.: fluxo /campaigns/new) */
+  hideBackButton?: boolean;
 }
 
 /** Toggle no estilo Figma: 37×20px, pill, verde (on) / cinza (off), knob cinza escuro */
@@ -76,6 +78,7 @@ export function CreateCampaignStepTwo({
   updateFormData,
   onBack,
   onNext,
+  hideBackButton = false,
 }: CreateCampaignStepTwoProps) {
   const [selectedStates, setSelectedStates] = useState<string[]>(
     formData.state ? formData.state.split(",").filter(Boolean) : []
@@ -471,15 +474,16 @@ export function CreateCampaignStepTwo({
         </div>
       )}
 
-      {/* Botões */}
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" onClick={onBack} className="w-min">
-          <div className="flex items-center justify-center gap-2">
-            <Icon name="ArrowLeft" size={16} color="#404040" />
-            <p className="font-semibold text-neutral-700">Voltar</p>
-          </div>
-        </Button>
-      </div>
+      {!hideBackButton && (
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" onClick={onBack} className="w-min">
+            <div className="flex items-center justify-center gap-2">
+              <Icon name="ArrowLeft" size={16} color="#404040" />
+              <p className="font-semibold text-neutral-700">Voltar</p>
+            </div>
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

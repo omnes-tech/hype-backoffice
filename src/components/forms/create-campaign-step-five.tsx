@@ -17,6 +17,7 @@ interface CreateCampaignStepFiveProps {
   updateFormData: (field: keyof CampaignFormData, value: unknown) => void;
   onBack: () => void;
   onNext: () => void;
+  hideBackButton?: boolean;
 }
 
 const OBJECTIVE_OPTIONS = [
@@ -68,6 +69,7 @@ export function CreateCampaignStepFive({
   updateFormData,
   onBack,
   onNext,
+  hideBackButton = false,
 }: CreateCampaignStepFiveProps) {
   const [phases, setPhases] = useState<CampaignPhase[]>(
     formData.phases && formData.phases.length > 0
@@ -542,17 +544,18 @@ export function CreateCampaignStepFive({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between">
-        <div className="w-fit">
-          <Button variant="outline" onClick={onBack} type="button">
-            <div className="flex items-center justify-center gap-2">
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-              <p className="font-semibold text-neutral-700">Voltar</p>
-            </div>
-          </Button>
+      {!hideBackButton && (
+        <div className="flex items-center justify-between">
+          <div className="w-fit">
+            <Button variant="outline" onClick={onBack} type="button">
+              <div className="flex items-center justify-center gap-2">
+                <Icon name="ArrowLeft" size={16} color="#404040" />
+                <p className="font-semibold text-neutral-700">Voltar</p>
+              </div>
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </form>
   );
 }

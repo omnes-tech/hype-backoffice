@@ -137,7 +137,59 @@ export interface InfluencerProfile {
   name: string;
   username: string;
   members: number; // Número de seguidores/membros
-  created_at: string;
+  created_at?: string;
+  /** Foto do perfil na rede (path de upload ou URL) */
+  avatar?: string | null;
+  /** Engajamento % nesta rede social */
+  engagement_percent?: number | null;
+}
+
+function numOrUndef(v: unknown): number | undefined {
+  if (v == null || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function firstString(...vals: unknown[]): string | undefined {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+/** Normaliza item da API (camelCase ou snake_case) */
+function normalizeInfluencerProfile(raw: unknown): InfluencerProfile {
+  const p = raw as Record<string, unknown>;
+  const engagement =
+    numOrUndef(p.engagement_percent) ??
+    numOrUndef(p.engagement_rate) ??
+    numOrUndef(p.engagement);
+  return {
+    id: String(p.id ?? ""),
+    type: String(p.type ?? ""),
+    type_label: String(p.type_label ?? p.type ?? ""),
+    name: String(p.name ?? ""),
+    username: String(p.username ?? p.handle ?? p.user_name ?? ""),
+    members:
+      numOrUndef(p.members) ??
+      numOrUndef(p.followers) ??
+      numOrUndef(p.followers_count) ??
+      0,
+    created_at: p.created_at != null ? String(p.created_at) : undefined,
+    avatar:
+      firstString(
+        p.avatar,
+        p.photo,
+        p.picture,
+        p.image_url,
+        p.profile_picture,
+        p.profile_image_url,
+        p.thumbnail_url,
+        p.thumbnail
+      ) ?? null,
+    engagement_percent:
+      engagement != null ? engagement : null,
+  };
 }
 
 export interface InfluencerInviteData {
@@ -302,7 +354,7 @@ export async function getInfluencerProfiles(
     return [];
   }
 
-  return profiles;
+  return profiles.map((item) => normalizeInfluencerProfile(item));
 }
 
 /**

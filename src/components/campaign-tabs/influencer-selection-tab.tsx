@@ -156,6 +156,13 @@ function formatFollowers(n: number): string {
   return n.toLocaleString("pt-BR");
 }
 
+function formatEngagementPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const n = Number(value);
+  const s = n >= 10 ? n.toFixed(1) : n.toFixed(2);
+  return `${s.replace(/\.?0+$/, "")}%`;
+}
+
 /** Card de influenciador no estilo Figma: avatar, stats, nicho, Convidar / Pré-seleção, Ver perfil */
 function InfluencerCard({
   influencer,
@@ -946,34 +953,93 @@ export function InfluencerSelectionTab({
                       </p>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-col gap-3">
                       {influencerProfiles.map((profile) => {
                         const isSelected = selectedProfileIds.includes(profile.id);
-                        const label = profile.type_label || getSocialNetworkLabel(profile.type);
+                        const networkLabel =
+                          profile.type_label || getSocialNetworkLabel(profile.type);
+                        const handle = profile.username?.replace(/^@/, "").trim() || "—";
+                        const avatarSrc = profile.avatar
+                          ? getUploadUrl(profile.avatar) ?? undefined
+                          : undefined;
+                        const followersLabel = formatFollowers(profile.members ?? 0);
+                        const engagementLabel = formatEngagementPercent(
+                          profile.engagement_percent ?? undefined
+                        );
+
                         return (
                           <button
                             key={profile.id}
                             type="button"
                             onClick={() => {
                               if (isSelected) {
-                                setSelectedProfileIds(selectedProfileIds.filter((id) => id !== profile.id));
+                                setSelectedProfileIds(
+                                  selectedProfileIds.filter((id) => id !== profile.id)
+                                );
                               } else {
                                 setSelectedProfileIds([...selectedProfileIds, profile.id]);
                               }
                             }}
-                            className="flex items-center gap-2 cursor-pointer group"
+                            className={`group flex w-full cursor-pointer items-stretch gap-3 rounded-xl border-2 p-3 text-left transition-colors sm:gap-4 sm:p-4 ${
+                              isSelected
+                                ? "border-primary-600 bg-primary-50/40 ring-1 ring-primary-600/20"
+                                : "border-neutral-200 bg-neutral-50 hover:border-neutral-300 hover:bg-white"
+                            }`}
                           >
                             <span
-                              className={`shrink-0 size-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected
-                                ? "border-primary-600 bg-primary-600"
-                                : "border-neutral-300 bg-white group-hover:border-neutral-400"
-                                }`}
+                              className={`mt-1 flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                isSelected
+                                  ? "border-primary-600 bg-primary-600"
+                                  : "border-neutral-300 bg-white group-hover:border-neutral-400"
+                              }`}
                             >
                               {isSelected && (
                                 <Icon name="Check" size={14} color="#FAFAFA" />
                               )}
                             </span>
-                            <span className="text-base font-medium text-neutral-950">{label}</span>
+                            <div className="size-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200 sm:size-16">
+                              {avatarSrc ? (
+                                <img
+                                  src={avatarSrc}
+                                  alt=""
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-xs font-semibold uppercase text-neutral-500">
+                                  {networkLabel.slice(0, 2)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-800">
+                                  {networkLabel}
+                                </span>
+                              </div>
+                              <p className="truncate text-base font-semibold text-neutral-950">
+                                @{handle}
+                              </p>
+                              {profile.name?.trim() &&
+                                profile.name.trim().toLowerCase() !== handle.toLowerCase() && (
+                                  <p className="truncate text-sm text-neutral-600">
+                                    {profile.name}
+                                  </p>
+                                )}
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
+                                <span>
+                                  <span className="text-neutral-500">Seguidores </span>
+                                  <span className="font-medium text-neutral-900">
+                                    {followersLabel}
+                                  </span>
+                                </span>
+                                <span>
+                                  <span className="text-neutral-500">Engajamento </span>
+                                  <span className="font-medium text-neutral-900">
+                                    {engagementLabel}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
                           </button>
                         );
                       })}

@@ -15,10 +15,10 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={clsx(
-              "px-4 py-2 text-sm font-normal transition-colors duration-150 whitespace-nowrap border-b-2 -mb-px",
+              "px-4 py-2 text-sm transition-colors duration-150 whitespace-nowrap border-b-3",
               activeTab === tab.id
-                ? "border-primary-500 text-neutral-950"
-                : "border-transparent text-neutral-500 hover:text-neutral-700"
+                ? "border-primary-500 text-neutral-950 font-semibold"
+                : "border-transparent text-neutral-500 hover:text-neutral-700 font-normal"
             )}
           >
             {tab.label}

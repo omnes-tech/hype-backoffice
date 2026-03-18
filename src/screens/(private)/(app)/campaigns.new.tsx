@@ -255,6 +255,14 @@ function CreateCampaignPage() {
     }
   };
 
+  const handleFooterBack = () => {
+    if (currentStep <= 1) {
+      navigate({ to: "/campaigns" });
+    } else {
+      setCurrentStep((s) => s - 1);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-8rem)] max-w-6xl mx-auto">
       {/* Stepper – design Figma (6 steps, roxo #c252dc, gap 16px/8px) */}
@@ -307,6 +315,7 @@ function CreateCampaignPage() {
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(1)}
             onNext={handleContinue}
+            hideBackButton
           />
         )}
         {currentStep === 3 && (
@@ -315,6 +324,7 @@ function CreateCampaignPage() {
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(2)}
             onNext={handleContinue}
+            hideBackButton
           />
         )}
         {currentStep === 4 && (
@@ -323,6 +333,7 @@ function CreateCampaignPage() {
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(3)}
             onNext={handleContinue}
+            hideBackButton
           />
         )}
         {currentStep === 5 && (
@@ -331,6 +342,7 @@ function CreateCampaignPage() {
             updateFormData={updateFormData}
             onBack={() => setCurrentStep(4)}
             onNext={handleContinue}
+            hideBackButton
           />
         )}
         {currentStep === 6 && (
@@ -346,13 +358,24 @@ function CreateCampaignPage() {
         )}
       </div>
 
-      {/* Sticky footer - Figma style */}
+      {/* Barra fixa: Voltar + Continuar */}
       {currentStep < 6 && (
-        <div className="bg-[#FAFAFA] border-t border-[#e5e5e5] p-6 flex justify-end gap-2 rounded-xl mt-10 z-10">
+        <div className="mt-10 flex items-center justify-between gap-4 rounded-xl border-t border-[#e5e5e5] bg-[#FAFAFA] p-6 z-10">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleFooterBack}
+            className="h-11 min-w-0 shrink-0 rounded-[24px] border-[#e5e5e5] px-4 font-semibold text-neutral-700 w-min"
+          >
+            <span className="flex items-center gap-2">
+              <Icon name="ArrowLeft" color="#404040" size={16} />
+              Voltar
+            </span>
+          </Button>
           <Button
             type="button"
             onClick={handleContinue}
-            className="bg-primary-600 text-white rounded-[24px] px-4 py-2.5 font-semibold w-min"
+            className="h-11 shrink-0 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700 w-min"
           >
             <span className="flex items-center gap-2">
               Continuar
