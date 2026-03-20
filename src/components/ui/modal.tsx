@@ -1,12 +1,15 @@
+import { clsx } from "clsx";
 import { Icon } from "@/components/ui/icon";
 
 interface ModalProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Largura do painel (ex.: Figma convite ~800px) */
+  panelClassName?: string;
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
+export function Modal({ title, onClose, children, panelClassName }: ModalProps) {
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       e.preventDefault();
@@ -24,8 +27,11 @@ export function Modal({ title, onClose, children }: ModalProps) {
       className="w-full h-full bg-black/60 backdrop-blur-sm fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
     >
-      <div 
-        className="w-full max-w-4xl bg-white p-8 rounded-2xl max-h-[90vh] overflow-y-auto shadow-xl border border-neutral-200/50"
+      <div
+        className={clsx(
+          "w-full bg-white p-8 rounded-2xl max-h-[90vh] overflow-y-auto shadow-xl border border-neutral-200/50",
+          panelClassName ?? "max-w-4xl"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-full flex items-center justify-between mb-6">

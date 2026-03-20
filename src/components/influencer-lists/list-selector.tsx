@@ -9,10 +9,17 @@ interface ListSelectorProps {
   campaignId: string;
   trigger?: React.ReactNode;
   onClose?: () => void;
+  /** Abre o modal ao montar (fluxo sem trigger, ex. aba de seleção) */
+  defaultOpen?: boolean;
 }
 
-export function ListSelector({ campaignId, trigger, onClose }: ListSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ListSelector({
+  campaignId,
+  trigger,
+  onClose,
+  defaultOpen = false,
+}: ListSelectorProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const { data: lists, isLoading } = useInfluencerLists();
   const { mutate: addInfluencers, isPending } = useBulkAddInfluencers(campaignId);
 

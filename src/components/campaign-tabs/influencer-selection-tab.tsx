@@ -1,9 +1,15 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
@@ -11,14 +17,17 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
 import type { Influencer } from "@/shared/types";
-import { useCampaignRecommendations } from "@/hooks/use-catalog";
-import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useMuralStatus, useActivateMural, useDeactivateMural } from "@/hooks/use-campaign-mural";
+import { useCampaignInfluencerSelection } from "@/hooks/use-campaign-influencer-selection";
+import type { InfluencerSelectionProfileItem } from "@/shared/services/campaign-influencer-selection";
 import { useInviteInfluencer, useAddToPreSelection, useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 import { ListSelector } from "@/components/influencer-lists/list-selector";
-import { getInfluencerProfiles } from "@/shared/services/influencer";
+import {
+  getInfluencerProfiles,
+  getCampaignInfluencerInvitableProfiles,
+} from "@/shared/services/influencer";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
 
@@ -31,6 +40,9 @@ interface ExtendedInfluencer extends Influencer {
     city?: string;
   };
   recommendationReason?: string;
+  /** PK `social_networks` — alinhado à API de seleção / convite por perfil */
+  socialNetworkId?: string;
+  selectionSource?: "recommended" | "catalog";
 }
 
 interface InfluencerSelectionTabProps {
@@ -45,105 +57,87 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
 }
 
-/** Skeleton da aba de seleção de influenciadores — espelha o layout real */
+/** Skeleton — mesma hierarquia do Figma (título → recomendados → filtros → todos + loading) */
 export function InfluencerSelectionTabSkeleton() {
   return (
-    <div className="flex flex-col gap-6">
-      {/* Card Descobrir */}
-      <div className="rounded-3xl p-6 border-2 border-neutral-200 bg-neutral-100">
-        <div className="flex items-start gap-4">
-          <Skeleton className="size-12 rounded-2xl shrink-0" />
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-6 w-24 rounded-full" />
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-8 w-72 max-w-full" />
+        <Skeleton className="h-5 w-full max-w-xl" />
+      </div>
+
+      <div className="flex flex-col gap-6 rounded-xl bg-white p-5">
+        <Skeleton className="h-7 w-full max-w-md" />
+        <div className="flex gap-3 overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="flex w-[269px] min-w-[269px] shrink-0 flex-col gap-4 rounded-xl bg-neutral-100 p-3"
+            >
+              <div className="flex justify-between">
+                <Skeleton className="size-[60px] rounded-2xl" />
+                <Skeleton className="size-10 rounded-lg" />
+              </div>
+              <Skeleton className="h-6 w-4/5" />
+              <Skeleton className="h-4 w-1/2" />
+              <div className="flex gap-2">
+                <Skeleton className="h-16 flex-1 rounded-lg" />
+                <Skeleton className="h-16 flex-1 rounded-lg" />
+              </div>
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <div className="flex gap-1">
+                <Skeleton className="h-11 flex-1 rounded-full" />
+                <Skeleton className="h-11 flex-1 rounded-full" />
+              </div>
             </div>
-            <Skeleton className="h-4 w-full max-w-xl" />
-            <Skeleton className="h-4 w-full max-w-md" />
-            <div className="flex gap-3 pt-2">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-9 w-32 rounded-lg" />
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Título + descrição */}
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-5 w-full max-w-2xl" />
-      </div>
-
-      {/* Barra de filtros */}
-      <div className="bg-white rounded-xl p-5 border border-neutral-200">
+      <div className="rounded-xl bg-white p-4">
         <div className="flex flex-wrap items-end gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex-1 min-w-[140px] flex flex-col gap-1">
-              <Skeleton className="h-4 w-24" />
+            <div key={i} className="flex min-w-[160px] flex-1 flex-col gap-1">
+              <Skeleton className="h-5 w-28" />
               <Skeleton className="h-11 w-full rounded-full" />
             </div>
           ))}
-          <Skeleton className="h-11 w-36 rounded-full shrink-0" />
+          <Skeleton className="h-11 w-40 shrink-0 rounded-full" />
         </div>
       </div>
 
-      {/* Recomendações */}
-      <div className="bg-white rounded-xl p-6 border border-neutral-200">
-        <div className="flex items-center justify-between mb-5">
-          <Skeleton className="h-6 w-52" />
-          <Skeleton className="h-6 w-32 rounded-full" />
+      <div className="flex flex-col gap-6 rounded-xl bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-7 w-56" />
+          <div className="flex gap-2">
+            <Skeleton className="h-11 w-40 rounded-full" />
+            <Skeleton className="h-11 w-48 rounded-full" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-neutral-100 rounded-xl p-4 flex flex-col gap-4">
-              <div className="flex justify-between">
-                <Skeleton className="size-[60px] rounded-2xl shrink-0" />
-                <Skeleton className="size-10 rounded-lg shrink-0" />
-              </div>
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-              <div className="flex gap-2">
-                <Skeleton className="flex-1 h-16 rounded-lg" />
-                <Skeleton className="flex-1 h-16 rounded-lg" />
-              </div>
-              <Skeleton className="h-9 w-24 rounded-xl" />
-              <div className="flex gap-2">
-                <Skeleton className="flex-1 h-11 rounded-full" />
-                <Skeleton className="flex-1 h-11 rounded-full" />
-              </div>
-              <Skeleton className="h-4 w-20" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Catálogo */}
-      <div className="bg-white rounded-xl p-6 border border-neutral-200">
-        <div className="flex items-center justify-between mb-5">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-6 w-36 rounded-full" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="bg-neutral-100 rounded-xl p-4 flex flex-col gap-4">
+            <div key={i} className="flex flex-col gap-4 rounded-xl bg-neutral-100 p-3">
               <div className="flex justify-between">
-                <Skeleton className="size-[60px] rounded-2xl shrink-0" />
-                <Skeleton className="size-10 rounded-lg shrink-0" />
+                <Skeleton className="size-[60px] rounded-2xl" />
+                <Skeleton className="size-10 rounded-lg" />
               </div>
-              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-6 w-4/5" />
               <Skeleton className="h-4 w-1/2" />
               <div className="flex gap-2">
-                <Skeleton className="flex-1 h-16 rounded-lg" />
-                <Skeleton className="flex-1 h-16 rounded-lg" />
+                <Skeleton className="h-16 flex-1 rounded-lg" />
+                <Skeleton className="h-16 flex-1 rounded-lg" />
               </div>
-              <Skeleton className="h-9 w-24 rounded-xl" />
-              <div className="flex gap-2">
-                <Skeleton className="flex-1 h-11 rounded-full" />
-                <Skeleton className="flex-1 h-11 rounded-full" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <div className="flex gap-1">
+                <Skeleton className="h-11 flex-1 rounded-full" />
+                <Skeleton className="h-11 flex-1 rounded-full" />
               </div>
-              <Skeleton className="h-4 w-20" />
             </div>
           ))}
+        </div>
+        <div className="flex items-center justify-center gap-2 py-4">
+          <Skeleton className="size-6 rounded-full" />
+          <Skeleton className="h-5 w-56" />
         </div>
       </div>
     </div>
@@ -163,11 +157,137 @@ function formatEngagementPercent(value: number | null | undefined): string {
   return `${s.replace(/\.?0+$/, "")}%`;
 }
 
-/** Card de influenciador no estilo Figma: avatar, stats, nicho, Convidar / Pré-seleção, Ver perfil */
+function selectionItemMatchesFilters(
+  item: InfluencerSelectionProfileItem,
+  searchTerm: string,
+  filterNiche: string
+): boolean {
+  if (searchTerm.trim()) {
+    const q = searchTerm.toLowerCase();
+    const name = item.user.name.toLowerCase();
+    const handle = item.social_network.username.toLowerCase().replace(/^@/, "");
+    if (!name.includes(q) && !handle.includes(q)) return false;
+  }
+  if (filterNiche) {
+    const n = parseInt(filterNiche, 10);
+    if (!Number.isNaN(n) && !(item.niche_ids ?? []).includes(n)) return false;
+  }
+  return true;
+}
+
+/** IDs de perfil para convite/pré-seleção: o card da seleção já traz `socialNetworkId`. */
+function resolveInviteProfileIds(
+  influencer: ExtendedInfluencer | null,
+  picked: string[]
+): string[] {
+  const sid = influencer?.socialNetworkId?.trim();
+  if (sid) return [sid];
+  return picked;
+}
+
+function selectionItemToExtended(
+  item: InfluencerSelectionProfileItem,
+  networkType: string,
+  source: "recommended" | "catalog"
+): ExtendedInfluencer {
+  const sn = item.social_network;
+  const u = item.user;
+  const firstNiche = item.niche_ids?.[0];
+  const displayName = (sn.name || u.name || "").trim() || u.name;
+  return {
+    id: String(u.id),
+    name: displayName,
+    username: (sn.username || "").replace(/^@/, "").trim() || displayName,
+    avatar: (sn.photo || u.photo || "").trim(),
+    followers: sn.members ?? 0,
+    engagement: 0,
+    niche: firstNiche != null ? String(firstNiche) : "",
+    socialNetwork: networkType,
+    recommendationReason:
+      source === "recommended" ? item.match_reason : undefined,
+    socialNetworkId: String(sn.id),
+    selectionSource: source,
+  };
+}
+
+/** Carrossel horizontal para recomendados por rede */
+function SelectionRecommendedCarousel({
+  items,
+  renderCard,
+}: {
+  items: ExtendedInfluencer[];
+  renderCard: (influencer: ExtendedInfluencer) => ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const updateArrows = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanLeft(scrollLeft > 2);
+    setCanRight(scrollLeft < scrollWidth - clientWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    updateArrows();
+    const ro = new ResizeObserver(updateArrows);
+    ro.observe(el);
+    el.addEventListener("scroll", updateArrows);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", updateArrows);
+    };
+  }, [updateArrows, items.length]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative flex items-stretch">
+      <button
+        type="button"
+        onClick={() => ref.current?.scrollBy({ left: -ref.current.clientWidth, behavior: "smooth" })}
+        disabled={!canLeft}
+        className="absolute left-[-18px] top-1/2 z-10 flex size-9 -translate-y-1/2 shrink-0 items-center justify-center rounded-full border border-[#c3c3c3] bg-white text-neutral-600 shadow-sm transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-40"
+        aria-label="Cards anteriores"
+      >
+        <Icon name="ChevronLeft" size={24} color="#525252" />
+      </button>
+      <div
+        ref={ref}
+        className="flex min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden scroll-smooth py-2 [scrollbar-width:none] snap-x snap-mandatory [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((influencer) => (
+          <div
+            key={`${influencer.selectionSource}-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
+            className="w-[269px] min-w-[269px] shrink-0 snap-start"
+          >
+            {renderCard(influencer)}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => ref.current?.scrollBy({ left: ref.current!.clientWidth, behavior: "smooth" })}
+        disabled={!canRight}
+        className="absolute right-[-18px] top-1/2 z-10 flex size-9 -translate-y-1/2 shrink-0 items-center justify-center rounded-full border border-[#c3c3c3] bg-white text-neutral-600 shadow-sm transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-40"
+        aria-label="Próximos cards"
+      >
+        <Icon name="ChevronRight" size={24} color="#525252" />
+      </button>
+    </div>
+  );
+}
+
+/** Card alinhado ao Figma (node 2380:12243) — fundo #f5f5f5, métricas #e4e4e4, nicho #f2e2ff */
 function InfluencerCard({
   influencer,
   niches,
   isInCuration,
+  isInvited,
   onInvite,
   onPreSelection,
   onViewProfile,
@@ -176,6 +296,7 @@ function InfluencerCard({
   influencer: ExtendedInfluencer;
   niches: Array<{ id: number; name: string }>;
   isInCuration: boolean;
+  isInvited?: boolean;
   onInvite: () => void;
   onPreSelection: () => void;
   onViewProfile?: () => void;
@@ -185,64 +306,90 @@ function InfluencerCard({
     influencer.niche &&
     (niches.find((n) => n.id.toString() === String(influencer.niche))?.name ?? String(influencer.niche));
   const avatarSrc = influencer.avatar ? getUploadUrl(influencer.avatar) : undefined;
+  const bookmarkYellow = !isInvited;
 
   return (
-    <div className="bg-neutral-100 rounded-xl p-4 flex flex-col gap-5">
-      <div className="flex items-start justify-between">
-        <div className="size-[60px] rounded-2xl overflow-hidden bg-neutral-200 shrink-0">
+    <div className="flex min-h-[320px] w-full min-w-0 flex-col gap-5 rounded-xl bg-neutral-100 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="size-[60px] shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
           {avatarSrc ? (
-            <img src={avatarSrc} alt={influencer.name} className="w-full h-full object-cover" />
+            <img src={avatarSrc} alt={influencer.name} className="size-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-500 font-medium text-lg">
+            <div className="flex size-full items-center justify-center text-lg font-medium text-neutral-500">
               {influencer.name.charAt(0).toUpperCase()}
             </div>
           )}
         </div>
         <button
           type="button"
-          className="w-10 h-10 rounded-lg bg-warning-200 flex items-center justify-center shrink-0 text-warning-600 hover:bg-warning-300"
+          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+            bookmarkYellow ? "bg-[#ffdf2a] text-warning-700" : "bg-neutral-200 text-neutral-500"
+          }`}
           aria-label="Salvar"
         >
           <Icon name="Bookmark" size={24} color="currentColor" />
         </button>
       </div>
-      <div className="flex flex-col gap-3 min-w-0">
-        <p className="text-lg font-medium text-neutral-950 truncate">{influencer.name}</p>
-        <p className="text-sm text-neutral-500 truncate">@{influencer.username}</p>
+      <div className="flex min-w-0 flex-col">
+        <p className="truncate text-xl font-medium leading-6 text-neutral-950">{influencer.name}</p>
+        <p className="truncate text-sm leading-6 text-neutral-600">@{influencer.username}</p>
       </div>
       <div className="flex gap-2">
-        <div className="flex-1 min-w-0 bg-neutral-200 rounded-lg p-3 flex flex-col gap-3">
-          <p className="text-sm text-neutral-500">Seguidores</p>
-          <p className="text-xl font-medium text-neutral-950">{fmt(influencer.followers)}</p>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-lg bg-neutral-200 p-3">
+          <p className="text-left text-sm text-neutral-600">Seguidores</p>
+          <p className="text-left text-xl font-medium text-neutral-950">{fmt(influencer.followers)}</p>
         </div>
-        <div className="flex-1 min-w-0 bg-neutral-200 rounded-lg p-3 flex flex-col gap-3">
-          <p className="text-sm text-neutral-500">Engajamento</p>
-          <p className="text-xl font-medium text-neutral-950">{influencer.engagement}%</p>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-lg bg-neutral-200 p-3">
+          <p className="text-left text-sm text-neutral-600">Engajamento</p>
+          <p className="text-left text-xl font-medium text-neutral-950">
+            {formatEngagementPercent(
+              influencer.engagement != null && influencer.engagement > 0
+                ? influencer.engagement
+                : undefined
+            )}
+          </p>
         </div>
       </div>
-      {nicheLabel && (
-        <div className="rounded-xl bg-primary-100 px-3 py-2">
-          <span className="text-sm text-primary-600">{nicheLabel}</span>
+      {nicheLabel ? (
+        <div className="rounded-xl bg-[#f2e2ff] px-3 py-1">
+          <span className="text-sm leading-6 text-primary-600">{nicheLabel}</span>
         </div>
-      )}
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-2">
-          {!isInCuration && (
-            <Button
-              className="flex-1 h-11 rounded-full bg-primary-600 hover:bg-primary-700 text-white border-0 font-semibold text-base"
-              onClick={onInvite}
-            >
-              Convidar
-            </Button>
-          )}
-          <Button variant="outline" className="flex-1 h-11 rounded-full font-semibold text-base" onClick={onPreSelection}>
+      ) : null}
+      {influencer.recommendationReason?.trim() ? (
+        <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs leading-relaxed text-primary-800">
+          {influencer.recommendationReason}
+        </p>
+      ) : null}
+      <div className="mt-auto flex flex-col gap-3">
+        <div className="flex gap-1">
+          {!isInCuration ? (
+            isInvited ? (
+              <div className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-neutral-200 bg-transparent px-4 opacity-90">
+                <span className="text-center text-base font-semibold text-neutral-800">Convidado</span>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                className="h-11 px-1 min-w-0 flex-1 rounded-full border border-neutral-200 bg-primary-600 font-semibold text-base text-neutral-50 hover:bg-primary-700"
+                onClick={onInvite}
+              >
+                Convidar
+              </Button>
+            )
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className={`h-11 px-1 min-w-0 rounded-full border-neutral-200 font-semibold text-base ${isInCuration ? "w-full flex-1" : "flex-1"}`}
+            onClick={onPreSelection}
+          >
             Pré-seleção
           </Button>
         </div>
         <button
           type="button"
           onClick={() => onViewProfile?.()}
-          className="flex items-center gap-2 text-base font-medium text-neutral-500 underline hover:text-neutral-700 text-center mx-auto cursor-pointer"
+          className="mx-auto flex cursor-pointer items-center gap-1 text-center text-base font-medium text-neutral-600 underline decoration-solid hover:text-neutral-800"
         >
           <Icon name="ExternalLink" size={20} color="#4d4d4d" />
           Ver perfil
@@ -265,14 +412,8 @@ export function InfluencerSelectionTab({
   const { data: niches = [] } = useNiches();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
-  const [filterSocialNetwork] = useState("");
-  const [filterAgeRange, setFilterAgeRange] = useState("");
-  const [filterGender] = useState("");
-  const [filterFollowersMin] = useState("");
-  const [filterFollowersMax] = useState("");
-  const [filterLocationCountry, setFilterLocationCountry] = useState("");
-  const [filterLocationState, setFilterLocationState] = useState("");
-  const [filterLocationCity] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterAge, setFilterAge] = useState("");
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
   const [modalType, setModalType] = useState<
@@ -282,19 +423,48 @@ export function InfluencerSelectionTab({
   const [curationNotes, setCurationNotes] = useState("");
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
-  const recommendationsCarouselRef = useRef<HTMLDivElement>(null);
-  const [carouselCanScrollLeft, setCarouselCanScrollLeft] = useState(false);
-  const [carouselCanScrollRight, setCarouselCanScrollRight] = useState(true);
 
-  // Buscar perfis do influenciador quando o modal de convite ou curadoria for aberto
-  const { data: influencerProfilesData, isLoading: isLoadingProfiles } = useQuery({
-    queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
-    queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
-    enabled: !!selectedInfluencer && (modalType === "invite" || modalType === "curation" || modalType === "preselection"),
-  });
+  const inviteOrPreselection =
+    modalType === "invite" || modalType === "preselection";
 
-  // Garantir que influencerProfiles seja sempre um array
-  const influencerProfilesDataArray = Array.isArray(influencerProfilesData) ? influencerProfilesData : [];
+  const needsInviteProfilePicker =
+    inviteOrPreselection &&
+    !!selectedInfluencer &&
+    !selectedInfluencer.socialNetworkId?.trim();
+
+  // Só busca lista quando o card não traz perfil (fallback)
+  const { data: invitableProfilesData = [], isLoading: isLoadingInvitableProfiles } =
+    useQuery({
+      queryKey: [
+        "campaigns",
+        campaignId,
+        "influencers",
+        selectedInfluencer?.id,
+        "invite-profiles",
+      ],
+      queryFn: () =>
+        getCampaignInfluencerInvitableProfiles(
+          campaignId!,
+          selectedInfluencer!.id
+        ),
+      enabled: !!campaignId && needsInviteProfilePicker,
+    });
+
+  // Curadoria: todos os perfis do influenciador (filtro por redes da campanha só aqui)
+  const { data: allProfilesData = [], isLoading: isLoadingAllProfiles } =
+    useQuery({
+      queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
+      queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
+      enabled: !!selectedInfluencer && modalType === "curation",
+    });
+
+  const invitableProfilesList = Array.isArray(invitableProfilesData)
+    ? invitableProfilesData
+    : [];
+
+  const allProfilesList = Array.isArray(allProfilesData)
+    ? allProfilesData
+    : [];
 
   // Extrair redes sociais permitidas das fases da campanha
   const allowedSocialNetworks = useMemo(() => {
@@ -309,34 +479,41 @@ export function InfluencerSelectionTab({
     return Array.from(networks);
   }, [phasesWithFormats]);
 
-  // Filtrar perfis do influenciador para mostrar apenas os permitidos
-  const influencerProfiles = useMemo(() => {
-    if (allowedSocialNetworks.length === 0) {
-      // Se não há redes sociais definidas nas fases, mostrar todos os perfis
-      return influencerProfilesDataArray;
-    }
-    return influencerProfilesDataArray.filter((profile) => {
+  // Curadoria: restringe aos perfis nas redes da campanha (avisos / validação)
+  const curationProfilesFiltered = useMemo(() => {
+    if (allowedSocialNetworks.length === 0) return allProfilesList;
+    return allProfilesList.filter((profile) => {
       const profileType = profile.type?.toLowerCase() || "";
       return allowedSocialNetworks.includes(profileType);
     });
-  }, [influencerProfilesDataArray, allowedSocialNetworks]);
+  }, [allProfilesList, allowedSocialNetworks]);
+
+  const influencerProfiles =
+    modalType === "curation"
+      ? curationProfilesFiltered
+      : needsInviteProfilePicker
+        ? invitableProfilesList
+        : [];
+
+  const isLoadingProfiles =
+    modalType === "curation"
+      ? isLoadingAllProfiles
+      : needsInviteProfilePicker
+        ? isLoadingInvitableProfiles
+        : false;
 
   // Hooks para dados reais
   const { data: muralStatus } = useMuralStatus(campaignId);
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
   const { mutate: deactivateMural } = useDeactivateMural(campaignId);
-  const { data: recommendations = [], isLoading: isLoadingRecommendations } = useCampaignRecommendations(campaignId);
-  const { data: catalogData = [], isLoading: isLoadingCatalog } = useInfluencersCatalog({
-    social_network: filterSocialNetwork || undefined,
-    age_range: filterAgeRange || undefined,
-    gender: filterGender || undefined,
-    followers_min: filterFollowersMin ? parseInt(filterFollowersMin) : undefined,
-    followers_max: filterFollowersMax ? parseInt(filterFollowersMax) : undefined,
-    niche: filterNiche || undefined,
-    country: filterLocationCountry || undefined,
-    state: filterLocationState || undefined,
-    city: filterLocationCity || undefined,
-  });
+  const {
+    data: selectionData,
+    isLoading: isLoadingSelection,
+    isFetching: isFetchingSelection,
+    isError: isSelectionError,
+    error: selectionError,
+    refetch: refetchSelection,
+  } = useCampaignInfluencerSelection(campaignId);
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
   const { mutate: addToPreSelection, isPending: isAddingToPreSelection } = useAddToPreSelection(campaignId);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
@@ -374,109 +551,76 @@ export function InfluencerSelectionTab({
     return status === "curation" || status === "curadoria";
   };
 
-  // Transformar recomendações para formato ExtendedInfluencer (API pode vir com dados em rec.influencer ou direto em rec)
-  const recommendedInfluencers: ExtendedInfluencer[] = useMemo(() => {
-    return recommendations.map((rec: any) => {
-      const inf = rec.influencer ?? rec;
-      return {
-        id: inf.id,
-        name: inf.name ?? "",
-        username: inf.username ?? "",
-        avatar: inf.avatar ?? "",
-        followers: inf.followers ?? 0,
-        engagement: inf.engagement ?? 0,
-        niche: inf.niche ?? "",
-        socialNetwork: inf.social_network,
-        recommendationReason: rec.reason,
-      };
+  const isInfluencerInvited = (influencerId: string | number): boolean => {
+    const influencerIdNum =
+      typeof influencerId === "string" ? parseInt(influencerId, 10) : influencerId;
+    if (Number.isNaN(influencerIdNum)) return false;
+    const campaignUser = campaignUsers.find((user) => {
+      if (user.user_id != null) {
+        const uid =
+          typeof user.user_id === "string" ? parseInt(user.user_id, 10) : user.user_id;
+        if (uid === influencerIdNum) return true;
+      }
+      return false;
     });
-  }, [recommendations]);
+    if (!campaignUser) return false;
+    const status = (campaignUser.status || "").toLowerCase();
+    return status === "invited" || status === "convidados";
+  };
 
-  // Transformar catálogo para formato ExtendedInfluencer
-  const catalogInfluencers: ExtendedInfluencer[] = useMemo(() => {
-    return catalogData.map((inf: any) => ({
-      id: inf.id,
-      name: inf.name,
-      username: inf.username || "",
-      avatar: inf.avatar || "",
-      followers: inf.followers || 0,
-      engagement: inf.engagement || 0,
-      niche: inf.niche || "",
-      socialNetwork: inf.social_network,
-      ageRange: inf.age_range,
-      location: inf.location,
-    }));
-  }, [catalogData]);
+  const ageFilterOptions = useMemo(
+    () => [
+      { value: "", label: "Selecione a idade" },
+      { value: "18-24", label: "18–24 anos" },
+      { value: "25-34", label: "25–34 anos" },
+      { value: "35-44", label: "35–44 anos" },
+      { value: "45+", label: "45+ anos" },
+    ],
+    []
+  );
 
-  // Filtros são aplicados no backend via useInfluencersCatalog
-  // Apenas filtro de busca local para recomendações
-  const filteredRecommended = useMemo(() => {
-    if (!searchTerm) return recommendedInfluencers;
-    const searchLower = searchTerm.toLowerCase();
-    return recommendedInfluencers.filter((inf) => {
-      return (
-        inf.name.toLowerCase().includes(searchLower) ||
-        inf.username.toLowerCase().includes(searchLower)
-      );
-    });
-  }, [recommendedInfluencers, searchTerm]);
+  const locationFilterOptions = useMemo(
+    () => [{ value: "", label: "Selecione o local" }],
+    []
+  );
 
-  // Atualizar setas do carrossel de recomendações ao scroll/resize
-  const updateCarouselArrows = useCallback(() => {
-    const el = recommendationsCarouselRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    setCarouselCanScrollLeft(scrollLeft > 2);
-    setCarouselCanScrollRight(scrollLeft < scrollWidth - clientWidth - 2);
-  }, []);
-  useEffect(() => {
-    const el = recommendationsCarouselRef.current;
-    if (!el) return;
-    updateCarouselArrows();
-    const ro = new ResizeObserver(updateCarouselArrows);
-    ro.observe(el);
-    el.addEventListener("scroll", updateCarouselArrows);
-    return () => {
-      ro.disconnect();
-      el.removeEventListener("scroll", updateCarouselArrows);
-    };
-  }, [updateCarouselArrows, filteredRecommended.length]);
+  const flattenedRecommended = useMemo(() => {
+    if (!selectionData?.networks?.length) return [] as ExtendedInfluencer[];
+    const out: ExtendedInfluencer[] = [];
+    for (const net of selectionData.networks) {
+      for (const item of net.recommended) {
+        if (selectionItemMatchesFilters(item, searchTerm, filterNiche)) {
+          out.push(selectionItemToExtended(item, net.type, "recommended"));
+        }
+      }
+    }
+    return out;
+  }, [selectionData, searchTerm, filterNiche]);
 
-  // Catálogo já vem filtrado do backend, apenas busca local
-  const filteredCatalog = useMemo(() => {
-    if (!searchTerm) return catalogInfluencers;
-    const searchLower = searchTerm.toLowerCase();
-    return catalogInfluencers.filter((inf) => {
-      return (
-        inf.name.toLowerCase().includes(searchLower) ||
-        inf.username.toLowerCase().includes(searchLower)
-      );
-    });
-  }, [catalogInfluencers, searchTerm]);
+  const flattenedCatalog = useMemo(() => {
+    if (!selectionData?.networks?.length) return [] as ExtendedInfluencer[];
+    const out: ExtendedInfluencer[] = [];
+    for (const net of selectionData.networks) {
+      for (const item of net.catalog) {
+        if (selectionItemMatchesFilters(item, searchTerm, filterNiche)) {
+          out.push(selectionItemToExtended(item, net.type, "catalog"));
+        }
+      }
+    }
+    return out;
+  }, [selectionData, searchTerm, filterNiche]);
 
-  const ageRanges = useMemo(() => {
-    const allRanges = new Set<string>();
-    catalogInfluencers.forEach((inf) => {
-      if (inf.ageRange) allRanges.add(inf.ageRange);
-    });
-    return Array.from(allRanges);
-  }, [catalogInfluencers]);
+  const rawTotalProfiles = useMemo(() => {
+    if (!selectionData?.networks?.length) return 0;
+    let n = 0;
+    for (const net of selectionData.networks) {
+      n += net.recommended.length + net.catalog.length;
+    }
+    return n;
+  }, [selectionData]);
 
-  const countries = useMemo(() => {
-    const allCountries = new Set<string>();
-    catalogInfluencers.forEach((inf) => {
-      if (inf.location?.country) allCountries.add(inf.location.country);
-    });
-    return Array.from(allCountries);
-  }, [catalogInfluencers]);
-
-  const states = useMemo(() => {
-    const allStates = new Set<string>();
-    catalogInfluencers.forEach((inf) => {
-      if (inf.location?.state) allStates.add(inf.location.state);
-    });
-    return Array.from(allStates);
-  }, [catalogInfluencers]);
+  const totalFilteredProfiles =
+    flattenedRecommended.length + flattenedCatalog.length;
 
   // Verificar se todas as vagas foram preenchidas
   const approvedInfluencersCount = useMemo(() => {
@@ -527,8 +671,10 @@ export function InfluencerSelectionTab({
   const getSocialNetworkLabel = (network?: string) => {
     const labels: { [key: string]: string } = {
       instagram: "Instagram",
+      instagram_facebook: "Instagram / Facebook",
       youtube: "YouTube",
       tiktok: "TikTok",
+      ugc: "UGC",
       facebook: "Facebook",
       twitter: "Twitter",
     };
@@ -548,22 +694,37 @@ export function InfluencerSelectionTab({
     setSelectedProfileIds([]);
   };
 
-  // Quando os perfis forem carregados, selecionar todos por padrão (convite e pré-seleção)
   useEffect(() => {
-    if (influencerProfiles.length > 0 && (modalType === "invite" || modalType === "preselection")) {
+    if (modalType !== "invite" && modalType !== "preselection") return;
+    if (!selectedInfluencer) return;
+    const sid = selectedInfluencer.socialNetworkId?.trim();
+    if (sid) {
+      setSelectedProfileIds([sid]);
+      return;
+    }
+    if (influencerProfiles.length > 0) {
       setSelectedProfileIds(influencerProfiles.map((p) => p.id));
     }
-  }, [influencerProfiles, modalType]);
+  }, [
+    modalType,
+    selectedInfluencer?.id,
+    selectedInfluencer?.socialNetworkId,
+    influencerProfiles,
+  ]);
 
   const handleConfirm = async () => {
     if (!selectedInfluencer) return;
 
     if (modalType === "preselection") {
+      const preProfileIds = resolveInviteProfileIds(
+        selectedInfluencer,
+        selectedProfileIds
+      );
       addToPreSelection(
         {
           influencer_id: selectedInfluencer.id,
           message: inviteMessage || undefined,
-          profile_ids: selectedProfileIds.length > 0 ? selectedProfileIds : undefined,
+          profile_ids: preProfileIds.length > 0 ? preProfileIds : undefined,
         },
         {
           onSuccess: () => {
@@ -571,10 +732,22 @@ export function InfluencerSelectionTab({
               queryKey: ["campaigns", campaignId, "influencers"],
             });
             queryClient.invalidateQueries({
+              queryKey: [
+                "campaigns",
+                campaignId,
+                "influencers",
+                selectedInfluencer.id,
+                "invite-profiles",
+              ],
+            });
+            queryClient.invalidateQueries({
               queryKey: ["campaigns", campaignId, "dashboard"],
             });
             queryClient.invalidateQueries({
               queryKey: ["campaigns", campaignId, "users"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "influencer-selection"],
             });
             toast.success("Influenciador movido para pré-seleção!");
             handleCloseModal();
@@ -588,9 +761,16 @@ export function InfluencerSelectionTab({
     }
 
     if (modalType === "invite") {
-      // Validar se pelo menos um perfil foi selecionado
-      if (selectedProfileIds.length === 0) {
-        toast.error("Selecione pelo menos um perfil para convidar");
+      const inviteProfileIds = resolveInviteProfileIds(
+        selectedInfluencer,
+        selectedProfileIds
+      );
+      if (inviteProfileIds.length === 0) {
+        toast.error(
+          selectedInfluencer.socialNetworkId?.trim()
+            ? "Não foi possível usar este perfil para o convite."
+            : "Selecione pelo menos um perfil para convidar"
+        );
         return;
       }
 
@@ -598,7 +778,7 @@ export function InfluencerSelectionTab({
         {
           influencer_id: selectedInfluencer.id,
           message: inviteMessage || undefined,
-          profile_ids: selectedProfileIds,
+          profile_ids: inviteProfileIds,
         },
         {
           onSuccess: () => {
@@ -607,10 +787,22 @@ export function InfluencerSelectionTab({
               queryKey: ["campaigns", campaignId, "influencers"],
             });
             queryClient.invalidateQueries({
+              queryKey: [
+                "campaigns",
+                campaignId,
+                "influencers",
+                selectedInfluencer.id,
+                "invite-profiles",
+              ],
+            });
+            queryClient.invalidateQueries({
               queryKey: ["campaigns", campaignId, "dashboard"],
             });
             queryClient.invalidateQueries({
               queryKey: ["campaigns", campaignId, "users"],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "influencer-selection"],
             });
             toast.success("Influenciador convidado com sucesso!");
             handleCloseModal();
@@ -713,208 +905,259 @@ export function InfluencerSelectionTab({
     }
   };
 
+  const selectionErrorMessage =
+    selectionError &&
+    typeof selectionError === "object" &&
+    selectionError !== null &&
+    "message" in selectionError
+      ? String((selectionError as { message?: string }).message)
+      : isSelectionError
+        ? "Não foi possível carregar a seleção de influenciadores."
+        : "";
+
+  const modalInvitePreProfileIds =
+    selectedInfluencer && inviteOrPreselection
+      ? resolveInviteProfileIds(selectedInfluencer, selectedProfileIds)
+      : [];
+
+  const invitePreSubmitDisabled =
+    isInviting ||
+    isAddingToPreSelection ||
+    isUpdatingStatus ||
+    (inviteOrPreselection &&
+      (needsInviteProfilePicker
+        ? isLoadingProfiles || modalInvitePreProfileIds.length === 0
+        : modalInvitePreProfileIds.length === 0));
+
   return (
     <>
-      {isLoadingRecommendations && isLoadingCatalog ? (
+      {isLoadingSelection && !selectionData ? (
         <InfluencerSelectionTabSkeleton />
+      ) : isSelectionError && !selectionData ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-danger-200 bg-danger-50 px-6 py-12">
+          <p className="text-center text-base text-danger-900">
+            {selectionErrorMessage}
+          </p>
+          <Button type="button" variant="outline" onClick={() => refetchSelection()}>
+            Tentar novamente
+          </Button>
+        </div>
       ) : (
-        <div className="flex flex-col gap-6">
-
-          {/* Título e descrição (Figma) */}
-          <div className="flex flex-col gap-4">
-            <h2 className="text-2xl font-semibold text-neutral-950">
+        <div className="flex flex-col gap-8">
+          {/* Figma Frame 163 — título da página */}
+          <div className="flex flex-col gap-2">
+            <h2 className="text-2xl font-semibold leading-7 text-neutral-950">
               Selecione influenciadores
             </h2>
-            <p className="text-base text-neutral-500 max-w-2xl">
-              Busque, filtre e convide perfis para participar da campanha — individualmente ou em massa.
+            <p className="max-w-2xl text-base leading-5 text-neutral-500">
+              Busque, filtre e convide perfis para participar da campanha — individualmente ou em
+              massa.
             </p>
           </div>
 
-          {/* Recomendações — carrossel horizontal (Figma) */}
-          <div className="bg-white rounded-xl p-5">
-            <h3 className="text-xl font-semibold text-neutral-950 mb-6">
-              Recomendado com base no perfil da campanha
-            </h3>
-            {isLoadingRecommendations ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-neutral-500">
-                <Icon name="Loader" size={24} className="animate-spin" color="#737373" />
-                <span>Carregando influenciadores...</span>
-              </div>
-            ) : filteredRecommended.length === 0 ? (
-              <div className="text-center py-12 text-neutral-500">
-                Nenhum influenciador encontrado
-              </div>
-            ) : (
-              <div className="relative flex items-stretch">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = recommendationsCarouselRef.current;
-                    if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" });
-                  }}
-                  disabled={!carouselCanScrollLeft}
-                  className="absolute left-[-18px] top-1/2 -translate-y-1/2 z-10 size-9 rounded-full bg-white border border-neutral-300 shadow-sm flex items-center justify-center text-neutral-600 hover:bg-neutral-50 hover:border-neutral-400 transition-colors disabled:opacity-40 disabled:pointer-events-none shrink-0"
-                  aria-label="Cards anteriores"
-                >
-                  <Icon name="ChevronLeft" size={24} color="#525252" />
-                </button>
-                <div
-                  ref={recommendationsCarouselRef}
-                  className="flex gap-3 overflow-x-auto overflow-y-hidden py-2 scroll-smooth snap-x snap-mandatory flex-1 min-w-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  {filteredRecommended.map((influencer) => (
-                    <div
-                      key={influencer.id}
-                      className="shrink-0 w-[269px] min-w-[269px] snap-start"
-                    >
+          {isSelectionError && selectionData ? (
+            <div className="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-900">
+              Erro ao atualizar.{" "}
+              <button
+                type="button"
+                className="font-medium underline"
+                onClick={() => refetchSelection()}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : null}
+
+          {!selectionData?.networks?.length ? (
+            <div className="rounded-xl border border-neutral-200 bg-white p-12 text-center text-neutral-500">
+              Nenhum dado de seleção retornado para esta campanha.
+            </div>
+          ) : rawTotalProfiles === 0 ? (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-12 text-center text-neutral-500">
+              Nenhum perfil disponível na seleção (todos podem já estar na campanha ou não há dados).
+            </div>
+          ) : (
+            <>
+              {/* Figma 2380:10687 — Recomendado + carrossel */}
+              <section className="flex flex-col gap-6 rounded-xl bg-white p-5">
+                <h3 className="text-xl font-semibold leading-6 text-neutral-950">
+                  Recomendado com base no perfil da campanha
+                </h3>
+                {flattenedRecommended.length === 0 ? (
+                  <p className="py-10 text-center text-base text-neutral-500">
+                    Nenhum influenciador recomendado para o segmento desta campanha.
+                  </p>
+                ) : (
+                  <SelectionRecommendedCarousel
+                    items={flattenedRecommended}
+                    renderCard={(influencer) => (
                       <InfluencerCard
                         influencer={influencer}
                         niches={niches}
                         isInCuration={isInfluencerInCuration(influencer.id)}
+                        isInvited={isInfluencerInvited(influencer.id)}
                         onInvite={() => handleAction(influencer, "invite")}
                         onPreSelection={() => handleAction(influencer, "preselection")}
                         onViewProfile={() =>
                           navigate({
                             to: "/campaigns/$campaignId/influencer/$influencerId",
-                            params: { campaignId: campaignId ?? "", influencerId: influencer.id },
+                            params: {
+                              campaignId: campaignId ?? "",
+                              influencerId: influencer.id,
+                            },
                           })
                         }
                         formatFollowers={formatFollowers}
                       />
+                    )}
+                  />
+                )}
+              </section>
+
+              {/* Figma 2380:10373 — filtros em linha */}
+              <section className="rounded-xl bg-white p-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">
+                      Buscar influenciador
+                    </label>
+                    <div className="flex h-11 items-center gap-2 rounded-full bg-neutral-100 px-4">
+                      <Icon name="Search" color="#A3A3A3" size={20} />
+                      <input
+                        type="text"
+                        placeholder="Nome ou @username"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="min-w-0 flex-1 bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
+                      />
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">Nicho</label>
+                    <Select
+                      placeholder="Selecione um nicho"
+                      options={niches.map((n) => ({ value: String(n.id), label: n.name }))}
+                      value={filterNiche}
+                      onChange={setFilterNiche}
+                      isSearchable
+                    />
+                  </div>
+                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">
+                      Localização
+                    </label>
+                    <Select
+                      placeholder="Selecione o local"
+                      options={locationFilterOptions}
+                      value={filterLocation}
+                      onChange={setFilterLocation}
+                    />
+                  </div>
+                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">Idade</label>
+                    <Select
+                      placeholder="Selecione a idade"
+                      options={ageFilterOptions}
+                      value={filterAge}
+                      onChange={setFilterAge}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 shrink-0 rounded-full border-neutral-200 px-4 font-semibold opacity-90 w-max"
+                    onClick={() => setModalType("selectList")}
+                  >
+                    Selecionar lista
+                  </Button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = recommendationsCarouselRef.current;
-                    if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" });
-                  }}
-                  disabled={!carouselCanScrollRight}
-                  className="absolute right-[-18px] top-1/2 -translate-y-1/2 z-10 size-9 rounded-full bg-white border border-neutral-300 shadow-sm flex items-center justify-center text-neutral-600 hover:bg-neutral-50 hover:border-neutral-400 transition-colors disabled:opacity-40 disabled:pointer-events-none shrink-0"
-                  aria-label="Próximos cards"
-                >
-                  <Icon name="ChevronRight" size={24} color="#525252" />
-                </button>
-              </div>
-            )}
-          </div>
+                {rawTotalProfiles > 0 ? (
+                  <p className="mt-3 text-sm text-neutral-500">
+                    {totalFilteredProfiles} de {rawTotalProfiles} perfis
+                    {(searchTerm.trim() || filterNiche || filterLocation || filterAge)
+                      ? " (filtros aplicados)"
+                      : ""}
+                  </p>
+                ) : null}
+              </section>
 
-          <div className="bg-white rounded-xl p-5">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[200px] flex flex-col gap-1">
-                <label className="text-base font-medium text-neutral-950">Buscar influenciador</label>
-                <div className="bg-neutral-100 rounded-full px-4 py-3 flex items-center gap-2">
-                  <Icon name="Search" color="#A3A3A3" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Nome ou @username"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1 min-w-0 bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
-                  />
+              {/* Figma 2380:11287 — Todos os influenciadores + grid 4 colunas */}
+              <section className="flex flex-col gap-6 rounded-xl bg-white p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-xl font-semibold leading-6 text-neutral-950">
+                    Todos os influenciadores
+                  </h3>
+                  <div className="flex flex-wrap gap-2 sm:shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold w-max"
+                      onClick={() =>
+                        toast.info("Em breve: convite em massa para vários perfis selecionados.")
+                      }
+                    >
+                      Múltiplos convites
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold w-max"
+                      onClick={() =>
+                        toast.info("Em breve: pré-seleção em massa para vários perfis.")
+                      }
+                    >
+                      Múltiplas pré-seleções
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1 min-w-[140px] flex flex-col gap-1">
-                <label className="text-base font-medium text-neutral-950">Nicho</label>
-                <Select
-                  placeholder="Selecione um nicho"
-                  options={niches.map((n) => ({ value: String(n.id), label: n.name }))}
-                  value={filterNiche}
-                  onChange={setFilterNiche}
-                  isSearchable
-                />
-              </div>
-              <div className="flex-1 min-w-[140px] flex flex-col gap-1">
-                <label className="text-base font-medium text-neutral-950">Localização</label>
-                <Select
-                  placeholder="Selecione o local"
-                  options={
-                    states.length > 0
-                      ? states.map((s) => ({ value: `state:${s}`, label: s }))
-                      : countries.map((c) => ({ value: `country:${c}`, label: c }))
-                  }
-                  value={
-                    filterLocationState ? `state:${filterLocationState}` : filterLocationCountry ? `country:${filterLocationCountry}` : ""
-                  }
-                  onChange={(v) => {
-                    if (v.startsWith("state:")) {
-                      setFilterLocationState(v.slice(6));
-                      setFilterLocationCountry("");
-                    } else if (v.startsWith("country:")) {
-                      setFilterLocationCountry(v.slice(8));
-                      setFilterLocationState("");
-                    } else {
-                      setFilterLocationState("");
-                      setFilterLocationCountry("");
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px] flex flex-col gap-1">
-                <label className="text-base font-medium text-neutral-950">Idade</label>
-                <Select
-                  placeholder="Selecione a idade"
-                  options={ageRanges.map((range) => ({ value: range, label: range }))}
-                  value={filterAgeRange}
-                  onChange={setFilterAgeRange}
-                />
-              </div>
-              <Button
-                variant="outline"
-                className="shrink-0 h-11 px-4 rounded-full border-neutral-200"
-                onClick={() => setModalType("selectList")}
-              >
-                <span className="font-semibold text-base">Selecionar lista</span>
-              </Button>
-            </div>
-          </div>
 
-          {/* Catálogo de influenciadores — cards no estilo Figma */}
-          <div className="bg-white rounded-xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-neutral-950">
-                Catálogo de influenciadores
-              </h3>
-              <Badge
-                text={`${filteredCatalog.length} perfis encontrados`}
-                backgroundColor="bg-primary-50"
-                textColor="text-primary-900"
-              />
-            </div>
+                {flattenedCatalog.length === 0 ? (
+                  <p className="py-10 text-center text-base text-neutral-500">
+                    Nenhum perfil no catálogo com os filtros atuais.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {flattenedCatalog.map((influencer) => (
+                      <InfluencerCard
+                        key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
+                        influencer={influencer}
+                        niches={niches}
+                        isInCuration={isInfluencerInCuration(influencer.id)}
+                        isInvited={isInfluencerInvited(influencer.id)}
+                        onInvite={() => handleAction(influencer, "invite")}
+                        onPreSelection={() => handleAction(influencer, "preselection")}
+                        onViewProfile={() =>
+                          navigate({
+                            to: "/campaigns/$campaignId/influencer/$influencerId",
+                            params: {
+                              campaignId: campaignId ?? "",
+                              influencerId: influencer.id,
+                            },
+                          })
+                        }
+                        formatFollowers={formatFollowers}
+                      />
+                    ))}
+                  </div>
+                )}
 
-            {isLoadingCatalog ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-neutral-500">
-                <Icon name="Loader" size={24} className="animate-spin" color="#737373" />
-                <span>Carregando influenciadores...</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredCatalog.map((influencer) => (
-                  <InfluencerCard
-                    key={influencer.id}
-                    influencer={influencer}
-                    niches={niches}
-                    isInCuration={isInfluencerInCuration(influencer.id)}
-                    onInvite={() => handleAction(influencer, "invite")}
-                    onPreSelection={() => handleAction(influencer, "preselection")}
-                    onViewProfile={() =>
-                      navigate({
-                        to: "/campaigns/$campaignId/influencer/$influencerId",
-                        params: { campaignId: campaignId ?? "", influencerId: influencer.id },
-                      })
-                    }
-                    formatFollowers={formatFollowers}
-                  />
-                ))}
-              </div>
-            )}
-            {!isLoadingCatalog && filteredCatalog.length === 0 && (
-              <div className="text-center py-12 text-neutral-500">
-                Nenhum influenciador encontrado no catálogo
-              </div>
-            )}
-          </div>
+                {isFetchingSelection && !isLoadingSelection ? (
+                  <div className="flex items-center justify-center gap-2 py-6 text-neutral-600">
+                    <Icon name="Loader" size={24} className="animate-spin" color="#737373" />
+                    <span className="text-base">Carregando influenciadores...</span>
+                  </div>
+                ) : null}
+              </section>
+
+              {totalFilteredProfiles === 0 &&
+              rawTotalProfiles > 0 &&
+              (searchTerm.trim() || filterNiche || filterLocation || filterAge) ? (
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 py-12 text-center text-neutral-500">
+                  Nenhum perfil corresponde aos filtros selecionados.
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       )}
 
@@ -931,149 +1174,159 @@ export function InfluencerSelectionTab({
                   : "Adicionar para curadoria"
           }
           onClose={handleCloseModal}
+          panelClassName={
+            modalType === "invite" || modalType === "preselection"
+              ? "max-w-[800px]"
+              : undefined
+          }
         >
           <div className="flex flex-col gap-6">
             {(modalType === "invite" || modalType === "preselection") && (
               <>
-                {/* Deseja convidar / mover por qual rede social? */}
-                <div className="flex flex-col gap-3">
-                  <p className="text-base font-medium text-neutral-950">
-                    {modalType === "invite"
-                      ? "Deseja convidar por qual rede social?"
-                      : "Quais perfis incluir na pré-seleção?"}
-                  </p>
-                  {isLoadingProfiles ? (
-                    <p className="text-sm text-neutral-500">Carregando perfis...</p>
-                  ) : influencerProfiles.length === 0 ? (
-                    <div className="bg-neutral-100 rounded-xl p-4 text-center">
-                      <p className="text-sm text-neutral-500">
-                        {allowedSocialNetworks.length > 0
-                          ? `Este influenciador não possui perfis nas redes definidas na campanha (${allowedSocialNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}).`
-                          : "Nenhum perfil encontrado para este influenciador."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {influencerProfiles.map((profile) => {
-                        const isSelected = selectedProfileIds.includes(profile.id);
-                        const networkLabel =
-                          profile.type_label || getSocialNetworkLabel(profile.type);
-                        const handle = profile.username?.replace(/^@/, "").trim() || "—";
-                        const avatarSrc = profile.avatar
-                          ? getUploadUrl(profile.avatar) ?? undefined
-                          : undefined;
-                        const followersLabel = formatFollowers(profile.members ?? 0);
-                        const engagementLabel = formatEngagementPercent(
-                          profile.engagement_percent ?? undefined
-                        );
+                {needsInviteProfilePicker && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-base font-medium text-neutral-950">
+                      {modalType === "invite"
+                        ? "Selecione o perfil para convite"
+                        : "Quais perfis incluir na pré-seleção?"}
+                    </p>
+                    {isLoadingProfiles ? (
+                      <p className="text-sm text-neutral-500">Carregando perfis...</p>
+                    ) : influencerProfiles.length === 0 ? (
+                      <div className="rounded-xl bg-neutral-100 p-4 text-center">
+                        <p className="text-sm text-neutral-500">
+                          Nenhum perfil disponível para convite ou pré-seleção nesta campanha.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {influencerProfiles.map((profile) => {
+                          const isSelected = selectedProfileIds.includes(profile.id);
+                          const networkLabel =
+                            profile.type_label || getSocialNetworkLabel(profile.type);
+                          const handle = profile.username?.replace(/^@/, "").trim() || "—";
+                          const avatarSrc = profile.avatar
+                            ? getUploadUrl(profile.avatar) ?? undefined
+                            : undefined;
+                          const followersLabel = formatFollowers(profile.members ?? 0);
+                          const engagementLabel = formatEngagementPercent(
+                            profile.engagement_percent ?? undefined
+                          );
 
-                        return (
-                          <button
-                            key={profile.id}
-                            type="button"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedProfileIds(
-                                  selectedProfileIds.filter((id) => id !== profile.id)
-                                );
-                              } else {
-                                setSelectedProfileIds([...selectedProfileIds, profile.id]);
-                              }
-                            }}
-                            className={`group flex w-full cursor-pointer items-stretch gap-3 rounded-xl border-2 p-3 text-left transition-colors sm:gap-4 sm:p-4 ${
-                              isSelected
-                                ? "border-primary-600 bg-primary-50/40 ring-1 ring-primary-600/20"
-                                : "border-neutral-200 bg-neutral-50 hover:border-neutral-300 hover:bg-white"
-                            }`}
-                          >
-                            <span
-                              className={`mt-1 flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                          return (
+                            <button
+                              key={profile.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedProfileIds(
+                                    selectedProfileIds.filter((id) => id !== profile.id)
+                                  );
+                                } else {
+                                  setSelectedProfileIds([...selectedProfileIds, profile.id]);
+                                }
+                              }}
+                              className={`group flex w-full cursor-pointer items-stretch gap-3 rounded-xl border-2 p-3 text-left transition-colors sm:gap-4 sm:p-4 ${
                                 isSelected
-                                  ? "border-primary-600 bg-primary-600"
-                                  : "border-neutral-300 bg-white group-hover:border-neutral-400"
+                                  ? "border-primary-600 bg-primary-50/40 ring-1 ring-primary-600/20"
+                                  : "border-neutral-200 bg-neutral-50 hover:border-neutral-300 hover:bg-white"
                               }`}
                             >
-                              {isSelected && (
-                                <Icon name="Check" size={14} color="#FAFAFA" />
-                              )}
-                            </span>
-                            <div className="size-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200 sm:size-16">
-                              {avatarSrc ? (
-                                <img
-                                  src={avatarSrc}
-                                  alt=""
-                                  className="size-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex size-full items-center justify-center text-xs font-semibold uppercase text-neutral-500">
-                                  {networkLabel.slice(0, 2)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-1 flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-800">
-                                  {networkLabel}
-                                </span>
-                              </div>
-                              <p className="truncate text-base font-semibold text-neutral-950">
-                                @{handle}
-                              </p>
-                              {profile.name?.trim() &&
-                                profile.name.trim().toLowerCase() !== handle.toLowerCase() && (
-                                  <p className="truncate text-sm text-neutral-600">
-                                    {profile.name}
-                                  </p>
+                              <span
+                                className={`mt-1 flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                  isSelected
+                                    ? "border-primary-600 bg-primary-600"
+                                    : "border-neutral-300 bg-white group-hover:border-neutral-400"
+                                }`}
+                              >
+                                {isSelected && (
+                                  <Icon name="Check" size={14} color="#FAFAFA" />
                                 )}
-                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
-                                <span>
-                                  <span className="text-neutral-500">Seguidores </span>
-                                  <span className="font-medium text-neutral-900">
-                                    {followersLabel}
-                                  </span>
-                                </span>
-                                <span>
-                                  <span className="text-neutral-500">Engajamento </span>
-                                  <span className="font-medium text-neutral-900">
-                                    {engagementLabel}
-                                  </span>
-                                </span>
+                              </span>
+                              <div className="size-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200 sm:size-16">
+                                {avatarSrc ? (
+                                  <img
+                                    src={avatarSrc}
+                                    alt=""
+                                    className="size-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex size-full items-center justify-center text-xs font-semibold uppercase text-neutral-500">
+                                    {networkLabel.slice(0, 2)}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Card do influenciador (Figma) */}
-                <div className="bg-neutral-100 rounded-xl p-4 flex items-center gap-3">
-                  <div className="size-11 rounded-2xl overflow-hidden bg-neutral-200 shrink-0">
-                    {selectedInfluencer.avatar ? (
-                      <img
-                        src={getUploadUrl(selectedInfluencer.avatar)}
-                        alt={selectedInfluencer.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-neutral-500 font-medium text-lg">
-                        {selectedInfluencer.name.charAt(0).toUpperCase()}
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-800">
+                                    {networkLabel}
+                                  </span>
+                                </div>
+                                <p className="truncate text-base font-semibold text-neutral-950">
+                                  @{handle}
+                                </p>
+                                {profile.name?.trim() &&
+                                  profile.name.trim().toLowerCase() !== handle.toLowerCase() && (
+                                    <p className="truncate text-sm text-neutral-600">
+                                      {profile.name}
+                                    </p>
+                                  )}
+                                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
+                                  <span>
+                                    <span className="text-neutral-500">Seguidores </span>
+                                    <span className="font-medium text-neutral-900">
+                                      {followersLabel}
+                                    </span>
+                                  </span>
+                                  <span>
+                                    <span className="text-neutral-500">Engajamento </span>
+                                    <span className="font-medium text-neutral-900">
+                                      {engagementLabel}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-medium text-neutral-950 truncate">
-                      {selectedInfluencer.name}
-                    </p>
-                    <p className="text-sm text-neutral-500 truncate">
-                      @{selectedInfluencer.username}
-                    </p>
+                )}
+
+                {/* Figma 2387:12772 — resumo do convite (rede já definida pelo card) */}
+                <div className="rounded-xl bg-neutral-100 p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-11 shrink-0 overflow-hidden rounded-xl bg-neutral-200">
+                      {selectedInfluencer.avatar ? (
+                        <img
+                          src={getUploadUrl(selectedInfluencer.avatar) ?? ""}
+                          alt={selectedInfluencer.name}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-lg font-medium text-neutral-500">
+                          {selectedInfluencer.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-semibold leading-5 text-neutral-950">
+                        {selectedInfluencer.name}
+                      </p>
+                      <p className="truncate text-sm leading-5 text-neutral-500">
+                        @{selectedInfluencer.username}
+                      </p>
+                      {selectedInfluencer.socialNetwork ? (
+                        <p className="mt-1 text-xs font-medium text-neutral-600">
+                          {getSocialNetworkLabel(selectedInfluencer.socialNetwork)}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
-                {/* Mensagem para o convidado (opcional) — Figma */}
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   <label className="text-base font-medium text-neutral-950">
                     Mensagem para o convidado (opcional)
                   </label>
@@ -1085,34 +1338,31 @@ export function InfluencerSelectionTab({
                       if (value.length <= 25) setInviteMessage(value);
                     }}
                     maxLength={25}
-                    className="w-full min-h-[120px] bg-neutral-100 rounded-xl px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-500 border-0 outline-none focus:ring-2 focus:ring-primary-500/30 resize-y"
+                    className="min-h-[120px] w-full resize-y rounded-xl border-0 bg-neutral-100 px-4 py-3 text-base text-neutral-950 outline-none placeholder:text-neutral-500 focus:ring-2 focus:ring-primary-500/30"
                   />
                   <div className="flex justify-end">
-                    <span className={`text-xs ${inviteMessage.length >= 25 ? "text-danger-600" : "text-neutral-500"}`}>
+                    <span
+                      className={`text-xs ${inviteMessage.length >= 25 ? "text-danger-600" : "text-neutral-500"}`}
+                    >
                       {inviteMessage.length}/25
                     </span>
                   </div>
                 </div>
 
-                {/* Botões: Cancelar + Enviar convite / Mover para pré-seleção */}
-                <div className="flex gap-2.5 justify-end pt-2">
+                <div className="flex justify-end gap-2.5 pt-2">
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={handleCloseModal}
-                    className="h-11 px-6 rounded-full font-semibold text-base border-neutral-200"
+                    className="h-11 rounded-full border-neutral-200 px-6 text-base font-semibold"
                   >
                     Cancelar
                   </Button>
                   <Button
+                    type="button"
                     onClick={handleConfirm}
-                    disabled={
-                      isInviting ||
-                      isAddingToPreSelection ||
-                      isUpdatingStatus ||
-                      (modalType === "invite" && influencerProfiles.length > 0 && selectedProfileIds.length === 0) ||
-                      (modalType === "invite" && allowedSocialNetworks.length > 0 && influencerProfiles.length === 0)
-                    }
-                    className="h-11 px-6 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
+                    disabled={invitePreSubmitDisabled}
+                    className="h-11 rounded-full border-0 bg-primary-600 px-6 text-base font-semibold text-white hover:bg-primary-700"
                   >
                     {isInviting
                       ? "Processando..."
@@ -1216,6 +1466,7 @@ export function InfluencerSelectionTab({
       {modalType === "selectList" && (
         <ListSelector
           campaignId={campaignId}
+          defaultOpen
           onClose={handleCloseModal}
         />
       )}

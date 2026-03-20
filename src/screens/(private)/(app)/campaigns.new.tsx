@@ -14,6 +14,8 @@ import type { CreateCampaignData } from "@/shared/services/campaign";
 import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
+import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
+import { activateMural } from "@/shared/services/mural";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -40,7 +42,7 @@ const initialFormData: CampaignFormData = {
   minFollowers: "",
   state: "",
   city: "",
-  gender: "",
+  gender: "all",
   paymentType: "",
   paymentFixedAmount: "",
   paymentSwapItem: "",
@@ -235,7 +237,32 @@ function CreateCampaignPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      toast.success("Campanha criada com sucesso!");
+
+      let successDescription: string | undefined;
+      if (formData.campaignVisibility !== "private") {
+        const muralEnd = suggestMuralEndDateFromFormPhases(formData.phases);
+        if (muralEnd) {
+          try {
+            await activateMural(createdCampaign.id, { end_date: muralEnd });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", createdCampaign.id, "mural"],
+            });
+            successDescription =
+              "A campanha está no mural (Descobrir) com data limite sugerida a partir da fase 1.";
+          } catch {
+            toast.error(
+              "Campanha criada, mas não foi possível ativar o Descobrir. Ative manualmente na campanha."
+            );
+          }
+        } else {
+          successDescription =
+            "Ajuste a data da fase 1 ou ative o Descobrir manualmente na campanha.";
+        }
+      }
+
+      toast.success("Campanha criada com sucesso!", {
+        ...(successDescription ? { description: successDescription } : {}),
+      });
       setIsCreatingCampaign(false);
       navigate({ to: "/campaigns/$campaignId", params: { campaignId: createdCampaign.id } });
     } catch (error: unknown) {
@@ -245,8 +272,25 @@ function CreateCampaignPage() {
     }
   };
 
+  const DRAFT_KEY = "hypeapp-campaign-draft-new";
+
   const handleSaveDraft = () => {
-    toast.info("Rascunho salvo localmente. Conclua e envie quando estiver pronto.");
+    try {
+      const { bannerFile: _bf, ...rest } = formData as CampaignFormData & {
+        bannerFile?: File;
+      };
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ savedAt: new Date().toISOString(), step: 6, data: rest })
+      );
+      toast.success("Rascunho salvo", {
+        description:
+          "Os dados foram guardados neste navegador. Conclua e envie a campanha quando quiser.",
+        duration: 6000,
+      });
+    } catch {
+      toast.error("Não foi possível salvar o rascunho. Tente de novo.");
+    }
   };
 
   const handleContinue = () => {

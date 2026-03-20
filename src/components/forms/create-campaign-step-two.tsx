@@ -119,10 +119,10 @@ export function CreateCampaignStepTwo({
   }, [segmentLocation, updateFormData]);
 
   useEffect(() => {
-    if (!segmentGender) {
+    if (!segmentGender && formData.gender !== "all") {
       updateFormData("gender", "all");
     }
-  }, [segmentGender, updateFormData]);
+  }, [segmentGender, formData.gender, updateFormData]);
 
   const stateOptions = BRAZILIAN_STATES.map((state) => ({
     value: state.code,
@@ -428,7 +428,12 @@ export function CreateCampaignStepTwo({
           </div>
           <ToggleSwitch
             checked={segmentGender}
-            onCheckedChange={setSegmentGender}
+            onCheckedChange={(checked) => {
+              setSegmentGender(checked);
+              if (!checked) {
+                updateFormData("gender", "all");
+              }
+            }}
           />
         </div>
         {segmentGender && (
@@ -444,7 +449,6 @@ export function CreateCampaignStepTwo({
                 { label: "Feminino", value: "female" },
                 { label: "Prefiro não informar", value: "preferNotToInform" },
                 { label: "Outros", value: "outros" },
-                { label: "Todos", value: "all" },
               ]}
             />
           </div>

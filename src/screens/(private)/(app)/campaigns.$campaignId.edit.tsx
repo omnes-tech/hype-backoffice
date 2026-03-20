@@ -19,6 +19,8 @@ import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
+import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
+import { activateMural } from "@/shared/services/mural";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -478,7 +480,31 @@ function RouteComponent() {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
 
-      toast.success("Campanha atualizada com sucesso!");
+      let successDescription: string | undefined;
+      if (formData.campaignVisibility !== "private") {
+        const muralEnd = suggestMuralEndDateFromFormPhases(formData.phases);
+        if (muralEnd) {
+          try {
+            await activateMural(campaignId, { end_date: muralEnd });
+            queryClient.invalidateQueries({
+              queryKey: ["campaigns", campaignId, "mural"],
+            });
+            successDescription =
+              "A campanha está no mural (Descobrir) com data limite sugerida a partir da fase 1.";
+          } catch {
+            toast.error(
+              "Campanha salva, mas não foi possível ativar o Descobrir. Ative manualmente na campanha."
+            );
+          }
+        } else {
+          successDescription =
+            "Ajuste a data da fase 1 ou ative o Descobrir manualmente na campanha.";
+        }
+      }
+
+      toast.success("Campanha atualizada com sucesso!", {
+        ...(successDescription ? { description: successDescription } : {}),
+      });
       navigate({ to: "/campaigns/$campaignId", params: { campaignId } });
     } catch (error: any) {
       console.error("Erro ao atualizar campanha:", error);

@@ -200,11 +200,39 @@ function ProgressCircle({ percentage }: { percentage: number }) {
   );
 }
 
+/** publish_date (YYYY-MM-DD): dia de calendário local — evita new Date("2026-03-26") virar 25/03 no BR (UTC). */
+function timestampFromPublishDate(dateStr: string): number {
+  const ymd = dateStr.trim().split("T")[0];
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return NaN;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  return new Date(y, mo - 1, d).getTime();
+}
+
+/** Data local do instante de criação (created_at ISO). */
+function timestampFromPhaseCreatedAt(iso: string): number {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return NaN;
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+}
+
 export function DashboardTab({ campaign, metrics, progressPercentage }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const { data: niches = [] } = useNiches();
 
-  const nicheNames = useMemo(() => {
+  const primaryNicheLabel = useMemo(() => {
+    const fromApi = campaign.primaryNicheName?.trim();
+    if (fromApi) return fromApi;
+    if (campaign.mainNiche) {
+      const n = niches.find((x) => x.id.toString() === campaign.mainNiche);
+      if (n?.name) return n.name;
+    }
+    return "";
+  }, [campaign.primaryNicheName, campaign.mainNiche, niches]);
+
+  const subnicheNames = useMemo(() => {
     if (!campaign.subniches) return "";
     const nicheIds = campaign.subniches.split(",").filter(Boolean);
     const names = nicheIds.map((id) => {
@@ -216,13 +244,33 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
 
   const periodLabel = useMemo(() => {
     if (!campaign.phases?.length) return "-";
-    const dates = campaign.phases
-      .map((p) => p.postDate && new Date(p.postDate).getTime())
-      .filter(Boolean) as number[];
-    if (!dates.length) return "-";
-    const min = new Date(Math.min(...dates));
-    const max = new Date(Math.max(...dates));
-    return `${min.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} - ${max.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`;
+    const withOrder = campaign.phases.map((p, i) => ({
+      phase: p,
+      ord:
+        typeof p.order === "number" && !Number.isNaN(p.order)
+          ? p.order
+          : i + 1,
+    }));
+    const first = withOrder.reduce((a, b) => (a.ord <= b.ord ? a : b)).phase;
+    const last = withOrder.reduce((a, b) => (a.ord >= b.ord ? a : b)).phase;
+
+    const startMs = first.createdAt
+      ? timestampFromPhaseCreatedAt(first.createdAt)
+      : timestampFromPublishDate(first.postDate || "");
+    const endMs = timestampFromPublishDate(last.postDate || "");
+
+    if (!Number.isFinite(startMs) && !Number.isFinite(endMs)) return "-";
+    const fmt = (t: number) =>
+      new Date(t).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
+      return `${fmt(startMs)} — ${fmt(endMs)}`;
+    }
+    if (Number.isFinite(startMs)) return fmt(startMs);
+    return fmt(endMs);
   }, [campaign.phases]);
 
   const remunerationLabel = useMemo(() => {
@@ -320,11 +368,11 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
           <div className="flex flex-wrap">
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] p-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Nicho</p>
-              <p className="text-base font-medium text-neutral-950">{nicheNames || "-"}</p>
+              <p className="text-base font-medium text-neutral-950">{primaryNicheLabel || "-"}</p>
             </div>
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Sub-Nicho</p>
-              <p className="text-base font-medium text-neutral-950">{nicheNames || "-"}</p>
+              <p className="text-base font-medium text-neutral-950">{subnicheNames || "-"}</p>
             </div>
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Período</p>
@@ -332,7 +380,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
             </div>
             <div className="flex-1 min-w-[120px] pl-4 pr-5 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Remuneração</p>
-              <p className="text-base font-medium text-neutral-950">{remunerationLabel}</p>
+              <p className="text-base font-medium text-neutral-950">R${remunerationLabel}</p>
             </div>
           </div>
           {/* Descrição */}

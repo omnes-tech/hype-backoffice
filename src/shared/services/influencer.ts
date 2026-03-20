@@ -142,6 +142,8 @@ export interface InfluencerProfile {
   avatar?: string | null;
   /** Engajamento % nesta rede social */
   engagement_percent?: number | null;
+  /** Quando a API lista todos os perfis, indica se pode ser convidado nesta campanha */
+  can_invite?: boolean;
 }
 
 function numOrUndef(v: unknown): number | undefined {
@@ -164,6 +166,15 @@ function normalizeInfluencerProfile(raw: unknown): InfluencerProfile {
     numOrUndef(p.engagement_percent) ??
     numOrUndef(p.engagement_rate) ??
     numOrUndef(p.engagement);
+  const inviteFalse =
+    p.can_invite === false ||
+    p.invite_eligible === false ||
+    p.eligible_for_invite === false;
+  const inviteTrue =
+    p.can_invite === true ||
+    p.invite_eligible === true ||
+    p.eligible_for_invite === true;
+
   return {
     id: String(p.id ?? ""),
     type: String(p.type ?? ""),
@@ -189,6 +200,7 @@ function normalizeInfluencerProfile(raw: unknown): InfluencerProfile {
       ) ?? null,
     engagement_percent:
       engagement != null ? engagement : null,
+    can_invite: inviteFalse ? false : inviteTrue ? true : undefined,
   };
 }
 
@@ -355,6 +367,65 @@ export async function getInfluencerProfiles(
   }
 
   return profiles.map((item) => normalizeInfluencerProfile(item));
+}
+
+function extractProfilesFromCampaignInfluencerResponse(response: {
+  data?: unknown;
+}): unknown[] {
+  const d = response.data;
+  if (Array.isArray(d)) return d;
+  if (d && typeof d === "object") {
+    const o = d as Record<string, unknown>;
+    if (Array.isArray(o.profiles)) return o.profiles;
+    if (Array.isArray(o.invitable_profiles)) return o.invitable_profiles;
+    if (Array.isArray(o.invite_profiles)) return o.invite_profiles;
+  }
+  return [];
+}
+
+/**
+ * Perfis do influenciador que podem ser convidados nesta campanha (regras da campanha / vínculos).
+ * GET /campaigns/:campaignId/influencers/:influencerId/invite-profiles
+ */
+export async function getCampaignInfluencerInvitableProfiles(
+  campaignId: string,
+  influencerId: string
+): Promise<InfluencerProfile[]> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(
+      `/campaigns/${campaignId}/influencers/${influencerId}/invite-profiles`
+    ),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+    }
+  );
+
+  if (request.status === 404) {
+    const all = await getInfluencerProfiles(influencerId);
+    const anyInviteFlag = all.some((p) => p.can_invite !== undefined);
+    return anyInviteFlag ? all.filter((p) => p.can_invite !== false) : all;
+  }
+
+  if (!request.ok) {
+    const error = await request.json().catch(() => ({}));
+    throw error || "Failed to get invitable influencer profiles";
+  }
+
+  const response = await request.json();
+  const raw = extractProfilesFromCampaignInfluencerResponse(response);
+  const mapped = raw.map((item) => normalizeInfluencerProfile(item));
+  return mapped.filter((profile) => profile.can_invite !== false);
 }
 
 /**

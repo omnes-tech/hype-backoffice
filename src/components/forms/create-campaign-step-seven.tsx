@@ -540,7 +540,7 @@ export function CreateCampaignStepSeven({
             variant="outline"
             onClick={onSaveDraft}
             disabled={isLoading}
-            className="h-11 rounded-[24px] px-4 w-min border-neutral-300"
+            className="h-11 rounded-[24px] px-4 border-neutral-300 w-max"
           >
             <span className="font-semibold text-neutral-800">Salvar rascunho</span>
           </Button>

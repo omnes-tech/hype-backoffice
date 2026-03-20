@@ -19,11 +19,13 @@ const RootLayout = () => (
 
     <Toaster
       position="top-right"
-      expand={false}
-      duration={4000}
+      expand
+      duration={5000}
       closeButton
+      visibleToasts={4}
+      style={{ zIndex: 99999 }}
       toastOptions={{
-        className: "shadow-sm border border-neutral-200 rounded-xl",
+        className: "shadow-lg border border-neutral-200 rounded-xl bg-green-500 text-black",
       }}
     />
   </QueryClientProvider>

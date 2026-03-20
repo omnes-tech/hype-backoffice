@@ -125,6 +125,8 @@ export async function getCampaignDashboard(
 export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
   return {
     id: phase.id,
+    order: phase.order,
+    createdAt: phase.created_at,
     objective: phase.objective,
     postDate: phase.publish_date,
     postTime: phase.publish_time,

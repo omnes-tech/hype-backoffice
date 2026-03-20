@@ -32,6 +32,9 @@ export function useBulkAddInfluencers(campaignId: string) {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "influencer-selection"],
+      });
       toast.success("Influenciadores adicionados com sucesso");
     },
     onError: (error: any) => {

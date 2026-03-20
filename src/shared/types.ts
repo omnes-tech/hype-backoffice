@@ -26,6 +26,7 @@ export interface Campaign {
   title: string;
   description: string;
   objective: string;
+  primary_niche?: { id: number; name: string };
   secondary_niches?: Array<{ id: number; name: string }> | number[];
   max_influencers: number;
   payment_method: string;
@@ -112,6 +113,10 @@ export interface CampaignPhase {
   postTime?: string;
   formats: SocialFormat[];
   files: string;
+  /** Ordem da fase (dashboard API) */
+  order?: number;
+  /** ISO — data de criação da fase (dashboard API) */
+  createdAt?: string;
 }
 
 export interface CampaignFormData {
@@ -145,6 +150,8 @@ export interface CampaignFormData {
   phases: CampaignPhase[];
   /** Revisão: campanha pública ou privada */
   campaignVisibility?: "public" | "private";
+  /** Nome do nicho primário (API `primary_niche`) para exibição no dashboard */
+  primaryNicheName?: string;
 }
 
 export interface Influencer {

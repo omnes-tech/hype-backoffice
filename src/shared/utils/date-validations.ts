@@ -189,6 +189,36 @@ export const validateMuralEndDate = (
 };
 
 /**
+ * Data limite sugerida ao ativar o mural na criação/edição em modo público
+ * (mesmas regras de {@link validateMuralEndDate}).
+ */
+export function suggestMuralEndDateFromFormPhases(
+  phases: Array<{ postDate?: string } | undefined> | undefined,
+  options?: { fallbackDaysFromToday?: number }
+): string | null {
+  const fallbackDays = options?.fallbackDaysFromToday ?? 30;
+  const phase1Date =
+    phases?.find((p) => p?.postDate?.trim())?.postDate?.trim() ?? "";
+
+  if (phase1Date) {
+    const [py, pm, pd] = phase1Date.split("-").map(Number);
+    const phase1 = new Date(py, pm - 1, pd);
+    const maxEnd = addDays(phase1, -7);
+    maxEnd.setHours(0, 0, 0, 0);
+    const candidate = formatDateForInput(maxEnd);
+    const v = validateMuralEndDate(candidate, phase1Date);
+    if (v.valid) return candidate;
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const candidate = formatDateForInput(addDays(today, fallbackDays));
+  const v = validateMuralEndDate(candidate, "");
+  return v.valid ? candidate : null;
+}
+
+/**
  * Calcula data limite para influenciador enviar conteúdo (4 dias antes da fase)
  */
 export const calculateContentSubmissionDeadline = (phaseDate: string): string | null => {

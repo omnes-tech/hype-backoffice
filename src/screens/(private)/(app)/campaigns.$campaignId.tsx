@@ -125,9 +125,11 @@ function RouteComponent() {
         ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
         : [];
 
-    // Determinar o nicho principal a partir do primeiro subnicho selecionado
+    // Nicho primário: API `primary_niche` ou inferido pelo primeiro subnicho
     let mainNicheId = "";
-    if (subnicheIds.length > 0 && niches.length > 0) {
+    if (campaign.primary_niche?.id != null) {
+      mainNicheId = String(campaign.primary_niche.id);
+    } else if (subnicheIds.length > 0 && niches.length > 0) {
       const firstSubnicheId = parseInt(subnicheIds[0], 10);
       const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
       if (firstSubniche?.parent_id) {
@@ -139,6 +141,7 @@ function RouteComponent() {
       title: campaign.title || "",
       description: campaign.description || "",
       mainNiche: mainNicheId,
+      primaryNicheName: campaign.primary_niche?.name ?? "",
       subniches: subnicheIds.join(","),
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
