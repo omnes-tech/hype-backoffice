@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,11 @@ import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { Influencer } from "@/shared/types";
+import { useCampaignCurationColumns } from "@/hooks/use-campaign-tab-influencers";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
-
-interface CurationTabProps {
-  influencers: Influencer[];
-  isLoading?: boolean;
-}
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
@@ -108,7 +104,148 @@ interface ApplicationWithProfile {
   profileStatus: CurationProfileStatus; // curation = Pendentes, approved = Aprovados, rejected = Reprovados
 }
 
-export function CurationTab({ influencers, isLoading }: CurationTabProps) {
+type CurationColumnKey = "pending" | "approved" | "rejected";
+
+function profileMatchesCurationColumn(
+  profileStatus: string | undefined,
+  column: CurationColumnKey
+): boolean {
+  const s = profileStatus?.toLowerCase()?.trim() ?? "";
+  if (column === "pending") {
+    return s === "curation" || s === "pre_selection_curation";
+  }
+  if (column === "approved") return s === "approved";
+  if (column === "rejected") return s === "rejected";
+  return false;
+}
+
+/** Expande cards por perfil a partir da lista já filtrada pelo endpoint da coluna. */
+function expandCurationProfiles(
+  influencers: Influencer[],
+  column: CurationColumnKey
+): ApplicationWithProfile[] {
+  const applications: ApplicationWithProfile[] = [];
+  const networkLabels: { [key: string]: string } = {
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    youtube: "YouTube",
+    ugc: "UGC",
+  };
+  const statusMap: Record<string, CurationProfileStatus> = {
+    curation: "curation",
+    pre_selection_curation: "curation",
+    approved: "approved",
+    rejected: "rejected",
+  };
+
+  influencers.forEach((inf) => {
+    const profiles = inf.social_networks || [];
+    const relevantProfiles = profiles.filter((profile) =>
+      profileMatchesCurationColumn(profile.status, column)
+    );
+
+    if (relevantProfiles.length === 0) {
+      const infStatus = inf.status?.toLowerCase()?.trim();
+      if (
+        column === "pending" &&
+        (infStatus === "curation" || infStatus === "pre_selection_curation") &&
+        profiles.length === 0
+      ) {
+        applications.push({
+          influencerId: inf.id,
+          influencerName: inf.name,
+          influencerUsername: inf.username,
+          influencerAvatar: inf.avatar,
+          influencerFollowers: inf.followers,
+          influencerEngagement: inf.engagement,
+          influencerNiche: inf.niche || "",
+          profileId: "",
+          profileType: "",
+          profileTypeLabel: "Geral",
+          profileUsername: inf.username,
+          profileFollowers: inf.followers,
+          profileKey: `${inf.id}-general`,
+          profileStatus: "curation",
+        });
+      }
+      if (column === "approved" && infStatus === "approved" && profiles.length === 0) {
+        applications.push({
+          influencerId: inf.id,
+          influencerName: inf.name,
+          influencerUsername: inf.username,
+          influencerAvatar: inf.avatar,
+          influencerFollowers: inf.followers,
+          influencerEngagement: inf.engagement,
+          influencerNiche: inf.niche || "",
+          profileId: "",
+          profileType: "",
+          profileTypeLabel: "Geral",
+          profileUsername: inf.username,
+          profileFollowers: inf.followers,
+          profileKey: `${inf.id}-general`,
+          profileStatus: "approved",
+        });
+      }
+      if (column === "rejected" && infStatus === "rejected" && profiles.length === 0) {
+        applications.push({
+          influencerId: inf.id,
+          influencerName: inf.name,
+          influencerUsername: inf.username,
+          influencerAvatar: inf.avatar,
+          influencerFollowers: inf.followers,
+          influencerEngagement: inf.engagement,
+          influencerNiche: inf.niche || "",
+          profileId: "",
+          profileType: "",
+          profileTypeLabel: "Geral",
+          profileUsername: inf.username,
+          profileFollowers: inf.followers,
+          profileKey: `${inf.id}-general`,
+          profileStatus: "rejected",
+        });
+      }
+      return;
+    }
+
+    relevantProfiles.forEach((profile) => {
+      const s = profile.status?.toLowerCase()?.trim();
+      const profileStatus: CurationProfileStatus =
+        statusMap[s ?? ""] ?? "curation";
+      applications.push({
+        influencerId: inf.id,
+        influencerName: inf.name,
+        influencerUsername: inf.username,
+        influencerAvatar: inf.avatar,
+        influencerFollowers: inf.followers,
+        influencerEngagement: inf.engagement,
+        influencerNiche: inf.niche || "",
+        profileId: String(profile.id),
+        profileType: profile.type,
+        profileTypeLabel:
+          networkLabels[profile.type?.toLowerCase() ?? ""] ||
+          profile.name ||
+          profile.type,
+        profileUsername: profile.username || inf.username,
+        profileFollowers: profile.members ?? inf.followers,
+        profileKey: `${inf.id}-${profile.id}`,
+        profileStatus,
+      });
+    });
+  });
+
+  return applications;
+}
+
+interface CurationTabProps {
+  /** Abre o modal de perfil do usuário da campanha (id da linha campaign_users / lista). */
+  focusCampaignUserId?: string | null;
+  onFocusUserConsumed?: () => void;
+}
+
+export function CurationTab({
+  focusCampaignUserId = null,
+  onFocusUserConsumed,
+}: CurationTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -147,89 +284,99 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
   } = useBulkInfluencerActions({ campaignId });
   const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
 
-  const applicationsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
-    const applications: ApplicationWithProfile[] = [];
-    const networkLabels: { [key: string]: string } = {
-      instagram: "Instagram",
-      tiktok: "TikTok",
-      youtube: "YouTube",
-      ugc: "UGC",
-    };
+  const curationQueries = useCampaignCurationColumns(campaignId);
+  const [qPending, qApproved, qRejected] = curationQueries;
 
-    influencers.forEach((inf) => {
-      const profiles = inf.social_networks || [];
-      // pre_selection_curation aparece como "curation" (Pendentes) na aba Curadoria
-      const statusMap: Record<string, CurationProfileStatus> = {
-        curation: "curation",
-        pre_selection_curation: "curation",
-        approved: "approved",
-        rejected: "rejected",
-      };
+  const pendingInfluencers = qPending.data ?? [];
+  const approvedInfluencers = qApproved.data ?? [];
+  const rejectedInfluencers = qRejected.data ?? [];
 
-      const relevantProfiles = profiles.filter((profile) => {
-        const s = profile.status?.toLowerCase()?.trim();
-        return s === "curation" || s === "pre_selection_curation" || s === "approved" || s === "rejected";
-      });
+  const pendingCards = useMemo(
+    () => expandCurationProfiles(pendingInfluencers, "pending"),
+    [pendingInfluencers]
+  );
+  const approvedCards = useMemo(
+    () => expandCurationProfiles(approvedInfluencers, "approved"),
+    [approvedInfluencers]
+  );
+  const rejectedCards = useMemo(
+    () => expandCurationProfiles(rejectedInfluencers, "rejected"),
+    [rejectedInfluencers]
+  );
 
-      if (relevantProfiles.length === 0) {
-        const infStatus = inf.status?.toLowerCase()?.trim();
-        if ((infStatus === "curation" || infStatus === "pre_selection_curation") && profiles.length === 0) {
-          applications.push({
-            influencerId: inf.id,
-            influencerName: inf.name,
-            influencerUsername: inf.username,
-            influencerAvatar: inf.avatar,
-            influencerFollowers: inf.followers,
-            influencerEngagement: inf.engagement,
-            influencerNiche: inf.niche || "",
-            profileId: "",
-            profileType: "",
-            profileTypeLabel: "Geral",
-            profileUsername: inf.username,
-            profileFollowers: inf.followers,
-            profileKey: `${inf.id}-general`,
-            profileStatus: "curation",
-          });
-        }
-        return;
+  const tabLoading =
+    qPending.isLoading || qApproved.isLoading || qRejected.isLoading;
+  const tabError =
+    qPending.isError || qApproved.isError || qRejected.isError;
+  const tabErrorMessage =
+    (qPending.error as Error)?.message ||
+    (qApproved.error as Error)?.message ||
+    (qRejected.error as Error)?.message ||
+    "Não foi possível carregar a curadoria.";
+
+  const allCurationCards = useMemo(
+    () => [...pendingCards, ...approvedCards, ...rejectedCards],
+    [pendingCards, approvedCards, rejectedCards]
+  );
+
+  const focusHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    focusHandledRef.current = null;
+  }, [focusCampaignUserId]);
+
+  useEffect(() => {
+    if (!focusCampaignUserId) return;
+    if (focusHandledRef.current === focusCampaignUserId) return;
+    if (tabLoading) return;
+
+    const id = String(focusCampaignUserId);
+    const fullInf = [...pendingInfluencers, ...approvedInfluencers, ...rejectedInfluencers].find(
+      (inf) => String(inf.id) === id
+    );
+
+    if (!fullInf) {
+      if (!qPending.isFetching && !qApproved.isFetching && !qRejected.isFetching) {
+        focusHandledRef.current = focusCampaignUserId;
+        onFocusUserConsumed?.();
       }
+      return;
+    }
 
-      relevantProfiles.forEach((profile) => {
-        const s = profile.status?.toLowerCase()?.trim();
-        const profileStatus: CurationProfileStatus = statusMap[s ?? ""] ?? "curation";
-        applications.push({
-          influencerId: inf.id,
-          influencerName: inf.name,
-          influencerUsername: inf.username,
-          influencerAvatar: inf.avatar,
-          influencerFollowers: inf.followers,
-          influencerEngagement: inf.engagement,
-          influencerNiche: inf.niche || "",
-          profileId: String(profile.id),
-          profileType: profile.type,
-          profileTypeLabel: networkLabels[profile.type?.toLowerCase() ?? ""] || profile.name || profile.type,
-          profileUsername: profile.username || inf.username,
-          profileFollowers: profile.members ?? inf.followers,
-          profileKey: `${inf.id}-${profile.id}`,
-          profileStatus,
-        });
-      });
-    });
+    if (pendingCards.some((a) => String(a.influencerId) === id)) {
+      setStatusFilter("pending");
+    } else if (approvedCards.some((a) => String(a.influencerId) === id)) {
+      setStatusFilter("approved");
+    } else if (rejectedCards.some((a) => String(a.influencerId) === id)) {
+      setStatusFilter("rejected");
+    }
 
-    return applications;
-  }, [influencers]);
-
-  // Mapeamento statusFilter (UI) -> profileStatus (dados)
-  const statusFilterToProfileStatus: Record<string, CurationProfileStatus> = {
-    pending: "curation",
-    approved: "approved",
-    rejected: "rejected",
-  };
+    setSelectedProfileInfluencer(fullInf);
+    setIsProfileModalOpen(true);
+    focusHandledRef.current = focusCampaignUserId;
+    onFocusUserConsumed?.();
+  }, [
+    focusCampaignUserId,
+    tabLoading,
+    pendingInfluencers,
+    approvedInfluencers,
+    rejectedInfluencers,
+    pendingCards,
+    approvedCards,
+    rejectedCards,
+    qPending.isFetching,
+    qApproved.isFetching,
+    qRejected.isFetching,
+    onFocusUserConsumed,
+  ]);
 
   const filteredApplications = useMemo(() => {
-    const targetStatus = statusFilterToProfileStatus[statusFilter];
-    return applicationsWithProfiles.filter((app) => {
-      if (app.profileStatus !== targetStatus) return false;
+    const base =
+      statusFilter === "pending"
+        ? pendingCards
+        : statusFilter === "approved"
+          ? approvedCards
+          : rejectedCards;
+    return base.filter((app) => {
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
@@ -241,11 +388,18 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
       if (filterNiche && app.influencerNiche !== filterNiche) return false;
       return true;
     });
-  }, [applicationsWithProfiles, statusFilter, searchTerm, filterNiche]);
+  }, [
+    statusFilter,
+    pendingCards,
+    approvedCards,
+    rejectedCards,
+    searchTerm,
+    filterNiche,
+  ]);
 
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
-    applicationsWithProfiles.forEach((app) => {
+    allCurationCards.forEach((app) => {
       if (app.influencerNiche) {
         const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
         if (niche) uniqueNiches.add(niche.id.toString());
@@ -255,20 +409,11 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
       const niche = niches.find((n) => n.id.toString() === id);
       return { value: id, label: niche?.name || id };
     });
-  }, [applicationsWithProfiles, niches]);
+  }, [allCurationCards, niches]);
 
-  const pendingCount = useMemo(
-    () => applicationsWithProfiles.filter((a) => a.profileStatus === "curation").length,
-    [applicationsWithProfiles]
-  );
-  const approvedCount = useMemo(
-    () => applicationsWithProfiles.filter((a) => a.profileStatus === "approved").length,
-    [applicationsWithProfiles]
-  );
-  const rejectedCount = useMemo(
-    () => applicationsWithProfiles.filter((a) => a.profileStatus === "rejected").length,
-    [applicationsWithProfiles]
-  );
+  const pendingCount = pendingCards.length;
+  const approvedCount = approvedCards.length;
+  const rejectedCount = rejectedCards.length;
 
   const handleSelectApplication = (profileKey: string) => {
     setSelectedInfluencers((prev) => {
@@ -441,8 +586,11 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
   };
 
   const handleReject = (app: ApplicationWithProfile) => {
-    // Encontrar o influenciador correspondente
-    const influencer = influencers.find((inf) => inf.id === app.influencerId);
+    // Encontrar o influenciador correspondente em qualquer coluna carregada
+    const influencer =
+      pendingInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
+      approvedInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
+      rejectedInfluencers.find((inf) => String(inf.id) === String(app.influencerId));
     if (influencer) {
       setSelectedInfluencer(influencer);
       setIsRejectModalOpen(true);
@@ -495,8 +643,38 @@ export function CurationTab({ influencers, isLoading }: CurationTabProps) {
     return n?.name ?? nicheId;
   };
 
-  if (isLoading) {
+  if (tabLoading) {
     return <CurationTabSkeleton />;
+  }
+
+  if (tabError) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold text-neutral-950">
+            Curadoria de perfis e conteúdo
+          </h2>
+          <p className="text-base text-neutral-500 max-w-2xl">
+            Centralize a análise: valide perfis, organize aprovações e garanta que tudo esteja alinhado com as regras da campanha.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-4 text-danger-900">
+          <p className="text-sm">{tabErrorMessage}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-max"
+            onClick={() => {
+              void qPending.refetch();
+              void qApproved.refetch();
+              void qRejected.refetch();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

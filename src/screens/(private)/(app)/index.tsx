@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCampaigns } from "@/hooks/use-campaigns";
+import { getCampaignStatusValue } from "@/shared/utils/campaign-status";
 import { useWorkspaceContext } from "@/contexts/workspace-context";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
@@ -17,13 +18,17 @@ function RouteComponent() {
 
   const stats = useMemo(() => {
     const total = campaignsData.length;
-    const active = campaignsData.filter(
-      (c: any) => c.status.value === "active"
+    const active = campaignsData.filter((c: any) => {
+      const v = getCampaignStatusValue(c.status);
+      return v === "active" || v === "published";
+    }).length;
+    const finished = campaignsData.filter((c: any) => {
+      const v = getCampaignStatusValue(c.status);
+      return v === "finished" || v === "completed";
+    }).length;
+    const draft = campaignsData.filter(
+      (c: any) => getCampaignStatusValue(c.status) === "draft"
     ).length;
-    const finished = campaignsData.filter(
-      (c: any) => c.status.value === "finished"
-    ).length;
-    const draft = campaignsData.filter((c: any) => c.status.value === "draft").length;
 
     return { total, active, finished, draft };
   }, [campaignsData]);
@@ -137,7 +142,7 @@ function RouteComponent() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <StatusBadge status={campaign.status.value} />
+                  <StatusBadge status={getCampaignStatusValue(campaign.status) ?? ""} />
                   <Icon name="ChevronRight" color="#525252" size={20} />
                 </div>
               </Link>
@@ -182,7 +187,9 @@ function StatCard({ title, value }: StatCardProps) {
 function StatusBadge({ status }: { status: string }) {
   const statusConfig = {
     active: { label: "Ativa", color: "bg-secondary-100 text-secondary-800" },
+    published: { label: "Publicado", color: "bg-success-100 text-success-800" },
     finished: { label: "Finalizada", color: "bg-success-50 text-success-600" },
+    completed: { label: "Finalizada", color: "bg-success-50 text-success-600" },
     draft: { label: "Rascunho", color: "bg-neutral-200 text-neutral-700" },
   };
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { createFileRoute, useNavigate, useParams, Outlet, useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -24,10 +24,14 @@ import { useCampaign } from "@/hooks/use-campaigns";
 import { useActivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
-import { useCampaignUsers } from "@/hooks/use-campaign-users";
+import { useCampaignManagement } from "@/hooks/use-campaign-management";
 import { useNiches } from "@/hooks/use-niches";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { formatCurrency } from "@/shared/utils/masks";
+import {
+  getCampaignStatusDisplayLabel,
+  getCampaignStatusValue,
+} from "@/shared/utils/campaign-status";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
@@ -54,27 +58,68 @@ function RouteComponent() {
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
 
-  // Ler search params da URL para navegação de notificações
-  const searchParams = new URLSearchParams(location.search);
-  const tabFromUrl = searchParams.get("tab");
-  const openChatInfluencerId = searchParams.get("openChat");
+  /** Deep links vindos de notificações — guardados antes de limpar a URL */
+  const [pendingOpenChat, setPendingOpenChat] = useState<string | null>(null);
+  const [pendingFocusCampaignUser, setPendingFocusCampaignUser] = useState<
+    string | null
+  >(null);
+  const [pendingContentId, setPendingContentId] = useState<string | null>(null);
 
-  // Mudar para a aba correta se especificada na URL
+  const handleOpenChatConsumed = useCallback(() => setPendingOpenChat(null), []);
+  const handleFocusUserConsumed = useCallback(
+    () => setPendingFocusCampaignUser(null),
+    []
+  );
+  const handleHighlightContentConsumed = useCallback(
+    () => setPendingContentId(null),
+    []
+  );
+
+  // Ler search params da URL para navegação de notificações
   useEffect(() => {
-    if (tabFromUrl && tabs.some(tab => tab.id === tabFromUrl)) {
-      setActiveTab(tabFromUrl);
-      // Limpar os parâmetros da URL após usar (tab e openChat)
-      const newSearchParams = new URLSearchParams(location.search);
-      newSearchParams.delete("tab");
-      newSearchParams.delete("openChat");
-      const remainingParams = Object.fromEntries(newSearchParams);
-      navigate({
-        to: location.pathname,
-        search: Object.keys(remainingParams).length > 0 ? remainingParams : undefined,
-        replace: true,
-      });
+    const sp = new URLSearchParams(location.search);
+    const tabParam = sp.get("tab");
+    const openChat = sp.get("openChat");
+    const focusCampaignUser = sp.get("focusCampaignUser");
+    const contentId = sp.get("contentId");
+
+    const validTabIds = new Set(tabs.map((t) => t.id));
+    let targetTab: string | null =
+      tabParam && validTabIds.has(tabParam) ? tabParam : null;
+
+    if (!targetTab) {
+      if (openChat) targetTab = "management";
+      else if (contentId) targetTab = "approval";
+      else if (focusCampaignUser) targetTab = "curation";
     }
-  }, [tabFromUrl, location.search, location.pathname, navigate]);
+
+    if (
+      !targetTab &&
+      !openChat &&
+      !focusCampaignUser &&
+      !contentId
+    ) {
+      return;
+    }
+
+    if (targetTab) {
+      setActiveTab(targetTab);
+    }
+    if (openChat) setPendingOpenChat(openChat);
+    if (focusCampaignUser) setPendingFocusCampaignUser(focusCampaignUser);
+    if (contentId) setPendingContentId(contentId);
+
+    const next = new URLSearchParams(location.search);
+    for (const k of ["tab", "openChat", "focusCampaignUser", "contentId"]) {
+      next.delete(k);
+    }
+    const rest = Object.fromEntries(next);
+    navigate({
+      to: location.pathname,
+      search: Object.keys(rest).length > 0 ? rest : undefined,
+      replace: true,
+    });
+  }, [location.search, location.pathname, navigate]);
 
   // Query principal da campanha (dados básicos)
   const {
@@ -94,10 +139,13 @@ function RouteComponent() {
     data: identifiedPosts = [],
   } = useIdentifiedPosts(campaignId);
 
-  // Query de usuários inscritos na campanha
   const {
-    data: campaignUsers = [],
-  } = useCampaignUsers(campaignId);
+    data: managementData,
+    isLoading: isLoadingManagement,
+    error: managementError,
+  } = useCampaignManagement(campaignId, {
+    enabled: activeTab === "management",
+  });
 
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
 
@@ -344,10 +392,11 @@ function RouteComponent() {
       case "management":
         return (
           <ManagementTab
-            influencers={influencers}
-            campaignPhases={phases}
-            campaignUsers={campaignUsers}
-            openChatInfluencerId={openChatInfluencerId || undefined}
+            participants={managementData?.participants ?? []}
+            isLoading={isLoadingManagement}
+            error={managementError}
+            openChatInfluencerId={pendingOpenChat ?? undefined}
+            onOpenChatConsumed={handleOpenChatConsumed}
           />
         );
       case "selection":
@@ -365,13 +414,25 @@ function RouteComponent() {
           />
         );
       case "applications":
-        return <ApplicationsTab influencers={influencers} isLoading={isLoadingDashboard} />;
+        return (
+          <ApplicationsTab
+            focusCampaignUserId={pendingFocusCampaignUser}
+            onFocusUserConsumed={handleFocusUserConsumed}
+          />
+        );
       case "curation":
-        return <CurationTab influencers={influencers} isLoading={isLoadingDashboard} />;
+        return (
+          <CurationTab
+            focusCampaignUserId={pendingFocusCampaignUser}
+            onFocusUserConsumed={handleFocusUserConsumed}
+          />
+        );
       case "approval":
         return (
           <ContentApprovalTab
             campaignPhases={phases}
+            highlightContentId={pendingContentId}
+            onHighlightContentConsumed={handleHighlightContentConsumed}
           />
         );
       case "script-approval":
@@ -421,16 +482,29 @@ function RouteComponent() {
                 <span className="text-neutral-950">Detalhes da campanha</span>
               </button>
               <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => setShowMuralDateModal(true)}
-                  className="bg-primary-500 hover:bg-primary-600 text-white border-0"
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="Send" color="#fff" size={16} />
-                    <span>Publicar</span>
-                  </div>
-                </Button>
-                {((campaign?.status as any)?.value === "draft" || campaign?.status === "draft") && (
+                {
+                  getCampaignStatusValue(campaign?.status) === "draft" && (
+                    <Button
+                      type="button"
+                      disabled={
+                        getCampaignStatusValue(campaign?.status) === "published"
+                      }
+                      title={
+                        getCampaignStatusValue(campaign?.status) === "published"
+                          ? "Esta campanha já está publicada"
+                          : undefined
+                      }
+                      onClick={() => setShowMuralDateModal(true)}
+                      className="bg-primary-500 hover:bg-primary-600 text-white border-0 disabled:hover:bg-primary-500"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon name="Send" color="#fff" size={16} />
+                        <span>Publicar</span>
+                      </div>
+                    </Button>
+                  )
+                }
+                {getCampaignStatusValue(campaign?.status) === "draft" && (
                   <Button
                     variant="outline"
                     onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
@@ -464,9 +538,21 @@ function RouteComponent() {
                 <span className="text-sm text-neutral-500">
                   {progressPercentage}% Concluído
                 </span>
-                <div className="px-3 py-2 rounded-xl bg-neutral-200">
-                  <span className="text-sm font-normal text-neutral-950">
-                    {campaign?.status === "published" ? "Ativa" : "Rascunho"}
+                <div
+                  className={
+                    getCampaignStatusValue(campaign?.status) === "published"
+                      ? "px-3 py-2 rounded-xl bg-green-100"
+                      : "px-3 py-2 rounded-xl bg-neutral-200"
+                  }
+                >
+                  <span
+                    className={
+                      getCampaignStatusValue(campaign?.status) === "published"
+                        ? "text-sm font-normal text-success-800"
+                        : "text-sm font-normal text-neutral-950"
+                    }
+                  >
+                    {getCampaignStatusDisplayLabel(campaign?.status)}
                   </span>
                 </div>
               </div>

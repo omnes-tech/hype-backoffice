@@ -16,6 +16,8 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "inscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores aprovados com sucesso");
     },
     onError: (error: any) => {
@@ -31,6 +33,8 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "inscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores reprovados com sucesso");
     },
     onError: (error: any) => {

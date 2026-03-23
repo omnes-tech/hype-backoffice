@@ -153,7 +153,7 @@ export function CreateCampaignStepTwo({
   const mainNicheOptions = useMemo(
     () =>
       niches
-        .filter((n) => n.parent_id === null)
+        .filter((n) => n.parent_id == null)
         .map((n) => ({ value: n.id.toString(), label: n.name })),
     [niches]
   );
@@ -161,9 +161,24 @@ export function CreateCampaignStepTwo({
   const subnicheOptions = useMemo(() => {
     if (!formData.mainNiche) return [];
     const parentId = parseInt(formData.mainNiche, 10);
-    return niches
-      .filter((n) => n.parent_id === parentId)
+    if (Number.isNaN(parentId)) return [];
+    const rows = niches
+      .filter(
+        (n) =>
+          n.parent_id != null && Number(n.parent_id) === parentId
+      )
       .map((n) => ({ value: n.id.toString(), label: n.name }));
+    const isOutrosLabel = (label: string) => {
+      const t = label.trim().toLowerCase();
+      return t === "outros" || t === "outro";
+    };
+    const sorted = [...rows].sort((a, b) => {
+      const ao = isOutrosLabel(a.label) ? 1 : 0;
+      const bo = isOutrosLabel(b.label) ? 1 : 0;
+      if (ao !== bo) return ao - bo;
+      return a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" });
+    });
+    return sorted;
   }, [niches, formData.mainNiche]);
 
   const handleStateChange = (values: string[]) => {
@@ -227,14 +242,21 @@ export function CreateCampaignStepTwo({
     ]
   );
 
-  const { data: influencers = [], isLoading: isLoadingInfluencers } =
+  const { data: catalogData, isLoading: isLoadingInfluencers } =
     useInfluencersCatalog(hasFilters ? catalogFilters : undefined);
 
-  const totalFollowers = useMemo(
-    () =>
-      influencers.reduce((sum, inf) => sum + (inf.followers || 0), 0),
-    [influencers]
-  );
+  const influencers = catalogData?.items ?? [];
+
+  const influencerCount =
+    catalogData?.stats != null
+      ? catalogData.stats.influencer_count
+      : influencers.length;
+
+  const totalFollowers = useMemo(() => {
+    const fromStats = catalogData?.stats?.total_followers;
+    if (typeof fromStats === "number") return fromStats;
+    return influencers.reduce((sum, inf) => sum + (inf.followers || 0), 0);
+  }, [catalogData?.stats?.total_followers, influencers]);
 
   const formatNumber = (num: number): string =>
     num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -354,8 +376,8 @@ export function CreateCampaignStepTwo({
           </div>
           <div className="flex-1 min-w-[200px]">
             <Select
-              label="Subnicho"
-              placeholder="Selecione um subnicho"
+              label="Subnicho (opcional)"
+              placeholder="Opcional — selecione um subnicho"
               options={subnicheOptions}
               value={
                 formData.subniches
@@ -465,7 +487,7 @@ export function CreateCampaignStepTwo({
               <p className="text-xs text-primary-700">
                 Com esta segmentação você terá um potencial de{" "}
                 <span className="font-bold text-primary-900">
-                  {influencers.length}
+                  {influencerCount}
                 </span>{" "}
                 influenciadores. Com um público total de{" "}
                 <span className="font-bold text-primary-900">

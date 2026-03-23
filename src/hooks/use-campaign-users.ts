@@ -5,11 +5,17 @@ import {
   type UpdateUserStatusData,
 } from "@/shared/services/campaign-users";
 
-export function useCampaignUsers(campaignId: string) {
+export function useCampaignUsers(
+  campaignId: string,
+  options?: { enabled?: boolean }
+) {
+  const enabled =
+    !!campaignId && (options?.enabled !== undefined ? options.enabled : true);
+
   return useQuery({
     queryKey: ["campaigns", campaignId, "users"],
     queryFn: () => getCampaignUsers(campaignId),
-    enabled: !!campaignId,
+    enabled,
   });
 }
 
@@ -28,6 +34,15 @@ export function useUpdateCampaignUserStatus(campaignId: string) {
       });
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "influencers"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "management"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "inscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "curation"],
       });
     },
   });

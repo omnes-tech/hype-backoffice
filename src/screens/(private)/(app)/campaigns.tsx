@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useCampaigns } from "@/hooks/use-campaigns";
 import { useWorkspaceContext } from "@/contexts/workspace-context";
 import { getUploadUrl } from "@/lib/utils/api";
+import { getCampaignStatusValue } from "@/shared/utils/campaign-status";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns")({
   component: RouteComponent,
@@ -41,13 +42,14 @@ function RouteComponent() {
       let progressPercentage = 0;
       let phase = "Não iniciada";
       
-      if (campaign.status === "active") {
+      const sv = getCampaignStatusValue(campaign.status);
+      if (sv === "active" || sv === "published") {
         progressPercentage = 50;
         phase = "Em andamento";
-      } else if (campaign.status === "finished") {
+      } else if (sv === "finished" || sv === "completed") {
         progressPercentage = 100;
         phase = "Finalizada";
-      } else if (campaign.status === "draft") {
+      } else if (sv === "draft") {
         progressPercentage = 10;
         phase = "Rascunho";
       }

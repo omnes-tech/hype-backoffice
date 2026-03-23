@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,11 @@ import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { Influencer } from "@/shared/types";
+import { useCampaignInscriptions } from "@/hooks/use-campaign-tab-influencers";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
-
-interface ApplicationsTabProps {
-  influencers: Influencer[];
-  isLoading?: boolean;
-}
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
@@ -98,6 +94,73 @@ interface ApplicationWithProfile {
   profileUsername: string;
   profileFollowers: number;
   profileKey: string; // Chave única: influencerId-profileId
+}
+
+function buildInscriptionsProfiles(
+  influencers: Influencer[],
+  segment: "applications" | "pre_selection"
+): ApplicationWithProfile[] {
+  const networkLabels: { [key: string]: string } = {
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    youtube: "YouTube",
+    ugc: "UGC",
+  };
+  const applications: ApplicationWithProfile[] = [];
+  const statusNorm = segment.toLowerCase().trim();
+
+  influencers.forEach((inf) => {
+    const profiles = inf.social_networks || [];
+    const infStatus = String(inf.status || "").toLowerCase().trim();
+
+    const matchingProfiles = profiles.filter((profile) => {
+      const profileStatus = String(profile.status || "").toLowerCase().trim();
+      return profileStatus === statusNorm;
+    });
+
+    if (matchingProfiles.length === 0) {
+      if (infStatus === statusNorm && profiles.length === 0) {
+        applications.push({
+          influencerId: inf.id,
+          influencerName: inf.name,
+          influencerUsername: inf.username,
+          influencerAvatar: inf.avatar,
+          influencerFollowers: inf.followers,
+          influencerEngagement: inf.engagement,
+          influencerNiche: inf.niche || "",
+          profileId: "",
+          profileType: "",
+          profileTypeLabel: "Geral",
+          profileUsername: inf.username,
+          profileFollowers: inf.followers,
+          profileKey: `${inf.id}-general`,
+        });
+      }
+    } else {
+      matchingProfiles.forEach((profile) => {
+        applications.push({
+          influencerId: inf.id,
+          influencerName: inf.name,
+          influencerUsername: inf.username,
+          influencerAvatar: inf.avatar,
+          influencerFollowers: inf.followers,
+          influencerEngagement: inf.engagement,
+          influencerNiche: inf.niche || "",
+          profileId: String(profile.id),
+          profileType: profile.type,
+          profileTypeLabel:
+            networkLabels[profile.type.toLowerCase()] ||
+            profile.name ||
+            profile.type,
+          profileUsername: profile.username || inf.username,
+          profileFollowers: profile.members || inf.followers,
+          profileKey: `${inf.id}-${profile.id}`,
+        });
+      });
+    }
+  });
+
+  return applications;
 }
 
 /** Card único para inscrições orgânicas e pré-seleções — layout Figma (node 2392-16329) */
@@ -267,11 +330,21 @@ function ApplicationCard({
   );
 }
 
-export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps) {
+interface ApplicationsTabProps {
+  focusCampaignUserId?: string | null;
+  onFocusUserConsumed?: () => void;
+}
+
+export function ApplicationsTab({
+  focusCampaignUserId = null,
+  onFocusUserConsumed,
+}: ApplicationsTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
+  const applicationsQuery = useCampaignInscriptions(campaignId, "applications");
+  const preSelectionQuery = useCampaignInscriptions(campaignId, "pre_selection");
   const { data: niches = [] } = useNiches();
   const [selectedInfluencer, setSelectedInfluencer] =
     useState<Influencer | null>(null);
@@ -317,80 +390,27 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
     isPending: isMovingToPreSelectionCuration,
   } = useMoveToPreSelectionCuration(campaignId);
 
-  // Helper para construir itens do tipo ApplicationWithProfile a partir de perfis com um dado status
-  const buildListByProfileStatus = useMemo(() => {
-    const networkLabels: { [key: string]: string } = {
-      instagram: "Instagram",
-      tiktok: "TikTok",
-      youtube: "YouTube",
-      ugc: "UGC",
-    };
+  const organicInfluencers = applicationsQuery.data ?? [];
+  const preSelectionInfluencers = preSelectionQuery.data ?? [];
 
-    return (statusFilter: string): ApplicationWithProfile[] => {
-      const applications: ApplicationWithProfile[] = [];
-      const statusNorm = statusFilter.toLowerCase().trim();
+  const applicationsWithProfiles = useMemo<ApplicationWithProfile[]>(
+    () => buildInscriptionsProfiles(organicInfluencers, "applications"),
+    [organicInfluencers]
+  );
 
-      influencers.forEach((inf) => {
-        const profiles = inf.social_networks || [];
-        const infStatus = String(inf.status || "").toLowerCase().trim();
+  const preselectionsWithProfiles = useMemo<ApplicationWithProfile[]>(
+    () => buildInscriptionsProfiles(preSelectionInfluencers, "pre_selection"),
+    [preSelectionInfluencers]
+  );
 
-        const matchingProfiles = profiles.filter((profile) => {
-          const profileStatus = String(profile.status || "").toLowerCase().trim();
-          return profileStatus === statusNorm;
-        });
-
-        if (matchingProfiles.length === 0) {
-          if (infStatus === statusNorm && profiles.length === 0) {
-            applications.push({
-              influencerId: inf.id,
-              influencerName: inf.name,
-              influencerUsername: inf.username,
-              influencerAvatar: inf.avatar,
-              influencerFollowers: inf.followers,
-              influencerEngagement: inf.engagement,
-              influencerNiche: inf.niche || "",
-              profileId: "",
-              profileType: "",
-              profileTypeLabel: "Geral",
-              profileUsername: inf.username,
-              profileFollowers: inf.followers,
-              profileKey: `${inf.id}-general`,
-            });
-          }
-        } else {
-          matchingProfiles.forEach((profile) => {
-            applications.push({
-              influencerId: inf.id,
-              influencerName: inf.name,
-              influencerUsername: inf.username,
-              influencerAvatar: inf.avatar,
-              influencerFollowers: inf.followers,
-              influencerEngagement: inf.engagement,
-              influencerNiche: inf.niche || "",
-              profileId: String(profile.id),
-              profileType: profile.type,
-              profileTypeLabel: networkLabels[profile.type.toLowerCase()] || profile.name || profile.type,
-              profileUsername: profile.username || inf.username,
-              profileFollowers: profile.members || inf.followers,
-              profileKey: `${inf.id}-${profile.id}`,
-            });
-          });
-        }
-      });
-
-      return applications;
-    };
-  }, [influencers]);
-
-  // Inscrições orgânicas (perfis com status "applications")
-  const applicationsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
-    return buildListByProfileStatus("applications");
-  }, [buildListByProfileStatus]);
-
-  // Pré-seleções (perfis com status "pre_selection" ou influenciador com status "pre_selection" sem perfis)
-  const preselectionsWithProfiles = useMemo<ApplicationWithProfile[]>(() => {
-    return buildListByProfileStatus("pre_selection");
-  }, [buildListByProfileStatus]);
+  const tabLoading =
+    applicationsQuery.isLoading || preSelectionQuery.isLoading;
+  const tabError =
+    applicationsQuery.isError || preSelectionQuery.isError;
+  const tabErrorMessage =
+    (applicationsQuery.error as Error)?.message ||
+    (preSelectionQuery.error as Error)?.message ||
+    "Não foi possível carregar as inscrições.";
 
   // Função de filtro reutilizável para aplicações e pré-seleções
   const applyFilters = useCallback(
@@ -448,6 +468,46 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   // Lista atual conforme o segmento (orgânico ou pré-seleções)
   const currentFilteredList =
     segmentTab === "organic" ? filteredApplications : filteredPreselections;
+
+  const focusHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    focusHandledRef.current = null;
+  }, [focusCampaignUserId]);
+
+  useEffect(() => {
+    if (!focusCampaignUserId) return;
+    if (focusHandledRef.current === focusCampaignUserId) return;
+    if (tabLoading) return;
+
+    const id = String(focusCampaignUserId);
+    const fullOrganic = organicInfluencers.find((i) => String(i.id) === id);
+    const fullPre = preSelectionInfluencers.find((i) => String(i.id) === id);
+    const fullInf = fullOrganic || fullPre;
+
+    if (!fullInf) {
+      if (!applicationsQuery.isFetching && !preSelectionQuery.isFetching) {
+        focusHandledRef.current = focusCampaignUserId;
+        onFocusUserConsumed?.();
+      }
+      return;
+    }
+
+    if (fullOrganic) setSegmentTab("organic");
+    else setSegmentTab("preselection");
+
+    setSelectedProfileInfluencer(fullInf);
+    setIsProfileModalOpen(true);
+    focusHandledRef.current = focusCampaignUserId;
+    onFocusUserConsumed?.();
+  }, [
+    focusCampaignUserId,
+    tabLoading,
+    organicInfluencers,
+    preSelectionInfluencers,
+    applicationsQuery.isFetching,
+    preSelectionQuery.isFetching,
+    onFocusUserConsumed,
+  ]);
 
   // Opções de nichos disponíveis (do segmento atual: orgânico ou pré-seleções)
   const listForNiches = segmentTab === "organic" ? applicationsWithProfiles : preselectionsWithProfiles;
@@ -732,8 +792,10 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   };
 
   const handleReject = (app: ApplicationWithProfile) => {
-    // Encontrar o influenciador correspondente
-    const influencer = influencers.find((inf) => inf.id === app.influencerId);
+    // Encontrar o influenciador correspondente (inscrições orgânicas ou pré-seleção)
+    const influencer =
+      organicInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
+      preSelectionInfluencers.find((inf) => String(inf.id) === String(app.influencerId));
     if (influencer) {
       setSelectedInfluencer(influencer);
       setIsRejectModalOpen(true);
@@ -793,8 +855,37 @@ export function ApplicationsTab({ influencers, isLoading }: ApplicationsTabProps
   const organicCount = applicationsWithProfiles.length;
   const preselectionCount = preselectionsWithProfiles.length;
 
-  if (isLoading) {
+  if (tabLoading) {
     return <ApplicationsTabSkeleton />;
+  }
+
+  if (tabError) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-semibold text-neutral-950">
+            Inscrições na campanha
+          </h2>
+          <p className="text-base text-neutral-500">
+            Acompanhe quem se inscreveu pelo descobrir, revise os perfis e aprove ou recuse para avançar na seleção.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-4 text-danger-900">
+          <p className="text-sm">{tabErrorMessage}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-max"
+            onClick={() => {
+              void applicationsQuery.refetch();
+              void preSelectionQuery.refetch();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

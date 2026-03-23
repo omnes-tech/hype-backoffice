@@ -34,6 +34,15 @@ export function useUpdateInfluencerStatus(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "users"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "management"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "inscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "curation"],
+      });
     },
   });
 }
@@ -54,6 +63,15 @@ export function useInviteInfluencer(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "users"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "management"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "inscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "curation"],
+      });
     },
   });
 }
@@ -73,6 +91,15 @@ export function useAddToPreSelection(campaignId: string) {
       });
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "users"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "management"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "inscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "curation"],
       });
     },
   });
@@ -98,6 +125,15 @@ export function useMoveToPreSelectionCuration(campaignId: string) {
       });
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "users"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "management"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "inscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "curation"],
       });
     },
   });

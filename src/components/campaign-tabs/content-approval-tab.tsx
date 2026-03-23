@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,16 @@ import { formatDateForInput } from "@/shared/utils/date-validations";
 
 interface ContentApprovalTabProps {
   campaignPhases?: CampaignPhase[];
+  /** Abre o modal de detalhe deste conteúdo (ex.: notificação). */
+  highlightContentId?: string | null;
+  onHighlightContentConsumed?: () => void;
 }
 
-export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabProps) {
+export function ContentApprovalTab({
+  campaignPhases = [],
+  highlightContentId = null,
+  onHighlightContentConsumed,
+}: ContentApprovalTabProps) {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   
   // Estados de filtros
@@ -70,6 +77,8 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
   const {
     data: contents = [],
     isLoading: isLoadingContents,
+    isFetching: isContentsFetching,
+    isFetched: isContentsFetched,
     refetch: refetchContents,
   } = useCampaignContents(campaignId || "", filters);
 
@@ -118,6 +127,42 @@ export function ContentApprovalTab({ campaignPhases = [] }: ContentApprovalTabPr
       ai_evaluation: content.ai_evaluation,
     })) as CampaignContent[];
   }, [contents]);
+
+  const highlightHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    highlightHandledRef.current = null;
+  }, [highlightContentId]);
+
+  useEffect(() => {
+    if (!highlightContentId) return;
+    if (highlightHandledRef.current === highlightContentId) return;
+
+    if (selectedStatusFilter !== "all" || selectedPhaseFilter !== "all") {
+      setSelectedStatusFilter("all");
+      setSelectedPhaseFilter("all");
+      return;
+    }
+
+    if (isContentsFetching || !isContentsFetched) return;
+
+    const id = String(highlightContentId);
+    const c = normalizedContents.find((x) => String(x.id) === id);
+    if (c) {
+      setSelectedContent(c);
+      setIsDetailModalOpen(true);
+    }
+    highlightHandledRef.current = highlightContentId;
+    onHighlightContentConsumed?.();
+  }, [
+    highlightContentId,
+    selectedStatusFilter,
+    selectedPhaseFilter,
+    normalizedContents,
+    isContentsFetching,
+    isContentsFetched,
+    onHighlightContentConsumed,
+  ]);
 
   // Filtrar conteúdos baseado nos filtros selecionados
   const filteredContents = useMemo(() => {

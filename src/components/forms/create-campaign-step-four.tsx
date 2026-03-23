@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import type { CampaignFormData } from "@/shared/types";
-import { handleNumberInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFourProps {
   formData: CampaignFormData;
@@ -189,7 +188,7 @@ export function CreateCampaignStepFour({
       {/* Header – Figma */}
       <div className="flex flex-col gap-4">
         <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
-          Arquivos e direito
+          Arquivos
         </h2>
         <p className="text-lg leading-8 text-[#404040]">
           Envie o material que o influenciador deve usar como referência visual
@@ -354,25 +353,6 @@ export function CreateCampaignStepFour({
               </p>
             </div>
           )}
-        </div>
-
-        {/* Período de direitos de imagem – mantido para o fluxo */}
-        <div className="flex flex-col gap-1">
-          <label className="text-base font-medium leading-5 text-[#0A0A0A]">
-            Período de direitos de imagem (em meses)
-          </label>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Ex: 12"
-            value={formData.imageRightsPeriod}
-            onChange={(e) =>
-              handleNumberInput(e, (value) =>
-                updateFormData("imageRightsPeriod", value)
-              )
-            }
-            className="w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none"
-          />
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import {
 } from "@/hooks/use-notifications";
 import { clsx } from "clsx";
 import type { Notification } from "@/shared/services/notifications";
+import { resolveNotificationCampaignDeepLink } from "@/shared/utils/notification-navigation";
 
 export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,57 +83,24 @@ export function NotificationsDropdown() {
     }
 
     const campaignId = notification.metadata.campaign_id;
+    const deep = resolveNotificationCampaignDeepLink(notification);
 
-    const goToCampaign = (id: string, tab: string, extraSearch?: Record<string, string>) => {
-      navigate({
-        to: "/campaigns/$campaignId",
-        params: { campaignId: id },
-        search: { tab, ...extraSearch },
-      });
+    if (!campaignId || !deep) {
       setIsOpen(false);
-    };
-
-    switch (notification.type) {
-      case "new_message":
-        if (campaignId && notification.metadata.influencer_id != null) {
-          goToCampaign(campaignId, "management", {
-            openChat: String(notification.metadata.influencer_id),
-          });
-        } else if (campaignId) {
-          goToCampaign(campaignId, "management");
-        }
-        break;
-      case "influencer_approved":
-        if (campaignId && notification.metadata.influencer_id != null) {
-          goToCampaign(campaignId, "management", {
-            openChat: String(notification.metadata.influencer_id),
-          });
-        } else if (campaignId) {
-          goToCampaign(campaignId, "management");
-        }
-        break;
-      case "content_approved":
-      case "content_adjustment_requested":
-      case "content_submitted":
-      case "new_content_submission":
-        if (campaignId) {
-          goToCampaign(
-            campaignId,
-            "approval",
-            notification.metadata.content_id
-              ? { contentId: notification.metadata.content_id }
-              : undefined
-          );
-        }
-        break;
-      default:
-        if (campaignId) {
-          goToCampaign(campaignId, "management");
-        } else {
-          setIsOpen(false);
-        }
-        break;
+      return;
     }
+
+    const search: Record<string, string> = { tab: deep.tab };
+    if (deep.openChat) search.openChat = deep.openChat;
+    if (deep.focusCampaignUser) search.focusCampaignUser = deep.focusCampaignUser;
+    if (deep.contentId) search.contentId = deep.contentId;
+
+    navigate({
+      to: "/campaigns/$campaignId",
+      params: { campaignId },
+      search,
+    });
+    setIsOpen(false);
   };
 
   const getNotificationIcon = (type: string): string => {

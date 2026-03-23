@@ -11,6 +11,7 @@ import {
   validateSubsequentPhaseDate,
   getPhase1MinDate,
 } from "@/shared/utils/date-validations";
+import { handleNumberInput, unformatNumber } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFiveProps {
   formData: CampaignFormData;
@@ -79,6 +80,9 @@ export function CreateCampaignStepFive({
             id: "1",
             objective: "",
             postDate: "",
+            postTime: "18:00",
+            includeImageRights: true,
+            imageRightsPeriod: "",
             formats: [],
             files: "",
           },
@@ -125,6 +129,9 @@ export function CreateCampaignStepFive({
           id: i.toString(),
           objective: "",
           postDate: "",
+          postTime: "18:00",
+          includeImageRights: true,
+          imageRightsPeriod: "",
           formats: [],
           files: "",
         }
@@ -140,6 +147,20 @@ export function CreateCampaignStepFive({
   const updatePhase = (phaseId: string, field: keyof CampaignPhase, value: unknown) => {
     const updated = phases.map((p) =>
       p.id === phaseId ? { ...p, [field]: value } : p
+    );
+    setPhases(updated);
+    updateFormData("phases", updated);
+  };
+
+  const setPhaseImageRightsChoice = (phaseId: string, include: boolean) => {
+    const updated = phases.map((p) =>
+      p.id === phaseId
+        ? {
+            ...p,
+            includeImageRights: include,
+            ...(include ? {} : { imageRightsPeriod: "" }),
+          }
+        : p
     );
     setPhases(updated);
     updateFormData("phases", updated);
@@ -265,6 +286,22 @@ export function CreateCampaignStepFive({
         );
         return false;
       }
+      if (p.includeImageRights !== false) {
+        const months = parseInt(
+          unformatNumber(p.imageRightsPeriod || ""),
+          10
+        );
+        if (
+          !p.imageRightsPeriod?.trim() ||
+          Number.isNaN(months) ||
+          months < 1
+        ) {
+          toast.error(
+            `Fase ${i + 1}: informe o período de direitos de imagem (em meses).`
+          );
+          return false;
+        }
+      }
       const badQty = p.formats.filter((f) => {
         const n = parseInt(f.quantity || "0", 10);
         return isNaN(n) || n < 1;
@@ -302,7 +339,7 @@ export function CreateCampaignStepFive({
       </div>
 
       {/* Card container */}
-      <div className="flex flex-col gap-7 rounded-[12px] bg-neutral-050 p-6">
+      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
         {/* Número de fases */}
         <div className="flex flex-col gap-2">
           <label className="text-base font-medium text-neutral-950">
@@ -387,26 +424,102 @@ export function CreateCampaignStepFive({
                       options={OBJECTIVE_OPTIONS}
                     />
 
-                    <InputDate
-                      label="Data prevista de postagem"
-                      value={phase.postDate ?? ""}
-                      onChange={(v) => updatePhase(phase.id, "postDate", v)}
-                      min={getPhaseMinDate(phaseIndex, phase.postDate)}
-                      error={getPhaseDateError(phaseIndex, phase.postDate)}
-                    />
+                    {/* Direitos de imagem — Figma 2283:8016 / Fase 3 */}
+                    <div className="flex flex-col gap-4">
+                      <p className="text-base font-medium leading-5 text-[#0A0A0A]">
+                        Deseja incluir direitos de uso de imagem para a marca?
+                      </p>
+                      <div
+                        className="flex flex-wrap gap-4"
+                        role="radiogroup"
+                        aria-label="Direitos de uso de imagem"
+                      >
+                        {(
+                          [
+                            { value: true as const, label: "Sim" },
+                            { value: false as const, label: "Não" },
+                          ] as const
+                        ).map(({ value, label }) => {
+                          const selected =
+                            value === true
+                              ? phase.includeImageRights !== false
+                              : phase.includeImageRights === false;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              role="radio"
+                              aria-checked={selected}
+                              onClick={() =>
+                                setPhaseImageRightsChoice(phase.id, value)
+                              }
+                              className="flex items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                            >
+                              <span
+                                className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                  selected
+                                    ? "border-primary-900"
+                                    : "border-[#A3A3A3]"
+                                }`}
+                              >
+                                {selected && value === true && (
+                                  <span className="size-3 rounded-full bg-primary-900" />
+                                )}
+                                {selected && value === false && (
+                                  <span className="size-3 rounded-full bg-neutral-700" />
+                                )}
+                              </span>
+                              <span className="text-base font-medium text-black">
+                                {label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {phase.includeImageRights !== false && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-base font-medium leading-5 text-[#0A0A0A]">
+                            Período de direitos de imagem (em meses)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Ex: 12"
+                            value={phase.imageRightsPeriod ?? ""}
+                            onChange={(e) =>
+                              handleNumberInput(e, (v) =>
+                                updatePhase(phase.id, "imageRightsPeriod", v)
+                              )
+                            }
+                            className="h-11 w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
 
-                    <div className="flex flex-col gap-2">
-                      <label className="text-base font-medium text-neutral-950">
-                        Horário da postagem
-                      </label>
-                      <input
-                        type="time"
-                        value={phase.postTime ?? "18:00"}
-                        onChange={(e) =>
-                          updatePhase(phase.id, "postTime", e.target.value)
-                        }
-                        className="h-11 w-full rounded-[24px] border-0 bg-neutral-100 px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400"
-                      />
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="min-w-0 flex-1">
+                        <InputDate
+                          label="Data prevista de postagem"
+                          value={phase.postDate ?? ""}
+                          onChange={(v) => updatePhase(phase.id, "postDate", v)}
+                          min={getPhaseMinDate(phaseIndex, phase.postDate)}
+                          error={getPhaseDateError(phaseIndex, phase.postDate)}
+                        />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <label className="text-base font-medium leading-5 text-[#0A0A0A]">
+                          Horário da postagem
+                        </label>
+                        <input
+                          type="time"
+                          value={phase.postTime ?? "18:00"}
+                          onChange={(e) =>
+                            updatePhase(phase.id, "postTime", e.target.value)
+                          }
+                          className="h-11 w-full rounded-[24px] border-0 bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3]"
+                        />
+                      </div>
                     </div>
 
                     {/* Formatos e redes sociais */}

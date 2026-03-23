@@ -157,6 +157,47 @@ function formatEngagementPercent(value: number | null | undefined): string {
   return `${s.replace(/\.?0+$/, "")}%`;
 }
 
+/** Lucide não inclui marca TikTok — usamos SVG próprio em `TikTokGlyph`. */
+function getSocialNetworkIconName(
+  network?: string
+): keyof typeof import("lucide-react").icons {
+  const icons: Record<string, keyof typeof import("lucide-react").icons> = {
+    instagram: "Instagram",
+    youtube: "Youtube",
+    tiktok: "Music",
+    facebook: "Facebook",
+    twitter: "Twitter",
+  };
+  return icons[(network || "").toLowerCase()] || "Share2";
+}
+
+/** Silhueta do logo TikTok (Lucide não oferece ícone da marca). */
+function TikTokGlyph({ size = 22, color = "#404040" }: { size?: number; color?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      aria-hidden
+      className="shrink-0"
+    >
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+    </svg>
+  );
+}
+
+function getSocialNetworkLabel(network?: string): string {
+  const labels: Record<string, string> = {
+    instagram: "Instagram",
+    youtube: "YouTube",
+    tiktok: "TikTok",
+    facebook: "Facebook",
+    twitter: "Twitter",
+  };
+  return labels[(network || "").toLowerCase()] || "Rede social";
+}
+
 function selectionItemMatchesFilters(
   item: InfluencerSelectionProfileItem,
   searchTerm: string,
@@ -308,6 +349,10 @@ function InfluencerCard({
   const avatarSrc = influencer.avatar ? getUploadUrl(influencer.avatar) : undefined;
   const bookmarkYellow = !isInvited;
 
+  const networkIcon = getSocialNetworkIconName(influencer.socialNetwork);
+  const networkLabel = getSocialNetworkLabel(influencer.socialNetwork);
+  const networkKey = (influencer.socialNetwork || "").toLowerCase();
+
   return (
     <div className="flex min-h-[320px] w-full min-w-0 flex-col gap-5 rounded-xl bg-neutral-100 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -320,15 +365,28 @@ function InfluencerCard({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-            bookmarkYellow ? "bg-[#ffdf2a] text-warning-700" : "bg-neutral-200 text-neutral-500"
-          }`}
-          aria-label="Salvar"
-        >
-          <Icon name="Bookmark" size={24} color="currentColor" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div
+            className="flex size-10 items-center justify-center rounded-lg border border-neutral-200/90 bg-white shadow-sm"
+            title={networkLabel}
+            aria-label={`Rede: ${networkLabel}`}
+          >
+            {networkKey === "tiktok" ? (
+              <TikTokGlyph size={22} color="#404040" />
+            ) : (
+              <Icon name={networkIcon} size={22} color="#404040" />
+            )}
+          </div>
+          <button
+            type="button"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+              bookmarkYellow ? "bg-[#ffdf2a] text-warning-700" : "bg-neutral-200 text-neutral-500"
+            }`}
+            aria-label="Salvar"
+          >
+            <Icon name="Bookmark" size={24} color="currentColor" />
+          </button>
+        </div>
       </div>
       <div className="flex min-w-0 flex-col">
         <p className="truncate text-xl font-medium leading-6 text-neutral-950">{influencer.name}</p>

@@ -20,6 +20,7 @@ import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type Cre
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
+import { aggregateImageRightsPeriodMonths } from "@/shared/utils/campaign-image-rights";
 import { activateMural } from "@/shared/services/mural";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
@@ -187,6 +188,12 @@ function RouteComponent() {
           id: phase.id,
           objective: phase.objective,
           postDate: phase.publish_date,
+          postTime: phase.publish_time ?? "18:00",
+          includeImageRights: (campaign.image_rights_period ?? 0) > 0,
+          imageRightsPeriod:
+            (campaign.image_rights_period ?? 0) > 0
+              ? String(campaign.image_rights_period)
+              : "",
           formats: phase.contents?.flatMap((content: any) =>
             content.options?.map((option: any, idx: number) => ({
               id: `${content.type}-${option.type}-${option.quantity}-${idx}`,
@@ -279,7 +286,7 @@ function RouteComponent() {
       segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
       segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,
       segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
-      image_rights_period: formData.imageRightsPeriod ? parseInt(unformatNumber(formData.imageRightsPeriod)) : 0,
+      image_rights_period: aggregateImageRightsPeriodMonths(formData.phases),
     };
   };
 
@@ -320,12 +327,17 @@ function RouteComponent() {
           });
         });
 
+        const imageRights =
+          phase.includeImageRights === false
+            ? 0
+            : parseInt(unformatNumber(phase.imageRightsPeriod || "0"), 10) || 0;
         return {
           objective: phase.objective,
           post_date: phase.postDate,
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           // files deve ser array de URLs (strings), não enviar se vazio
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
+          image_rights_period: imageRights,
         };
       });
   };
@@ -335,11 +347,6 @@ function RouteComponent() {
     try {
       if (!formData.title || !formData.description) {
         toast.error("Por favor, preencha todos os campos obrigatórios");
-        return;
-      }
-
-      if (formData.mainNiche && (!formData.subniches || formData.subniches.split(",").filter(Boolean).length === 0)) {
-        toast.error("Selecione pelo menos um subnicho da campanha.");
         return;
       }
 

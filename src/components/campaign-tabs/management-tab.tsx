@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -28,7 +28,9 @@ import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
-import type { Influencer, CampaignPhase } from "@/shared/types";
+import type { Influencer } from "@/shared/types";
+import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
+import { mapUserStatusToKanbanColumn } from "./management-status-map";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useChat } from "@/hooks/use-chat";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
@@ -36,27 +38,12 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNiches } from "@/hooks/use-niches";
 
 interface ManagementTabProps {
-  influencers: Influencer[];
-  campaignPhases?: CampaignPhase[];
-  campaignUsers?: Array<{
-    id: string | number;
-    user_id?: string | number;
-    name: string;
-    username: string;
-    avatar: string;
-    followers: number;
-    engagement: number;
-    niche?: string;
-    status: string;
-    social_networks?: Array<{
-      id: number | string;
-      type: string;
-      name: string;
-      username?: string;
-      members?: number;
-    }>;
-  }>;
+  participants: CampaignManagementParticipant[];
+  isLoading?: boolean;
+  error?: unknown;
   openChatInfluencerId?: string;
+  /** Chamado após tentar abrir o chat (sucesso ou usuário não encontrado). */
+  onOpenChatConsumed?: () => void;
 }
 
 interface StatusHistory {
@@ -79,6 +66,37 @@ interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
     members?: number;
   }>;
   statusHistory?: StatusHistory[];
+}
+
+function participantToExtended(
+  p: CampaignManagementParticipant
+): ExtendedInfluencer {
+  const chronological = [...(p.status_history || [])].sort(
+    (a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  const statusHistory = chronological.map((h) => ({
+    id: String(h.id),
+    status: mapUserStatusToKanbanColumn(h.status),
+    timestamp: h.timestamp,
+    notes: h.notes,
+  }));
+  const primaryNetwork =
+    p.social_network || p.social_networks?.[0]?.type;
+  return {
+    id: p.id,
+    user_id: p.user_id,
+    name: p.name,
+    username: p.username || "",
+    avatar: p.avatar || "",
+    followers: p.followers ?? 0,
+    engagement: p.engagement ?? 0,
+    niche: p.niche || "",
+    status: (p.status || "applications") as Influencer["status"],
+    social_networks: p.social_networks,
+    socialNetwork: primaryNetwork,
+    statusHistory,
+  };
 }
 
 // Helper para converter ID para string
@@ -390,10 +408,11 @@ function DragOverlayCard({
 }
 
 export function ManagementTab({
-  influencers,
-  campaignPhases: _campaignPhases = [],
-  campaignUsers = [],
+  participants,
+  isLoading = false,
+  error = null,
   openChatInfluencerId,
+  onOpenChatConsumed,
 }: ManagementTabProps) {
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -407,56 +426,69 @@ export function ManagementTab({
     useState<ExtendedInfluencer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const openChatHandledKeyRef = useRef<string | null>(null);
 
   // Abrir chat automaticamente quando openChatInfluencerId for fornecido (vindo de notificação)
   useEffect(() => {
-    if (openChatInfluencerId && influencersState.length > 0 && campaignUsers.length > 0) {
-      const influencerIdStr = String(openChatInfluencerId);
-      const influencerIdNum = parseInt(influencerIdStr, 10);
+    openChatHandledKeyRef.current = null;
+  }, [openChatInfluencerId]);
 
-      // Buscar o influenciador de forma mais robusta
-      // Primeiro, tentar encontrar pelo campaignUserId (campaignUsers.id)
-      // Depois, tentar encontrar pelo userId (campaignUsers.user_id)
-      let influencerToOpen: ExtendedInfluencer | undefined;
+  useEffect(() => {
+    if (!openChatInfluencerId) return;
+    if (openChatHandledKeyRef.current === openChatInfluencerId) return;
+    if (isLoading) return;
 
-      if (!isNaN(influencerIdNum)) {
-        // 1. Tentar encontrar por user_id primeiro (caso mais comum)
-        const campaignUser = campaignUsers.find((u) => {
-          if (!u.user_id) return false;
-          const userId = typeof u.user_id === "string"
-            ? parseInt(u.user_id, 10)
-            : u.user_id;
-          return userId === influencerIdNum;
-        });
+    const finish = () => {
+      openChatHandledKeyRef.current = openChatInfluencerId;
+      onOpenChatConsumed?.();
+    };
 
-        if (campaignUser) {
-          influencerToOpen = influencersState.find(
-            (inf) => String(inf.id) === String(campaignUser.id)
-          );
-        }
-
-        // 2. Se não encontrou, tentar pelo próprio id (influencer.id já é o campaignUserId)
-        if (!influencerToOpen) {
-          influencerToOpen = influencersState.find(
-            (inf) => {
-              const infId = typeof inf.id === "string" ? parseInt(inf.id, 10) : Number(inf.id);
-              return infId === influencerIdNum || String(inf.id) === influencerIdStr;
-            }
-          );
-        }
-      } else {
-        // Busca por string
-        influencerToOpen = influencersState.find(
-          (inf) => String(inf.id) === influencerIdStr
-        );
-      }
-
-      if (influencerToOpen && !isChatModalOpen) {
-        setSelectedInfluencer(influencerToOpen);
-        setIsChatModalOpen(true);
-      }
+    if (influencersState.length === 0) {
+      finish();
+      return;
     }
-  }, [openChatInfluencerId, influencersState, campaignUsers, isChatModalOpen]);
+
+    const influencerIdStr = String(openChatInfluencerId);
+    const influencerIdNum = parseInt(influencerIdStr, 10);
+
+    let influencerToOpen: ExtendedInfluencer | undefined;
+
+    if (!Number.isNaN(influencerIdNum)) {
+      influencerToOpen = influencersState.find((inf) => {
+        if (inf.user_id == null || String(inf.user_id).trim() === "")
+          return false;
+        const uid =
+          typeof inf.user_id === "string"
+            ? parseInt(inf.user_id, 10)
+            : Number(inf.user_id);
+        return uid === influencerIdNum;
+      });
+      if (!influencerToOpen) {
+        influencerToOpen = influencersState.find((inf) => {
+          const infId =
+            typeof inf.id === "string"
+              ? parseInt(inf.id, 10)
+              : Number(inf.id);
+          return infId === influencerIdNum || String(inf.id) === influencerIdStr;
+        });
+      }
+    } else {
+      influencerToOpen = influencersState.find(
+        (inf) => String(inf.id) === influencerIdStr
+      );
+    }
+
+    if (influencerToOpen) {
+      setSelectedInfluencer(influencerToOpen);
+      setIsChatModalOpen(true);
+    }
+    finish();
+  }, [
+    openChatInfluencerId,
+    influencersState,
+    isLoading,
+    onOpenChatConsumed,
+  ]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
   /** Todas selecionadas = Geral (Kanban completo). Subconjunto = só essas colunas. */
@@ -478,215 +510,17 @@ export function ManagementTab({
     useSensor(KeyboardSensor)
   );
 
-  // Função para mapear status da API para colunas do Kanban
-  // Mapeia os valores do backend para os IDs das colunas do Kanban
-  const mapUserStatusToKanbanColumn = (status: string): string => {
-    const statusMap: { [key: string]: string } = {
-      // Valores do banco de dados mapeados para IDs das colunas do Kanban
-      applications: "applications",
-      pre_selection: "pre_selection",
-      pre_selection_curation: "pre_selection_curation",
-      curation: "curation",
-      invited: "invited",
-      contract_pending: "contract_pending",
-      approved: "approved",
-      pending_approval: "script_pending", // Aguardando Aprovação Roteiro
-      awaiting_content: "content_pending", // Aguardando Conteúdo
-      awaiting_content_approval: "pending_approval", // Aguardando Aprovação Conteúdo
-      in_correction: "in_correction",
-      content_approved: "content_approved", // Conteúdo Aprovado / Aguardando Publicação
-      awaiting_publication: "content_approved", // Aguardando Publicação (mesmo que content_approved)
-      awaiting_payment: "payment_pending", // Aguardando Pagamento
-      published: "published", // Publicado / Concluído
-      completed: "published", // Concluído (mesmo que published)
-      rejected: "rejected",
-      // Compatibilidade com valores antigos (caso ainda venham)
-      contractpending: "contract_pending",
-      script_pending: "script_pending",
-      content_pending: "content_pending",
-      awaitingcontent: "content_pending",
-      awaitingcontentapproval: "pending_approval",
-      awaitingpublication: "content_approved",
-      awaitingpayment: "payment_pending",
-      incorrection: "in_correction",
-    };
-    return statusMap[status.toLowerCase()] || "applications";
-  };
+  const isCampaignUser = (_id: string) => true;
 
-  // Verificar se um ID pertence a um usuário da campanha
-  const isCampaignUser = (id: string): boolean => {
-    return campaignUsers.some((user) => user.id === id);
-  };
-
-  // Initialize influencers state and merge with all campaign users
   useEffect(() => {
-    // Debug: verificar dados dos influenciadores
-    console.log("🔍 Influencers data:", {
-      influencers: influencers.map(inf => ({
-        id: inf.id,
-        name: inf.name,
-        social_networks: inf.social_networks,
-      })),
-    });
-
-    // Converter TODOS os usuários da campanha para o formato ExtendedInfluencer
-    const allCampaignUsers: ExtendedInfluencer[] = campaignUsers.map((user) => {
-      const kanbanStatus = mapUserStatusToKanbanColumn(user.status);
-      const userWithSocialNetworks = user as any;
-      return {
-        id: user.id,
-        user_id: user.user_id,
-        name: user.name,
-        username: user.username || "",
-        avatar: user.avatar || "",
-        followers: user.followers || 0,
-        engagement: user.engagement || 0,
-        niche: user.niche || "",
-        status: user.status as Influencer["status"],
-        social_networks: userWithSocialNetworks.social_networks || undefined,
-        socialNetwork: userWithSocialNetworks.social_networks && userWithSocialNetworks.social_networks.length > 0
-          ? userWithSocialNetworks.social_networks[0].type
-          : undefined,
-        statusHistory: [
-          {
-            id: `user-${user.id}`,
-            status: kanbanStatus,
-            timestamp: new Date().toISOString(),
-            notes: `Usuário com status: ${user.status}`,
-          },
-        ],
-      };
-    });
-
-    // Obter IDs dos usuários da campanha para evitar duplicatas
-    const campaignUserIds = new Set(allCampaignUsers.map((u) => u.id));
-
-    // Filtrar influenciadores que não são usuários da campanha
-    const existingInfluencers = influencers.filter(
-      (inf) => !campaignUserIds.has(inf.id)
-    );
-
-    // Combinar influenciadores existentes com usuários da campanha
-    const allInfluencers = [...existingInfluencers, ...allCampaignUsers];
-
-    if (allInfluencers.length > 0) {
-      const extended: ExtendedInfluencer[] = allInfluencers.map(
-        (inf, index) => {
-          const currentMappedStatus = mapUserStatusToKanbanColumn(
-            inf.status || ""
-          );
-
-          // Se já tem statusHistory e é um usuário da campanha, atualizar o statusHistory com o status atual
-          const extendedInf = inf as ExtendedInfluencer;
-          if (
-            extendedInf.statusHistory &&
-            extendedInf.statusHistory.length > 0 &&
-            campaignUserIds.has(inf.id)
-          ) {
-            // Verificar se o status atual é diferente do último status no histórico
-            const lastStatus =
-              extendedInf.statusHistory[extendedInf.statusHistory.length - 1]
-                ?.status;
-            if (lastStatus !== currentMappedStatus) {
-              // Adicionar novo status ao histórico
-              return {
-                ...extendedInf,
-                statusHistory: [
-                  ...extendedInf.statusHistory,
-                  {
-                    id: `update-${Date.now()}`,
-                    status: currentMappedStatus,
-                    timestamp: new Date().toISOString(),
-                    notes: `Status atualizado para: ${currentMappedStatus}`,
-                  },
-                ],
-              };
-            }
-            // Garantir que social_networks seja preservado
-            return {
-              ...extendedInf,
-              social_networks: extendedInf.social_networks || inf.social_networks || undefined,
-            };
-          }
-
-          // Caso contrário, é um influenciador normal - usar o status atual do objeto
-          return {
-            ...inf,
-            // Preservar social_networks se existir, caso contrário usar socialNetwork mockado
-            social_networks: inf.social_networks || undefined,
-            socialNetwork: inf.social_networks && inf.social_networks.length > 0
-              ? inf.social_networks[0].type
-              : [
-                "instagram",
-                "tiktok",
-                "youtube",
-                "instagram",
-                "tiktok",
-              ][index % 5],
-            statusHistory: [
-              {
-                id: "1",
-                status: "applications",
-                timestamp: new Date(
-                  Date.now() - 7 * 24 * 60 * 60 * 1000
-                ).toISOString(),
-                notes: "Influencer enrolled in campaign",
-              },
-              {
-                id: "2",
-                status: currentMappedStatus,
-                timestamp: new Date().toISOString(),
-                notes: "Status updated",
-              },
-            ],
-          };
-        }
-      );
-      setInfluencersState(extended);
-    } else if (allInfluencers.length === 0) {
-      // Se não há influenciadores, limpar o estado
+    if (!participants?.length) {
       setInfluencersState([]);
+      return;
     }
-  }, [influencers, campaignUsers]);
+    setInfluencersState(participants.map(participantToExtended));
+  }, [participants]);
 
-  const extendedInfluencers =
-    influencersState.length > 0
-      ? influencersState
-      : influencers.map((inf, index) => {
-        const currentMappedStatus = mapUserStatusToKanbanColumn(
-          inf.status || ""
-        );
-        return {
-          ...inf,
-          // Preservar social_networks se existir
-          social_networks: inf.social_networks || undefined,
-          socialNetwork: inf.social_networks && inf.social_networks.length > 0
-            ? inf.social_networks[0].type
-            : [
-              "instagram",
-              "tiktok",
-              "youtube",
-              "instagram",
-              "tiktok",
-            ][index % 5],
-          statusHistory: [
-            {
-              id: "1",
-              status: "applications",
-              timestamp: new Date(
-                Date.now() - 7 * 24 * 60 * 60 * 1000
-              ).toISOString(),
-              notes: "Influencer enrolled in campaign",
-            },
-            {
-              id: "2",
-              status: currentMappedStatus,
-              timestamp: new Date().toISOString(),
-              notes: "Status updated",
-            },
-          ],
-        };
-      });
+  const extendedInfluencers = influencersState;
 
   const getCurrentStatus = (inf: ExtendedInfluencer): string => {
     // Priorizar o status direto do objeto (mais confiável e atualizado)
@@ -1358,8 +1192,27 @@ export function ManagementTab({
           </p>
         </div>
 
+        {error != null && (
+          <div className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
+            {error instanceof Error
+              ? error.message
+              : "Não foi possível carregar o gerenciamento da campanha."}
+          </div>
+        )}
+
         {/* Card único: pills de filtro + Kanban - alinhado ao Figma */}
         <div className="bg-white rounded-[12px] pt-5 overflow-hidden">
+          {isLoading ? (
+            <div className="px-5 pb-8 flex gap-3 overflow-x-auto min-h-[320px]">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="shrink-0 w-[260px] min-h-[280px] rounded-[12px] bg-neutral-100 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            <>
           {/* Pills de status (Geral + colunas) */}
           <div className="flex flex-wrap gap-2 px-5 mb-6">
             <button
@@ -1429,7 +1282,9 @@ export function ManagementTab({
               {activeId ? (
                 <DragOverlayCard
                   influencer={
-                    extendedInfluencers.find((inf) => inf.id === activeId)!
+                    extendedInfluencers.find(
+                      (inf) => idToString(inf.id) === activeId
+                    )!
                   }
                   getSocialNetworkIcon={getSocialNetworkIcon}
                   getSocialNetworkLabel={getSocialNetworkLabel}
@@ -1437,6 +1292,8 @@ export function ManagementTab({
               ) : null}
             </DragOverlay>
           </DndContext>
+            </>
+          )}
         </div>
       </div>
 
@@ -1649,19 +1506,11 @@ export function ManagementTab({
                 className="flex-1"
                 type="button"
                 onClick={() => {
-                  const fromInf =
+                  const userId =
                     selectedInfluencer.user_id != null &&
                     String(selectedInfluencer.user_id).trim() !== ""
                       ? String(selectedInfluencer.user_id)
                       : null;
-                  const campaignUser = campaignUsers.find(
-                    (u) => String(u.id) === String(selectedInfluencer.id)
-                  );
-                  const fromCampaign =
-                    campaignUser?.user_id != null
-                      ? String(campaignUser.user_id)
-                      : null;
-                  const userId = fromInf ?? fromCampaign;
                   if (!userId) {
                     toast.error(
                       "Não foi possível abrir o perfil: usuário sem user_id."
@@ -1788,147 +1637,46 @@ function ChatModal({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
 
-  // Obter usuário atual para identificar mensagens do backoffice
   const { user: currentUser } = useCurrentUser();
   const currentUserId = currentUser?.id ? String(currentUser.id) : null;
 
-  // Obter lista de usuários da campanha para encontrar campaignUserId
-  const { data: campaignUsers = [], isLoading: isLoadingUsers } = useCampaignUsers(campaignId);
+  /** `GET /management`: `id` = campaign_users.id */
+  const campaignUserIdNum = useMemo(() => {
+    const n = Number.parseInt(String(influencer.id), 10);
+    return Number.isFinite(n) ? n : 0;
+  }, [influencer.id]);
 
-  // Encontrar o campaignUserId a partir do influencerId
-  // O influencer.id pode ser o user_id ou o próprio campaign_user id
-  const influencerIdStr = String(influencer.id);
-  const influencerIdNum = isNaN(parseInt(influencerIdStr, 10)) ? null : parseInt(influencerIdStr, 10);
+  const platformUserFromParticipant = useMemo(() => {
+    if (influencer.user_id == null || String(influencer.user_id).trim() === "")
+      return null;
+    const n = Number.parseInt(String(influencer.user_id), 10);
+    return Number.isFinite(n) ? n : null;
+  }, [influencer.user_id]);
 
-  // Tentar encontrar o usuário de diferentes formas
-  let campaignUser: typeof campaignUsers[0] | undefined;
+  const needsUserLookup = platformUserFromParticipant == null;
 
-  if (influencerIdNum !== null) {
-    // 1. PRIMEIRO: Tentar encontrar por user_id (influencerId é o user_id do usuário)
-    // Este é o caso mais comum: influencer.id = user_id (74), precisamos encontrar campaignUserId (21)
-    campaignUser = campaignUsers.find((u) => {
-      if (!u.user_id) return false;
-      const userId = typeof u.user_id === "string"
-        ? parseInt(u.user_id, 10)
-        : u.user_id;
-      return userId === influencerIdNum;
-    });
-
-    // Log detalhado da busca
-    if (!campaignUser) {
-      console.warn("⚠️ Não encontrado por user_id. Tentando outras formas...", {
-        influencerIdNum,
-        availableUsers: campaignUsers.map(u => ({
-          id: u.id,
-          user_id: u.user_id,
-          name: u.name,
-        })),
-      });
+  const { data: campaignUsers = [], isLoading: isLoadingUsers } = useCampaignUsers(
+    campaignId ?? "",
+    {
+      enabled:
+        !!campaignId && needsUserLookup && campaignUserIdNum > 0,
     }
+  );
 
-    // 2. Se não encontrou por user_id, tentar pelo próprio id (influencer.id já é o campaignUserId)
-    // Isso pode acontecer se o influencer.id já for o campaignUserId
-    if (!campaignUser) {
-      campaignUser = campaignUsers.find((u) => {
-        const campaignUserId = typeof u.id === "string"
-          ? parseInt(String(u.id), 10)
-          : Number(u.id);
-        return campaignUserId === influencerIdNum;
-      });
-    }
-  }
+  const platformUserId = useMemo(() => {
+    if (platformUserFromParticipant != null) return platformUserFromParticipant;
+    const row = campaignUsers.find(
+      (u) => String(u.id) === String(influencer.id)
+    );
+    if (row?.user_id == null) return null;
+    const n = Number.parseInt(String(row.user_id), 10);
+    return Number.isFinite(n) ? n : null;
+  }, [platformUserFromParticipant, campaignUsers, influencer.id]);
 
-  // 3. Tentar correspondência por string também
-  if (!campaignUser) {
-    campaignUser = campaignUsers.find((u) => {
-      return String(u.id) === influencerIdStr ||
-        (u.user_id && String(u.user_id) === influencerIdStr);
-    });
-  }
+  const loadingChatIdentity = needsUserLookup && isLoadingUsers;
+  const canChat =
+    campaignUserIdNum > 0 && platformUserId != null && platformUserId > 0;
 
-  // Log final do resultado
-  if (campaignUser) {
-    console.log("✅ CampaignUser encontrado:", {
-      id: campaignUser.id,
-      user_id: campaignUser.user_id,
-      name: campaignUser.name,
-      influencerIdProcurado: influencerIdNum,
-      matchType: campaignUser.user_id === influencerIdNum
-        ? "por user_id"
-        : campaignUser.id === influencerIdNum
-          ? "por id"
-          : "por string",
-    });
-  } else {
-    console.error("❌ CampaignUser NÃO encontrado para influencerId:", influencerIdNum);
-  }
-
-  // IMPORTANTE: campaignUserId é o id do CampaignUser, não o user_id
-  // A API agora retorna: id="21" (campaignUserId) e user_id="74" (userId/influencerId)
-  // Devemos usar o campo 'id' como campaignUserId para o WebSocket
-  const campaignUserId = campaignUser
-    ? (typeof campaignUser.id === "string"
-      ? parseInt(String(campaignUser.id), 10)
-      : Number(campaignUser.id))
-    : null;
-
-  // Validação crítica: garantir que não estamos usando user_id por engano
-  if (campaignUser) {
-    const extractedCampaignUserId = campaignUserId;
-    const extractedUserId = campaignUser.user_id
-      ? (typeof campaignUser.user_id === "string"
-        ? parseInt(String(campaignUser.user_id), 10)
-        : Number(campaignUser.user_id))
-      : null;
-
-    if (extractedCampaignUserId === extractedUserId) {
-      console.error("❌ ERRO CRÍTICO: campaignUserId está igual ao user_id!");
-      console.error("Isso significa que estamos usando o campo errado.");
-      console.error("campaignUser completo:", campaignUser);
-      console.error("campaignUser.id (deve ser campaignUserId):", campaignUser.id, typeof campaignUser.id);
-      console.error("campaignUser.user_id (é o influencerId/userId):", campaignUser.user_id, typeof campaignUser.user_id);
-    } else {
-      console.log("✅ Validação OK - Usando campo correto:", {
-        campaignUserId: extractedCampaignUserId,
-        userId: extractedUserId,
-        note: `campaignUserId=${extractedCampaignUserId} será usado no WebSocket (correto)`,
-      });
-    }
-  }
-
-  // Debug: log para verificar
-  useEffect(() => {
-    if (!isLoadingUsers && campaignUsers.length > 0) {
-      console.log("🔍 Debug Chat - Dados completos:", {
-        influencerId: influencer.id,
-        influencerIdStr,
-        influencerIdNum,
-        campaignUsersCount: campaignUsers.length,
-        campaignUsers: campaignUsers.map(u => ({
-          id: u.id,
-          idType: typeof u.id,
-          user_id: u.user_id,
-          user_idType: typeof u.user_id,
-          name: u.name,
-          // Verificar se id e user_id são iguais (problema!)
-          idsAreEqual: u.id === u.user_id || String(u.id) === String(u.user_id),
-        })),
-        foundCampaignUser: campaignUser ? {
-          id: campaignUser.id,
-          user_id: campaignUser.user_id,
-          name: campaignUser.name,
-          // CRÍTICO: Verificar se estamos usando o campo correto
-          warning: campaignUser.id === campaignUser.user_id
-            ? "⚠️ PROBLEMA: id e user_id são iguais! A API pode estar retornando dados incorretos."
-            : "OK: id e user_id são diferentes",
-        } : null,
-        campaignUserId,
-        willConnect: !!campaignUserId,
-      });
-    }
-  }, [campaignUsers, influencer.id, influencerIdStr, influencerIdNum, campaignUser, campaignUserId, isLoadingUsers]);
-
-  // Hook de chat com WebSocket
   const {
     messages,
     isConnected,
@@ -1937,28 +1685,12 @@ function ChatModal({
     sendMessage,
     messagesEndRef,
   } = useChat({
-    campaignId,
-    influencerId: influencerIdNum || 0,
-    campaignUserId: campaignUserId || 0,
-    enabled: !!campaignUserId && influencerIdNum !== null,
+    campaignId: campaignId ?? "",
+    influencerId: platformUserId ?? 0,
+    campaignUserId: campaignUserIdNum,
+    enabled:
+      !!campaignId && canChat && !loadingChatIdentity,
   });
-
-  // Log final para confirmar valores corretos
-  useEffect(() => {
-    if (campaignUserId && campaignUser) {
-      console.log("🎯 Valores finais para WebSocket:", {
-        campaignId,
-        influencerId: influencerIdNum,
-        campaignUserId, // Deve ser 21 (id da tabela campaign_users)
-        userId: campaignUser.user_id
-          ? (typeof campaignUser.user_id === "string"
-            ? parseInt(String(campaignUser.user_id), 10)
-            : Number(campaignUser.user_id))
-          : null, // Deve ser 74 (user_id)
-        note: "campaignUserId será usado no join_room do WebSocket",
-      });
-    }
-  }, [campaignId, influencerIdNum, campaignUserId, campaignUser]);
 
   const [newMessage, setNewMessage] = useState("");
   const [attachments, setAttachments] = useState<
@@ -2009,19 +1741,12 @@ function ChatModal({
   // Backoffice: sender_id === currentUserId → DIREITA
   const isFromInfluencer = (senderId: string) => {
     const senderIdStr = String(senderId);
-    const influencerIdStr = String(influencerIdNum);
-
-    // Se o sender_id for igual ao influencerId, é do influenciador (esquerda)
-    if (senderIdStr === influencerIdStr) {
+    if (platformUserId != null && senderIdStr === String(platformUserId)) {
       return true;
     }
-
-    // Se o sender_id for igual ao currentUserId, é do backoffice (direita)
     if (currentUserId && senderIdStr === currentUserId) {
       return false;
     }
-
-    // Por padrão, se não for o usuário atual, assume que é do influenciador
     return senderIdStr !== currentUserId;
   };
 
@@ -2036,16 +1761,19 @@ function ChatModal({
           </div>
         )}
 
-        {isLoadingUsers ? (
+        {loadingChatIdentity ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-neutral-600">Carregando informações do chat...</p>
           </div>
-        ) : !campaignUserId ? (
+        ) : !canChat ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-neutral-600 mb-2">Não foi possível encontrar o usuário na campanha.</p>
+              <p className="text-neutral-600 mb-2">
+                Não foi possível identificar o usuário da plataforma para este
+                vínculo (user_id ausente).
+              </p>
               <p className="text-xs text-neutral-500">
-                Influencer ID: {influencer.id}
+                Campaign user id: {String(influencer.id)}
               </p>
             </div>
           </div>
@@ -2199,7 +1927,7 @@ function ChatModal({
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
             placeholder={isConnected ? "Digite sua mensagem..." : "Conectando..."}
-            disabled={!isConnected || !campaignUserId}
+            disabled={!isConnected || !canChat}
             className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
           />
           <Button
@@ -2207,7 +1935,7 @@ function ChatModal({
             className="w-min"
             disabled={
               !isConnected ||
-              !campaignUserId ||
+              !canChat ||
               (!newMessage.trim() && attachments.length === 0)
             }
           >

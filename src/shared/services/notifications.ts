@@ -1,13 +1,14 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 
-/** Tipos de notificação conhecidos; a API pode enviar outros (fallback por metadata). */
+/** Tipos de notificação conhecidos; a API pode enviar outros (fallback por metadata / heurística). */
 export type NotificationType =
   | "content_approved"
   | "content_adjustment_requested"
   | "content_submitted"
   | "new_content_submission"
   | "new_message"
-  | "influencer_approved";
+  | "influencer_approved"
+  | string;
 
 export interface Notification {
   id: string;
@@ -24,6 +25,8 @@ export interface Notification {
     feedback?: string;
     influencer_id?: number;
     campaign_user_id?: number;
+    /** Aba da campanha a abrir (ex.: `curation`, `applications`, `management`). */
+    target_tab?: string;
   };
 }
 

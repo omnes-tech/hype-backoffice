@@ -111,6 +111,10 @@ export interface CampaignPhase {
   objective: string;
   postDate: string;
   postTime?: string;
+  /** Sim: incluir direitos (padrão); Não: não incluir */
+  includeImageRights?: boolean;
+  /** Meses — quando includeImageRights é Sim */
+  imageRightsPeriod?: string;
   formats: SocialFormat[];
   files: string;
   /** Ordem da fase (dashboard API) */

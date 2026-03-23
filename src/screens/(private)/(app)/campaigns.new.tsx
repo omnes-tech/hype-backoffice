@@ -15,6 +15,7 @@ import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/pha
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
+import { aggregateImageRightsPeriodMonths } from "@/shared/utils/campaign-image-rights";
 import { activateMural } from "@/shared/services/mural";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -60,7 +61,16 @@ const initialFormData: CampaignFormData = {
   brandFiles: "",
   phasesCount: "1",
   phases: [
-    { id: "1", objective: "", postDate: "", formats: [], files: "" },
+    {
+      id: "1",
+      objective: "",
+      postDate: "",
+      postTime: "18:00",
+      includeImageRights: true,
+      imageRightsPeriod: "",
+      formats: [],
+      files: "",
+    },
   ],
   campaignVisibility: "public",
 };
@@ -163,7 +173,7 @@ function CreateCampaignPage() {
       segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
       segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,
       segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
-      image_rights_period: formData.imageRightsPeriod ? parseInt(unformatNumber(formData.imageRightsPeriod), 10) : 0,
+      image_rights_period: aggregateImageRightsPeriodMonths(formData.phases),
     };
   };
 
@@ -182,11 +192,19 @@ function CreateCampaignPage() {
             quantity: parseInt(format.quantity, 10) || 1,
           });
         });
+        const imageRights =
+          phase.includeImageRights === false
+            ? 0
+            : parseInt(
+                unformatNumber(phase.imageRightsPeriod || "0"),
+                10
+              ) || 0;
         return {
           objective: phase.objective,
           post_date: phase.postDate,
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
+          image_rights_period: imageRights,
         };
       });
   };
@@ -199,15 +217,6 @@ function CreateCampaignPage() {
         setIsCreatingCampaign(false);
         return;
       }
-      if (
-        formData.mainNiche &&
-        (!formData.subniches || formData.subniches.split(",").filter(Boolean).length === 0)
-      ) {
-        toast.error("Selecione pelo menos um subnicho da campanha.");
-        setIsCreatingCampaign(false);
-        return;
-      }
-
       const campaignData = transformFormDataToApiData(formData);
       const createdCampaign = await createCampaignMutation.mutateAsync(campaignData);
 

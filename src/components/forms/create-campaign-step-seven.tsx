@@ -344,8 +344,8 @@ export function CreateCampaignStepSeven({
               </div>
             </ReviewCard>
 
-            {/* Arquivos e configurações */}
-            <ReviewCard title="Arquivos e configurações" onEdit={() => onEdit(4)}>
+            {/* Arquivos */}
+            <ReviewCard title="Arquivos" onEdit={() => onEdit(4)}>
               {formData.banner ? (
                 <div className="flex flex-col gap-2">
                   <p className="font-medium text-neutral-950">
@@ -360,15 +360,6 @@ export function CreateCampaignStepSeven({
                   </div>
                 </div>
               ) : null}
-              <LabelValue
-                label="Período de direitos de imagem (em meses)"
-                value={
-                  formData.imageRightsPeriod
-                    ? `${formData.imageRightsPeriod} ${formData.imageRightsPeriod === "1" ? "mês" : "meses"
-                    }`
-                    : null
-                }
-              />
               {formData.brandFiles ? (
                 <div className="flex flex-col gap-2">
                   <p className="font-medium text-neutral-950">
@@ -405,6 +396,16 @@ export function CreateCampaignStepSeven({
                             phase.objective
                               ? getObjectiveLabel(phase.objective)
                               : null
+                          }
+                        />
+                        <LabelValue
+                          label="Direitos de uso de imagem para a marca"
+                          value={
+                            phase.includeImageRights === false
+                              ? "Não"
+                              : phase.imageRightsPeriod
+                                ? `${phase.imageRightsPeriod} ${phase.imageRightsPeriod === "1" ? "mês" : "meses"}`
+                                : "Sim"
                           }
                         />
                         <LabelValue
