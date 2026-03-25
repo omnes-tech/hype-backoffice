@@ -192,19 +192,11 @@ function CreateCampaignPage() {
             quantity: parseInt(format.quantity, 10) || 1,
           });
         });
-        const imageRights =
-          phase.includeImageRights === false
-            ? 0
-            : parseInt(
-                unformatNumber(phase.imageRightsPeriod || "0"),
-                10
-              ) || 0;
         return {
           objective: phase.objective,
           post_date: phase.postDate,
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
-          image_rights_period: imageRights,
         };
       });
   };

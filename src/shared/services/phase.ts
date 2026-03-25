@@ -12,8 +12,6 @@ export interface CreatePhaseData {
     }>;
   }>;
   files?: string[];
-  /** Meses; 0 ou omitido quando sem direitos de imagem */
-  image_rights_period?: number;
 }
 
 export interface UpdatePhaseData extends Partial<CreatePhaseData> {}
