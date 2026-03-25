@@ -111,6 +111,12 @@ export interface CampaignPhase {
   objective: string;
   postDate: string;
   postTime?: string;
+  /** Prazo para envio de conteúdo (YYYY-MM-DD, dashboard / API) */
+  contentSubmissionDeadline?: string;
+  /** Prazo para correção (YYYY-MM-DD) */
+  correctionSubmissionDeadline?: string;
+  /** Hashtag da fase (opcional) */
+  hashtag?: string;
   /** Sim: incluir direitos (padrão); Não: não incluir */
   includeImageRights?: boolean;
   /** Meses — quando includeImageRights é Sim */

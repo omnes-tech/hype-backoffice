@@ -19,6 +19,8 @@ interface CreateCampaignStepFiveProps {
   onBack: () => void;
   onNext: () => void;
   hideBackButton?: boolean;
+  /** Abre e rola até esta fase (ex.: vindo da revisão na edição). */
+  focusPhaseId?: string | null;
 }
 
 const OBJECTIVE_OPTIONS = [
@@ -71,6 +73,7 @@ export function CreateCampaignStepFive({
   onBack,
   onNext,
   hideBackButton = false,
+  focusPhaseId = null,
 }: CreateCampaignStepFiveProps) {
   const [phases, setPhases] = useState<CampaignPhase[]>(
     formData.phases && formData.phases.length > 0
@@ -92,6 +95,19 @@ export function CreateCampaignStepFive({
     phases[0]?.id ?? null
   );
   const phaseFilesInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const phaseSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!focusPhaseId) return;
+    setExpandedPhaseId(focusPhaseId);
+    const id = requestAnimationFrame(() => {
+      phaseSectionRefs.current[focusPhaseId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [focusPhaseId]);
 
   useEffect(() => {
     if (formData.phases && formData.phases.length > 0) {
@@ -366,6 +382,9 @@ export function CreateCampaignStepFive({
             return (
               <div
                 key={phase.id}
+                ref={(el) => {
+                  phaseSectionRefs.current[phase.id] = el;
+                }}
                 className="overflow-hidden rounded-2xl border border-neutral-200"
               >
                 {/* Card header */}

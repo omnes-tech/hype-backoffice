@@ -9,10 +9,12 @@ export interface DashboardPhase {
   order: number;
   objective: string;
   publish_date: string;
-  publish_time: string;
-  content_submission_deadline: string | null;
-  correction_submission_deadline: string | null;
-  contents: Array<{
+  /** Pode vir ausente na API; o front usa 18:00 como padrão */
+  publish_time?: string | null;
+  content_submission_deadline?: string | null;
+  correction_submission_deadline?: string | null;
+  hashtag?: string | null;
+  contents?: Array<{
     type: string;
     options: Array<{
       type: string;
@@ -123,19 +125,32 @@ export async function getCampaignDashboard(
  * Transforma DashboardPhase para CampaignPhase (formato usado no frontend)
  */
 export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
+  const publishTimeRaw =
+    phase.publish_time != null ? String(phase.publish_time).trim() : "";
+  const postTime = publishTimeRaw !== "" ? publishTimeRaw : "18:00";
+  const hashtag =
+    phase.hashtag != null && String(phase.hashtag).trim() !== ""
+      ? String(phase.hashtag).trim()
+      : undefined;
+
   return {
     id: phase.id,
     order: phase.order,
     createdAt: phase.created_at,
     objective: phase.objective,
-    postDate: phase.publish_date,
-    postTime: phase.publish_time,
-    formats: phase.contents.flatMap((content) =>
-      content.options.map((option) => ({
-        id: `${content.type}-${option.type}-${option.quantity}`,
+    postDate: phase.publish_date ?? "",
+    postTime,
+    contentSubmissionDeadline:
+      phase.content_submission_deadline?.trim() || undefined,
+    correctionSubmissionDeadline:
+      phase.correction_submission_deadline?.trim() || undefined,
+    hashtag,
+    formats: (phase.contents ?? []).flatMap((content) =>
+      (content.options ?? []).map((option, idx) => ({
+        id: `${content.type}-${option.type}-${option.quantity}-${idx}`,
         socialNetwork: content.type,
         contentType: option.type,
-        quantity: option.quantity.toString(),
+        quantity: String(option.quantity ?? 1),
       }))
     ),
     files: "", // Não vem na API do dashboard

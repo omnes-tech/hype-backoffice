@@ -4,7 +4,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { CreateCampaignStepOne } from "@/components/forms/create-campaign-step-one";
 import { CreateCampaignStepTwo } from "@/components/forms/create-campaign-step-two";
 import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step-three";
@@ -26,15 +25,27 @@ import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
 import { useNiches } from "@/hooks/use-niches";
+import { getCampaignStatusValue } from "@/shared/utils/campaign-status";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId/edit")({
   component: RouteComponent,
 });
 
+/** Mesmo stepper da criação (6 passos). */
+const STEP_LABELS = [
+  "Briefing",
+  "Influenciadores",
+  "Remuneração",
+  "Materiais",
+  "Fases",
+  "Revisão",
+];
+
 function RouteComponent() {
   const navigate = useNavigate();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId/edit" });
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(6);
+  const [focusPhaseId, setFocusPhaseId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Buscar dados da campanha
@@ -83,6 +94,8 @@ function RouteComponent() {
     brandFiles: "",
     phasesCount: "1",
     phases: [],
+    benefitsBonus: "",
+    campaignVisibility: "public",
   });
 
   // Carregar dados da campanha no formData quando disponível
@@ -184,32 +197,24 @@ function RouteComponent() {
         imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
         brandFiles: "",
         phasesCount: phases.length.toString(),
-        phases: phases.map((phase: any) => ({
-          id: phase.id,
-          objective: phase.objective,
-          postDate: phase.publish_date,
-          postTime: phase.publish_time ?? "18:00",
-          includeImageRights: (campaign.image_rights_period ?? 0) > 0,
-          imageRightsPeriod:
-            (campaign.image_rights_period ?? 0) > 0
-              ? String(campaign.image_rights_period)
-              : "",
-          formats: phase.contents?.flatMap((content: any) =>
-            content.options?.map((option: any, idx: number) => ({
-              id: `${content.type}-${option.type}-${option.quantity}-${idx}`,
-              socialNetwork: content.type,
-              contentType: option.type || "post",
-              quantity: option.quantity?.toString() || "1",
-            })) || []
-          ) || [],
-          files: "",
-        })),
+        phases: [...phases]
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((phase) => ({
+            ...phase,
+            includeImageRights: (campaign.image_rights_period ?? 0) > 0,
+            imageRightsPeriod:
+              (campaign.image_rights_period ?? 0) > 0
+                ? String(campaign.image_rights_period)
+                : "",
+            files: phase.files ?? "",
+          })),
+        benefitsBonus: "",
+        campaignVisibility: "public",
       });
     }
   }, [campaign, phases, niches]);
 
   const totalSteps = 6;
-  const progressPercentage = currentStep ? (currentStep / totalSteps) * 100 : 0;
 
   const updateFormData = (field: keyof CampaignFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -327,9 +332,18 @@ function RouteComponent() {
           });
         });
 
+        const publishTime = phase.postTime?.trim();
+        const contentDl = phase.contentSubmissionDeadline?.trim();
+        const correctionDl = phase.correctionSubmissionDeadline?.trim();
+        const tag = phase.hashtag?.trim();
+
         return {
           objective: phase.objective,
           post_date: phase.postDate,
+          ...(publishTime ? { publish_time: publishTime } : {}),
+          ...(contentDl ? { content_submission_deadline: contentDl } : {}),
+          ...(correctionDl ? { correction_submission_deadline: correctionDl } : {}),
+          ...(tag ? { hashtag: tag } : {}),
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           // files deve ser array de URLs (strings), não enviar se vazio
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
@@ -483,7 +497,8 @@ function RouteComponent() {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
 
       let successDescription: string | undefined;
-      if (formData.campaignVisibility !== "private") {
+      const stillDraft = getCampaignStatusValue(campaign?.status) === "draft";
+      if (formData.campaignVisibility !== "private" && stillDraft) {
         const muralEnd = suggestMuralEndDateFromFormPhases(formData.phases);
         if (muralEnd) {
           try {
@@ -514,64 +529,31 @@ function RouteComponent() {
     }
   };
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <CreateCampaignStepOne
-            formData={formData}
-            updateFormData={updateFormData}
-          />
-        );
-      case 2:
-        return (
-          <CreateCampaignStepTwo
-            formData={formData}
-            updateFormData={updateFormData}
-            onBack={() => setCurrentStep(1)}
-            onNext={() => setCurrentStep(3)}
-          />
-        );
-      case 3:
-        return (
-          <CreateCampaignStepThree
-            formData={formData}
-            updateFormData={updateFormData}
-            onBack={() => setCurrentStep(2)}
-            onNext={() => setCurrentStep(4)}
-          />
-        );
-      case 4:
-        return (
-          <CreateCampaignStepFour
-            formData={formData}
-            updateFormData={updateFormData}
-            onBack={() => setCurrentStep(3)}
-            onNext={() => setCurrentStep(5)}
-          />
-        );
-      case 5:
-        return (
-          <CreateCampaignStepFive
-            formData={formData}
-            updateFormData={updateFormData}
-            onBack={() => setCurrentStep(4)}
-            onNext={() => setCurrentStep(6)}
-          />
-        );
-      case 6:
-        return (
-          <CreateCampaignStepSeven
-            formData={formData}
-            updateFormData={updateFormData}
-            onBack={() => setCurrentStep(5)}
-            onEdit={(step) => setCurrentStep(step)}
-            onSubmitCampaign={handleSubmitCampaign}
-            isLoading={updateCampaignMutation.isPending}
-          />
-        );
-      default:
-        return null;
+  const handleContinue = () => {
+    if (currentStep < totalSteps) {
+      if (currentStep === 5) setFocusPhaseId(null);
+      setCurrentStep((s) => s + 1);
+    }
+  };
+
+  const handleFooterBack = () => {
+    if (currentStep <= 1) {
+      navigate({ to: "/campaigns/$campaignId", params: { campaignId } });
+    } else {
+      setCurrentStep((s) => s - 1);
+    }
+  };
+
+  const handleEditFromReview = (step: number) => {
+    if (step === 5) setFocusPhaseId(null);
+    setCurrentStep(step);
+  };
+
+  const handleEditPhase = (phaseIndex: number) => {
+    const p = formData.phases[phaseIndex];
+    if (p?.id) {
+      setFocusPhaseId(p.id);
+      setCurrentStep(5);
     }
   };
 
@@ -591,55 +573,146 @@ function RouteComponent() {
     );
   }
 
-  // Verificar se a campanha está em DRAFT
-  const campaignStatus = (campaign.status as any)?.value || campaign.status;
-  if (campaignStatus !== "draft") {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <p className="text-neutral-600">Apenas campanhas em rascunho podem ser editadas</p>
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-8rem)] max-w-6xl mx-auto">
+      <div className="flex items-center gap-3 mb-4">
         <Button
+          type="button"
           variant="outline"
+          className="h-10 w-min shrink-0 rounded-[24px] border-[#e5e5e5] px-3"
           onClick={() => navigate({ to: "/campaigns/$campaignId", params: { campaignId } })}
         >
-          Voltar para a campanha
+          <Icon name="ArrowLeft" size={16} color="#404040" />
         </Button>
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-neutral-950 truncate">Editar campanha</h1>
+          <p className="text-sm text-neutral-600 truncate">{campaign.title}</p>
+        </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="flex flex-col h-full bg-neutral-50 -m-6">
-      {/* Header */}
-      <div className="bg-white border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              style={{ width: "fit-content" }}
-              onClick={() => navigate({ to: "/campaigns/$campaignId", params: { campaignId } })}
-            >
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-semibold text-neutral-950">Editar campanha</h1>
-              <p className="text-sm text-neutral-600">{campaign.title}</p>
+      <div className="flex gap-4 items-center mb-8 w-full">
+        {STEP_LABELS.map((label, index) => {
+          const stepNum = index + 1;
+          const isActive = currentStep === stepNum;
+          return (
+            <div key={`edit-step-${stepNum}`} className="flex gap-4 items-center shrink-0">
+              <button
+                type="button"
+                className={`flex gap-2 items-center justify-center pb-3 shrink-0 text-left ${
+                  isActive ? "border-b-[3px] border-tertiary-500" : ""
+                }`}
+                onClick={() => {
+                  if (stepNum === 5) setFocusPhaseId(null);
+                  setCurrentStep(stepNum);
+                }}
+              >
+                <div
+                  className={`flex items-center justify-center rounded-full size-7 text-sm font-bold shrink-0 ${
+                    isActive
+                      ? "bg-tertiary-500 text-white"
+                      : "border border-[#e5e5e5] text-[#7c7c7c]"
+                  }`}
+                >
+                  {stepNum}
+                </div>
+                <span className="text-base whitespace-nowrap text-[#7c7c7c]">{label}</span>
+              </button>
+              {index < STEP_LABELS.length - 1 && (
+                <div
+                  className="h-px flex-1 min-w-[40px] bg-[#e5e5e5] self-center"
+                  aria-hidden
+                />
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <ProgressBar progressPercentage={progressPercentage} color="bg-primary-500" />
-          <p className="text-xs text-neutral-600 mt-1">
-            Passo {currentStep} de {totalSteps}
-          </p>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">{renderStep()}</div>
+      <div className="bg-white rounded-[12px] p-6 flex-1">
+        {currentStep === 1 && (
+          <CreateCampaignStepOne formData={formData} updateFormData={updateFormData} />
+        )}
+        {currentStep === 2 && (
+          <CreateCampaignStepTwo
+            formData={formData}
+            updateFormData={updateFormData}
+            onBack={() => setCurrentStep(1)}
+            onNext={handleContinue}
+            hideBackButton
+          />
+        )}
+        {currentStep === 3 && (
+          <CreateCampaignStepThree
+            formData={formData}
+            updateFormData={updateFormData}
+            onBack={() => setCurrentStep(2)}
+            onNext={handleContinue}
+            hideBackButton
+          />
+        )}
+        {currentStep === 4 && (
+          <CreateCampaignStepFour
+            formData={formData}
+            updateFormData={updateFormData}
+            onBack={() => setCurrentStep(3)}
+            onNext={handleContinue}
+            hideBackButton
+          />
+        )}
+        {currentStep === 5 && (
+          <CreateCampaignStepFive
+            formData={formData}
+            updateFormData={updateFormData}
+            onBack={() => setCurrentStep(4)}
+            onNext={handleContinue}
+            hideBackButton
+            focusPhaseId={focusPhaseId}
+          />
+        )}
+        {currentStep === 6 && (
+          <CreateCampaignStepSeven
+            formData={formData}
+            updateFormData={updateFormData}
+            onBack={() => setCurrentStep(5)}
+            onEdit={handleEditFromReview}
+            onSubmitCampaign={handleSubmitCampaign}
+            isLoading={updateCampaignMutation.isPending}
+            onReviewBack={() =>
+              navigate({ to: "/campaigns/$campaignId", params: { campaignId } })
+            }
+            onEditPhase={handleEditPhase}
+            submitButtonLabel="Salvar alterações"
+            submitLoadingLabel="Salvando..."
+            reviewSubtitle="Escolha uma seção abaixo ou edite uma fase específica. Depois, salve as alterações."
+          />
+        )}
       </div>
+
+      {currentStep < 6 && (
+        <div className="mt-10 flex items-center justify-between gap-4 rounded-xl border-t border-[#e5e5e5] bg-[#FAFAFA] p-6 z-10">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleFooterBack}
+            className="h-11 min-w-0 shrink-0 rounded-[24px] border-[#e5e5e5] px-4 font-semibold text-neutral-700 w-min"
+          >
+            <span className="flex items-center gap-2">
+              <Icon name="ArrowLeft" color="#404040" size={16} />
+              Voltar
+            </span>
+          </Button>
+          <Button
+            type="button"
+            onClick={handleContinue}
+            className="h-11 shrink-0 rounded-[24px] bg-primary-600 px-4 font-semibold text-white hover:bg-primary-700 w-min"
+          >
+            <span className="flex items-center gap-2">
+              Continuar
+              <Icon name="ArrowRight" color="#FAFAFA" size={16} />
+            </span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -504,17 +504,15 @@ function RouteComponent() {
                     </Button>
                   )
                 }
-                {getCampaignStatusValue(campaign?.status) === "draft" && (
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon name="Pencil" color="#404040" size={16} />
-                      <span>Editar</span>
-                    </div>
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="Pencil" color="#404040" size={16} />
+                    <span>Editar</span>
+                  </div>
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsShareModalOpen(true)}

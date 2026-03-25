@@ -13,6 +13,14 @@ interface CreateCampaignStepSevenProps {
   onSubmitCampaign: () => void;
   onSaveDraft?: () => void;
   isLoading?: boolean;
+  /** Edição: voltar da revisão sai do fluxo (ex.: detalhe da campanha). Se não vier, usa `onBack`. */
+  onReviewBack?: () => void;
+  /** Edição: abre a etapa Fases já na fase indicada (índice 0-based). */
+  onEditPhase?: (phaseIndex: number) => void;
+  submitButtonLabel?: string;
+  submitLoadingLabel?: string;
+  reviewTitle?: string;
+  reviewSubtitle?: string;
 }
 
 const getPaymentTypeLabel = (value: string) => {
@@ -132,6 +140,12 @@ export function CreateCampaignStepSeven({
   onSubmitCampaign,
   onSaveDraft,
   isLoading = false,
+  onReviewBack,
+  onEditPhase,
+  submitButtonLabel = "Continuar",
+  submitLoadingLabel = "Criando campanha...",
+  reviewTitle = "Revisão da campanha",
+  reviewSubtitle = "Confira as informações antes de criar. Você pode voltar e ajustar qualquer seção.",
 }: CreateCampaignStepSevenProps) {
   const { data: niches = [] } = useNiches();
 
@@ -153,12 +167,9 @@ export function CreateCampaignStepSeven({
       {/* Header */}
       <div className="flex flex-col gap-4">
         <h2 className="text-[28px] font-medium leading-8 text-neutral-950">
-          Revisão da campanha
+          {reviewTitle}
         </h2>
-        <p className="text-lg leading-8 text-neutral-700">
-          Confira as informações antes de criar. Você pode voltar e ajustar
-          qualquer seção.
-        </p>
+        <p className="text-lg leading-8 text-neutral-700">{reviewSubtitle}</p>
       </div>
 
       <div className="flex gap-8">
@@ -386,9 +397,23 @@ export function CreateCampaignStepSeven({
                       key={phase.id}
                       className="rounded-2xl border border-primary-200 bg-white p-4"
                     >
-                      <span className="mb-4 inline-block rounded-[24px] bg-primary-100 px-3 py-1 text-base font-medium text-primary-900">
-                        Fase {index + 1}
-                      </span>
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-block rounded-[24px] bg-primary-100 px-3 py-1 text-base font-medium text-primary-900">
+                          Fase {index + 1}
+                        </span>
+                        {onEditPhase && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onEditPhase(index)}
+                            className="h-8 shrink-0 rounded-[24px] border-neutral-200 px-4 py-1.5 w-max"
+                          >
+                            <span className="text-sm font-semibold text-neutral-700">
+                              Editar esta fase
+                            </span>
+                          </Button>
+                        )}
+                      </div>
                       <div className="flex flex-col gap-5">
                         <LabelValue
                           label="Objetivo da fase"
@@ -516,7 +541,7 @@ export function CreateCampaignStepSeven({
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 bg-neutral-050 p-6">
         <Button
           type="button"
-          onClick={onBack}
+          onClick={() => (onReviewBack ?? onBack)()}
           variant="default"
           disabled={isLoading}
           className="h-11 rounded-[24px] px-4 w-min"
@@ -557,7 +582,7 @@ export function CreateCampaignStepSeven({
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-50/30 border-t-neutral-50" />
             )}
             <span className="font-semibold text-neutral-50">
-              {isLoading ? "Criando campanha..." : "Continuar"}
+              {isLoading ? submitLoadingLabel : submitButtonLabel}
             </span>
             {!isLoading && (
               <Icon name="ArrowRight" size={16} color="#FAFAFA" />

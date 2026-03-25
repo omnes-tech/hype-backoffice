@@ -192,9 +192,18 @@ function CreateCampaignPage() {
             quantity: parseInt(format.quantity, 10) || 1,
           });
         });
+        const publishTime = phase.postTime?.trim();
+        const contentDl = phase.contentSubmissionDeadline?.trim();
+        const correctionDl = phase.correctionSubmissionDeadline?.trim();
+        const tag = phase.hashtag?.trim();
+
         return {
           objective: phase.objective,
           post_date: phase.postDate,
+          ...(publishTime ? { publish_time: publishTime } : {}),
+          ...(contentDl ? { content_submission_deadline: contentDl } : {}),
+          ...(correctionDl ? { correction_submission_deadline: correctionDl } : {}),
+          ...(tag ? { hashtag: tag } : {}),
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
         };
