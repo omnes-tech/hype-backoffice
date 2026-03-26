@@ -699,12 +699,9 @@ export function ManagementTab({
       case "pre_selection":
         return [
           { label: "Mover para Curadoria pré-seleção", action: "pre_selection_curation", targetStatus: "pre_selection_curation" },
-          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
         ];
       case "pre_selection_curation":
-        return [
-          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
-        ];
+        return [];
       case "curation":
         // Sem ações - aprovação/recusa deve ser feita na guia de Curadoria
         return [];
@@ -749,7 +746,6 @@ export function ManagementTab({
         // Rejeitado - pode ser reativado movendo para applications ou curation
         return [
           { label: "Reativar (Applications)", action: "applications", targetStatus: "applications" },
-          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
         ];
       default:
         return [];
@@ -1206,85 +1202,85 @@ export function ManagementTab({
             </div>
           ) : (
             <>
-          {/* Pills de status (Geral + colunas) */}
-          <div className="flex flex-wrap gap-2 px-5 mb-6">
-            <button
-              type="button"
-              onClick={() => setSelectedPhaseFilterIds([...allPhaseIds])}
-              className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isAllPhasesFilterSelected
-                ? "bg-primary-600 text-white border-transparent"
-                : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                }`}
-            >
-              Geral
-            </button>
-            {kanbanColumns.map((col) => {
-              const isActive = selectedPhaseFilterIds.includes(col.id);
-              return (
+              {/* Pills de status (Geral + colunas) */}
+              <div className="flex flex-wrap gap-2 px-5 mb-6">
                 <button
-                  key={col.id}
                   type="button"
-                  onClick={() => togglePhaseFilter(col.id)}
-                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isActive
+                  onClick={() => setSelectedPhaseFilterIds([...allPhaseIds])}
+                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isAllPhasesFilterSelected
                     ? "bg-primary-600 text-white border-transparent"
                     : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
                     }`}
                 >
-                  {col.label}
+                  Geral
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Kanban Board */}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="px-5 pb-5 overflow-x-auto">
-              <div className="flex gap-3 min-w-max">
-                {columnsToShow.map((column) => {
-                  const columnInfluencers = getInfluencersByStatus(column.id);
-                  const influencerIds = columnInfluencers.map((inf) =>
-                    idToString(inf.id)
-                  );
+                {kanbanColumns.map((col) => {
+                  const isActive = selectedPhaseFilterIds.includes(col.id);
                   return (
-                    <KanbanColumn
-                      key={column.id}
-                      column={column}
-                      influencers={columnInfluencers}
-                      influencerIds={influencerIds}
-                      onInfluencerClick={handleInfluencerClick}
-                      getCurrentStatus={getCurrentStatus}
-                      getAvailableActions={getAvailableActions}
-                      getSocialNetworkIcon={getSocialNetworkIcon}
-                      getSocialNetworkLabel={getSocialNetworkLabel}
-                      onApprove={handleApprove}
-                      onMoveToCuration={handleMoveToCuration}
-                      setSelectedInfluencer={setSelectedInfluencer}
-                      setIsRejectModalOpen={setIsRejectModalOpen}
-                    />
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => togglePhaseFilter(col.id)}
+                      className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isActive
+                        ? "bg-primary-600 text-white border-transparent"
+                        : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                        }`}
+                    >
+                      {col.label}
+                    </button>
                   );
                 })}
               </div>
-            </div>
-            <DragOverlay>
-              {activeId ? (
-                <DragOverlayCard
-                  influencer={
-                    extendedInfluencers.find(
-                      (inf) => idToString(inf.id) === activeId
-                    )!
-                  }
-                  getSocialNetworkIcon={getSocialNetworkIcon}
-                  getSocialNetworkLabel={getSocialNetworkLabel}
-                />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+
+              {/* Kanban Board */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="px-5 pb-5 overflow-x-auto">
+                  <div className="flex gap-3 min-w-max">
+                    {columnsToShow.map((column) => {
+                      const columnInfluencers = getInfluencersByStatus(column.id);
+                      const influencerIds = columnInfluencers.map((inf) =>
+                        idToString(inf.id)
+                      );
+                      return (
+                        <KanbanColumn
+                          key={column.id}
+                          column={column}
+                          influencers={columnInfluencers}
+                          influencerIds={influencerIds}
+                          onInfluencerClick={handleInfluencerClick}
+                          getCurrentStatus={getCurrentStatus}
+                          getAvailableActions={getAvailableActions}
+                          getSocialNetworkIcon={getSocialNetworkIcon}
+                          getSocialNetworkLabel={getSocialNetworkLabel}
+                          onApprove={handleApprove}
+                          onMoveToCuration={handleMoveToCuration}
+                          setSelectedInfluencer={setSelectedInfluencer}
+                          setIsRejectModalOpen={setIsRejectModalOpen}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                <DragOverlay>
+                  {activeId ? (
+                    <DragOverlayCard
+                      influencer={
+                        extendedInfluencers.find(
+                          (inf) => idToString(inf.id) === activeId
+                        )!
+                      }
+                      getSocialNetworkIcon={getSocialNetworkIcon}
+                      getSocialNetworkLabel={getSocialNetworkLabel}
+                    />
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             </>
           )}
         </div>
@@ -1501,7 +1497,7 @@ export function ManagementTab({
                 onClick={() => {
                   const userId =
                     selectedInfluencer.user_id != null &&
-                    String(selectedInfluencer.user_id).trim() !== ""
+                      String(selectedInfluencer.user_id).trim() !== ""
                       ? String(selectedInfluencer.user_id)
                       : null;
                   if (!userId) {

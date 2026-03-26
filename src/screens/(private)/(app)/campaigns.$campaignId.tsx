@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { createFileRoute, useNavigate, useParams, Outlet, useLocation } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignManagement } from "@/hooks/use-campaign-management";
 import { useNiches } from "@/hooks/use-niches";
+import { checkCampaignPublicationTracking } from "@/shared/services/dashboard";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { formatReais } from "@/shared/utils/masks";
 import {
@@ -131,6 +132,40 @@ function RouteComponent() {
     error: campaignError,
   } = useCampaign(campaignId);
   const updateCampaignMutation = useUpdateCampaign();
+  const checkPublicationTrackingMutation = useMutation({
+    mutationFn: () => checkCampaignPublicationTracking(campaignId),
+    onSuccess: (result) => {
+      toast.success(
+        `Varredura concluída: ${result.published}/${result.checked} publicados`
+      );
+
+      if ((result.errors?.length ?? 0) > 0) {
+        toast.warning(
+          `A varredura terminou com ${result.errors.length} erro(s) pontuais.`
+        );
+      }
+
+      void queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "dashboard"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "identified-posts"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "metrics"],
+      });
+    },
+    onError: (err: unknown) => {
+      const e = err as {
+        message?: string | string[];
+        errors?: string[];
+      };
+      const msg = Array.isArray(e?.message)
+        ? e.message.join(", ")
+        : e?.message || e?.errors?.join(", ") || "Erro ao verificar publicações";
+      toast.error(msg);
+    },
+  });
 
   // Query do dashboard (fases, influenciadores, conteúdos, métricas) - UMA ÚNICA CHAMADA
   const {
@@ -510,6 +545,20 @@ function RouteComponent() {
                 }
                 <Button
                   variant="outline"
+                  disabled={checkPublicationTrackingMutation.isPending}
+                  onClick={() => checkPublicationTrackingMutation.mutate()}
+                  className="flex-1"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {checkPublicationTrackingMutation.isPending
+                        ? "Verificando..."
+                        : "Verificar publicações"}
+                    </span>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
                 >
                   <div className="flex items-center gap-2">
@@ -627,8 +676,8 @@ function RouteComponent() {
                       const msg = Array.isArray(e?.message)
                         ? e.message.join(", ")
                         : e?.message ||
-                          e?.errors?.join(", ") ||
-                          "Não foi possível despublicar a campanha.";
+                        e?.errors?.join(", ") ||
+                        "Não foi possível despublicar a campanha.";
                       toast.error(msg);
                     },
                   }

@@ -78,6 +78,17 @@ export interface DashboardResponse {
   metrics: DashboardMetrics;
 }
 
+export interface PublicationTrackingCheckResult {
+  checked: number;
+  published: number;
+  notPublished: number;
+  errors: Array<{
+    message?: string;
+    influencerId?: string;
+    platform?: string;
+  }>;
+}
+
 /**
  * Busca todos os dados da campanha em uma única chamada
  */
@@ -115,6 +126,56 @@ export async function getCampaignDashboard(
     ) as any;
     error.status = request.status;
     throw error;
+  }
+
+  const response = await request.json();
+  return response.data;
+}
+
+/**
+ * Dispara varredura de publicacoes para validar posts publicados.
+ */
+export async function checkCampaignPublicationTracking(
+  campaignId: string,
+  params?: { phase_id?: number; date?: string }
+): Promise<PublicationTrackingCheckResult> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const queryParams = new URLSearchParams();
+  if (typeof params?.phase_id === "number") {
+    queryParams.append("phase_id", String(params.phase_id));
+  }
+  if (params?.date) {
+    queryParams.append("date", params.date);
+  }
+
+  const url = `/campaigns/${campaignId}/publication-tracking/check${
+    queryParams.toString() ? `?${queryParams.toString()}` : ""
+  }`;
+
+  const request = await fetch(getApiUrl(url), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "Client-Type": "backoffice",
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Workspace-Id": workspaceId,
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Falha ao verificar publicações" };
+    }
+    throw errorData || "Falha ao verificar publicações";
   }
 
   const response = await request.json();
