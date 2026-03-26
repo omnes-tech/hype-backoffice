@@ -44,9 +44,14 @@ export async function getInfluencerLists(): Promise<InfluencerList[]> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer lists";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer lists" };
+    }
+    throw errorData || "Failed to get influencer lists";
+    }
 
   const response = await request.json();
   return response.data;
@@ -74,9 +79,14 @@ export async function getInfluencerList(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer list";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer list" };
+    }
+    throw errorData || "Failed to get influencer list";
+    }
 
   const response = await request.json();
   return response.data;
@@ -110,8 +120,13 @@ export async function bulkAddInfluencersToCampaign(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk add influencers";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk add influencers" };
+    }
+    throw errorData || "Failed to bulk add influencers";
+    }
 }
 

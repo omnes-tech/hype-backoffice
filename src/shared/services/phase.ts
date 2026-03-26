@@ -4,9 +4,6 @@ import type { CampaignPhase } from "../types";
 export interface CreatePhaseData {
   objective: string;
   post_date: string;
-  content_submission_deadline?: string;
-  correction_submission_deadline?: string;
-  hashtag?: string | null;
   formats: Array<{
     type: string;
     options: Array<{
@@ -17,7 +14,9 @@ export interface CreatePhaseData {
   files?: string[];
 }
 
-export interface UpdatePhaseData extends Partial<CreatePhaseData> {}
+export interface UpdatePhaseData {
+  objective?: string;
+}
 
 /**
  * Lista todas as fases da campanha
@@ -41,8 +40,13 @@ export async function getCampaignPhases(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign phases";
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign phases" };
+    }
+    throw errorData;
   }
 
   const response = await request.json();
@@ -62,8 +66,6 @@ export async function createCampaignPhase(
   }
 
   const url = getApiUrl(`/campaigns/${campaignId}/phases`);
-  console.log("🔵 POST", url);
-  console.log("Payload:", JSON.stringify(data, null, 2));
 
   const request = await fetch(url, {
     method: "POST",
@@ -77,17 +79,11 @@ export async function createCampaignPhase(
     body: JSON.stringify(data),
   });
 
-  console.log("Response status:", request.status);
-  console.log("Response ok:", request.ok);
-
   if (!request.ok) {
     let errorData;
     try {
       errorData = await request.json();
-      console.error("❌ Erro da API:", errorData);
     } catch {
-      const text = await request.text();
-      console.error("❌ Erro da API (texto):", text);
       errorData = { message: "Failed to create campaign phase" };
     }
     const error = new Error(errorData?.message || errorData?.error || "Failed to create campaign phase") as any;
@@ -97,7 +93,6 @@ export async function createCampaignPhase(
   }
 
   const response = await request.json();
-  console.log("✅ Resposta da API:", response);
   return response.data;
 }
 
@@ -172,8 +167,15 @@ export async function deleteCampaignPhase(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to delete campaign phase";
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to delete campaign phase" };
+    }
+    const error = new Error(errorData?.message || errorData?.error || "Failed to delete campaign phase") as any;
+    error.status = request.status;
+    error.data = errorData;
+    throw error;
   }
 }
-

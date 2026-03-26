@@ -61,10 +61,14 @@ export async function updatePhone(data: UpdatePhoneData): Promise<void> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to update phone";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to update phone" };
+    }
+    throw errorData || "Failed to update phone";
+    }
 }
 
 export async function verifyPhone(data: VerifyPhoneData): Promise<void> {
@@ -80,8 +84,12 @@ export async function verifyPhone(data: VerifyPhoneData): Promise<void> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to verify phone";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to verify phone" };
+    }
+    throw errorData || "Failed to verify phone";
+    }
 }

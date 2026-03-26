@@ -45,9 +45,14 @@ export async function getCampaignScripts(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign scripts";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign scripts" };
+    }
+    throw errorData || "Failed to get campaign scripts";
+    }
 
   const response = await request.json();
   return response.data;
@@ -80,9 +85,14 @@ export async function approveScript(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to approve script";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to approve script" };
+    }
+    throw errorData || "Failed to approve script";
+    }
 }
 
 /**
@@ -118,9 +128,14 @@ export async function rejectScript(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to reject script";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to reject script" };
+    }
+    throw errorData || "Failed to reject script";
+    }
 }
 
 /**
@@ -153,9 +168,14 @@ export async function bulkApproveScripts(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk approve scripts";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk approve scripts" };
+    }
+    throw errorData || "Failed to bulk approve scripts";
+    }
 }
 
 /**
@@ -190,7 +210,12 @@ export async function bulkRejectScripts(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk reject scripts";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk reject scripts" };
+    }
+    throw errorData || "Failed to bulk reject scripts";
+    }
 }

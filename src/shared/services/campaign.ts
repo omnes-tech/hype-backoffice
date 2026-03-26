@@ -72,7 +72,6 @@ export async function getCampaigns(): Promise<CampaignListItem[]> {
 
   // Garantir que workspaceId é uma string válida (UUID), não um número simples
   if (workspaceId === "1" || workspaceId === "0" || /^\d+$/.test(workspaceId)) {
-    console.error("Workspace ID inválido detectado:", workspaceId);
     throw new Error("Workspace ID inválido. Por favor, selecione um workspace válido.");
   }
 
@@ -87,9 +86,14 @@ export async function getCampaigns(): Promise<CampaignListItem[]> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaigns";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaigns" };
+    }
+    throw errorData || "Failed to get campaigns";
+    }
 
   const response = await request.json();
   return response.data;
@@ -115,9 +119,14 @@ export async function getCampaign(campaignId: string): Promise<CampaignDetail> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign" };
+    }
+    throw errorData || "Failed to get campaign";
+    }
 
   const response = await request.json();
   return response.data;
@@ -147,9 +156,14 @@ export async function createCampaign(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to create campaign";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to create campaign" };
+    }
+    throw errorData || "Failed to create campaign";
+    }
 
   const response = await request.json();
   return response.data;
@@ -221,9 +235,14 @@ export async function updateCampaign(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to update campaign";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to update campaign" };
+    }
+    throw errorData || "Failed to update campaign";
+    }
 }
 
 /**
@@ -246,8 +265,13 @@ export async function deleteCampaign(campaignId: string): Promise<void> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to delete campaign";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to delete campaign" };
+    }
+    throw errorData || "Failed to delete campaign";
+    }
 }
 

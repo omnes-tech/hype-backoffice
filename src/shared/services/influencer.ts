@@ -276,9 +276,14 @@ export async function getCampaignInfluencers(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign influencers";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign influencers" };
+    }
+    throw errorData || "Failed to get campaign influencers";
+    }
 
   const response = await request.json();
   // Normalizar status de todos os influenciadores para inglês
@@ -320,9 +325,14 @@ export async function updateInfluencerStatus(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to update influencer status";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to update influencer status" };
+    }
+    throw errorData || "Failed to update influencer status";
+    }
 }
 
 /**
@@ -350,9 +360,14 @@ export async function getInfluencerProfiles(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer profiles";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer profiles" };
+    }
+    throw errorData || "Failed to get influencer profiles";
+    }
 
   const response = await request.json();
   const profiles = response.data?.profiles;
@@ -362,7 +377,6 @@ export async function getInfluencerProfiles(
   }
 
   if (!Array.isArray(profiles)) {
-    console.warn("getInfluencerProfiles: profiles não é um array", profiles);
     return [];
   }
 
@@ -456,9 +470,14 @@ export async function inviteInfluencer(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to invite influencer";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to invite influencer" };
+    }
+    throw errorData || "Failed to invite influencer";
+    }
 }
 
 /**
@@ -490,9 +509,14 @@ export async function addToPreSelection(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to add influencer to pre-selection";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to add influencer to pre-selection" };
+    }
+    throw errorData || "Failed to add influencer to pre-selection";
+    }
 }
 
 /** Body para mover da pré-seleção para curadoria da pré-seleção (MoveToCurationDto) */
@@ -531,9 +555,14 @@ export async function moveToPreSelectionCuration(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to move to pre-selection curation";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to move to pre-selection curation" };
+    }
+    throw errorData || "Failed to move to pre-selection curation";
+    }
 }
 
 /**
@@ -571,9 +600,14 @@ export async function getInfluencerHistory(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer history";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer history" };
+    }
+    throw errorData || "Failed to get influencer history";
+    }
 
   const response = await request.json();
   return response.data;
@@ -613,9 +647,14 @@ export async function bulkApproveInfluencers(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk approve influencers";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk approve influencers" };
+    }
+    throw errorData || "Failed to bulk approve influencers";
+    }
 }
 
 /**
@@ -652,8 +691,13 @@ export async function bulkRejectInfluencers(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk reject influencers";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk reject influencers" };
+    }
+    throw errorData || "Failed to bulk reject influencers";
+    }
 }
 

@@ -44,9 +44,14 @@ export async function getCampaignMetrics(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign metrics";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign metrics" };
+    }
+    throw errorData || "Failed to get campaign metrics";
+    }
 
   const response = await request.json();
   return response.data;
@@ -77,9 +82,14 @@ export async function getInfluencerMetrics(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer metrics";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer metrics" };
+    }
+    throw errorData || "Failed to get influencer metrics";
+    }
 
   const response = await request.json();
   return response.data;
@@ -111,9 +121,14 @@ export async function getContentMetrics(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get content metrics";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get content metrics" };
+    }
+    throw errorData || "Failed to get content metrics";
+    }
 
   const response = await request.json();
   return response.data;
@@ -151,9 +166,14 @@ export async function getIdentifiedPosts(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get identified posts";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get identified posts" };
+    }
+    throw errorData || "Failed to get identified posts";
+    }
 
   const response = await request.json();
   return response.data;

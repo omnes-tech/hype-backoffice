@@ -49,9 +49,14 @@ export async function getCampaignContracts(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign contracts";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign contracts" };
+    }
+    throw errorData || "Failed to get campaign contracts";
+    }
 
   const response = await request.json();
   return response.data;
@@ -89,9 +94,14 @@ export async function sendContractTemplate(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to send contract template";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to send contract template" };
+    }
+    throw errorData || "Failed to send contract template";
+    }
 
   const response = await request.json();
   return response.data;
@@ -117,9 +127,14 @@ export async function getContractTemplates(): Promise<ContractTemplate[]> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get contract templates";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get contract templates" };
+    }
+    throw errorData || "Failed to get contract templates";
+    }
 
   const response = await request.json();
   return response.data || [];
@@ -151,9 +166,14 @@ export async function getContractStatus(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get contract status";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get contract status" };
+    }
+    throw errorData || "Failed to get contract status";
+    }
 
   const response = await request.json();
   return response.data;
@@ -186,7 +206,12 @@ export async function resendContract(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to resend contract";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to resend contract" };
+    }
+    throw errorData || "Failed to resend contract";
+    }
 }

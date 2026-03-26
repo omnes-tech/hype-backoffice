@@ -92,9 +92,7 @@ function RouteComponent() {
         if (variables.photo && variables.photo.length > 0) {
           try {
             await uploadWorkspacePhoto(workspace.id, variables.photo[0]);
-          } catch (error: any) {
-            console.error("Erro ao fazer upload da foto:", error);
-            // Não bloquear o fluxo se o upload da foto falhar
+          } catch {
             toast.error("Workspace criado, mas houve um erro ao fazer upload da foto.");
           }
         }
@@ -105,7 +103,6 @@ function RouteComponent() {
       onError: (error: any) => {
         const errorMessage = error?.message || error?.response?.data?.message || "Erro ao criar workspace. Tente novamente.";
         toast.error(errorMessage);
-        console.error("Erro ao criar workspace:", error);
       },
     });
   return (

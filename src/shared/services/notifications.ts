@@ -56,9 +56,14 @@ export async function getNotifications(): Promise<Notification[]> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get notifications";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get notifications" };
+    }
+    throw errorData || "Failed to get notifications";
+    }
 
   const response = await request.json();
   return response.data || [];
@@ -93,9 +98,14 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to mark notification as read";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to mark notification as read" };
+    }
+    throw errorData || "Failed to mark notification as read";
+    }
 }
 
 /**
@@ -127,9 +137,14 @@ export async function markAllNotificationsAsRead(): Promise<{ message: string; u
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to mark all notifications as read";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to mark all notifications as read" };
+    }
+    throw errorData || "Failed to mark all notifications as read";
+    }
 
   const response = await request.json();
   return response.data;

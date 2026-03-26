@@ -103,6 +103,20 @@ export const unformatCurrency = (value: string): string => {
 };
 
 /**
+ * Formata um número decimal (reais, ex: 1234.56) para o padrão brasileiro (1.234,56)
+ * Diferente de formatCurrency que assume centavos — esta recebe reais diretamente.
+ * Útil para exibir valores vindos da API.
+ */
+export const formatReais = (value: number | string): string => {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "";
+  return num.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+/**
  * Converte um valor monetário formatado no padrão brasileiro (1.234,56) para número decimal (1234.56)
  * Útil para enviar valores monetários à API que espera números decimais
  */

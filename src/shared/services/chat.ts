@@ -31,8 +31,7 @@ export async function getCampaignUserId(
     }
     
     return null;
-  } catch (error) {
-    console.error("Erro ao buscar campaignUserId:", error);
+  } catch {
     return null;
   }
 }
@@ -65,9 +64,14 @@ export async function getInfluencerMessages(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencer messages";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencer messages" };
+    }
+    throw errorData || "Failed to get influencer messages";
+    }
 
   const response = await request.json();
   // Normalizar mensagens para o formato esperado
@@ -116,9 +120,14 @@ export async function sendMessage(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to send message";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to send message" };
+    }
+    throw errorData || "Failed to send message";
+    }
 
   const response = await request.json();
   return response.data;

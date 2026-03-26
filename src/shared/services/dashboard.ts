@@ -204,21 +204,6 @@ function normalizeStatus(status: string | undefined): string {
 export function transformDashboardInfluencer(
   influencer: DashboardInfluencer
 ): Influencer {
-  // Debug: verificar dados antes da transformação
-  if (String(influencer.id) === "65") {
-    console.log("🔍 Transformando influencer ID 65:", {
-      id: influencer.id,
-      name: influencer.name,
-      social_networks: influencer.social_networks,
-      social_networksWithStatus: influencer.social_networks?.map(p => ({
-        id: p.id,
-        type: p.type,
-        status: p.status,
-      })),
-      hasSocialNetworks: !!influencer.social_networks && influencer.social_networks.length > 0,
-    });
-  }
-  
   // Garantir que o status seja preservado em cada perfil e normalizado
   const social_networks: Influencer["social_networks"] = influencer.social_networks?.map((network) => ({
     id: network.id,

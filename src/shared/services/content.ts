@@ -49,9 +49,14 @@ export async function getCampaignContents(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign contents";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign contents" };
+    }
+    throw errorData || "Failed to get campaign contents";
+    }
 
   const response = await request.json();
   return response.data;
@@ -91,9 +96,14 @@ export async function approveContent(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to approve content";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to approve content" };
+    }
+    throw errorData || "Failed to approve content";
+    }
 }
 
 /**
@@ -130,9 +140,14 @@ export async function rejectContent(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to reject content";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to reject content" };
+    }
+    throw errorData || "Failed to reject content";
+    }
 }
 
 /**
@@ -171,9 +186,14 @@ export async function getContentEvaluation(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get content evaluation";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get content evaluation" };
+    }
+    throw errorData || "Failed to get content evaluation";
+    }
 
   const response = await request.json();
   return response.data;
@@ -219,9 +239,14 @@ export async function bulkApproveContents(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk approve contents";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk approve contents" };
+    }
+    throw errorData || "Failed to bulk approve contents";
+    }
 }
 
 /**
@@ -264,8 +289,13 @@ export async function bulkRejectContents(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to bulk reject contents";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to bulk reject contents" };
+    }
+    throw errorData || "Failed to bulk reject contents";
+    }
 }
 

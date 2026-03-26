@@ -85,27 +85,18 @@ export async function getCampaignUsers(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign users";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign users" };
+    }
+    throw errorData || "Failed to get campaign users";
+    }
 
   const response = await request.json();
-  
-  // Log para debug: verificar estrutura dos dados retornados
-  console.log("📋 API Response - Campaign Users:", {
-    total: response.data?.length || 0,
-    sample: response.data?.slice(0, 3).map((u: any) => ({
-      id: u.id,
-      idType: typeof u.id,
-      user_id: u.user_id,
-      user_idType: typeof u.user_id,
-      name: u.name,
-      note: "id é campaignUserId, user_id é userId/influencerId",
-    })),
-  });
-  
+
   // Normalizar status de todos os usuários para inglês
-  // A API agora retorna: id="21" (campaignUserId) e user_id="74" (userId)
   return response.data.map((user: CampaignUser) => ({
     ...user,
     status: normalizeStatus(user.status),
@@ -145,8 +136,13 @@ export async function updateCampaignUserStatus(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to update campaign user status";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to update campaign user status" };
+    }
+    throw errorData || "Failed to update campaign user status";
+    }
 }
 

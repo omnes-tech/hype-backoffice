@@ -35,10 +35,14 @@ export async function signIn(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to login";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to login" };
+    }
+    throw errorData || "Failed to login";
+    }
 
   const response = await request.json();
 
@@ -60,10 +64,14 @@ export async function signUp(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to register";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to register" };
+    }
+    throw errorData || "Failed to register";
+    }
 
   const response = await request.json();
 
@@ -84,10 +92,14 @@ export async function forgotPassword(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    const errorMessage = error?.message || "Failed to forgot password";
-    throw new Error(errorMessage);
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to forgot password" };
+    }
+    throw new Error(errorData?.message || "Failed to forgot password");
+    }
 
   const response = await request.json();
 
@@ -108,10 +120,14 @@ export async function resetPassword(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    const errorMessage = error?.message || "Failed to reset password";
-    throw new Error(errorMessage);
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to reset password" };
+    }
+    throw new Error(errorData?.message || "Failed to reset password");
+    }
 
   const response = await request.json();
 
@@ -130,8 +146,12 @@ export async function logout(): Promise<void> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to logout";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to logout" };
+    }
+    throw errorData || "Failed to logout";
+    }
 }

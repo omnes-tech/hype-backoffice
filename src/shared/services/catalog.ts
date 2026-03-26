@@ -75,9 +75,14 @@ export async function getInfluencersCatalog(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get influencers catalog";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get influencers catalog" };
+    }
+    throw errorData || "Failed to get influencers catalog";
+    }
 
   const response = await request.json();
   const raw = response as {
@@ -170,9 +175,14 @@ export async function getCampaignRecommendations(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get campaign recommendations";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get campaign recommendations" };
+    }
+    throw errorData || "Failed to get campaign recommendations";
+    }
 
   const response = await request.json();
   return response.data;

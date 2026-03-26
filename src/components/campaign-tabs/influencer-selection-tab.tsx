@@ -697,8 +697,8 @@ export function InfluencerSelectionTab({
         onSuccess: () => {
           toast.success("Descobrir desativado automaticamente: todas as vagas foram preenchidas");
         },
-        onError: (error: any) => {
-          console.error("Erro ao desativar mural automaticamente:", error);
+        onError: () => {
+          // Silently fail - mural deactivation is a best-effort operation
         },
       });
     }

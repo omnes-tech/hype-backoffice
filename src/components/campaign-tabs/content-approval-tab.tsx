@@ -245,8 +245,7 @@ export function ContentApprovalTab({
       } else {
         setAiEvaluation(null);
       }
-    } catch (error) {
-      console.error("Erro ao buscar avaliação da IA:", error);
+    } catch {
       setAiEvaluation(null);
     } finally {
       setIsLoadingEvaluation(false);

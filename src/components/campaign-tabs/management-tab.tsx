@@ -785,13 +785,6 @@ export function ManagementTab({
   };
 
   const handleInfluencerClick = (influencer: ExtendedInfluencer) => {
-    // Debug: verificar se social_networks está presente
-    console.log("🔍 Influencer clicked:", {
-      id: influencer.id,
-      name: influencer.name,
-      social_networks: influencer.social_networks,
-      hasSocialNetworks: !!influencer.social_networks && influencer.social_networks.length > 0,
-    });
     setSelectedInfluencer(influencer);
     setIsModalOpen(true);
   };
@@ -1721,13 +1714,15 @@ function ChatModal({
       return;
     }
 
-    // TODO: Upload de arquivos precisa ser implementado
-    // Por enquanto, apenas URLs são suportadas
+    // Upload de arquivos: criar URLs temporárias e revogar após envio
     const attachmentUrls = attachments.map((att) =>
       URL.createObjectURL(att.file)
     );
 
     sendMessage(newMessage.trim(), attachmentUrls);
+
+    // Revogar URLs após envio para evitar memory leak
+    attachmentUrls.forEach((url) => URL.revokeObjectURL(url));
 
     setNewMessage("");
     setAttachments([]);

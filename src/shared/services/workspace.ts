@@ -12,10 +12,14 @@ export async function getWorkspaces(): Promise<Workspace[]> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to get workspaces";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get workspaces" };
+    }
+    throw errorData || "Failed to get workspaces";
+    }
 
   const response = await request.json();
 
@@ -74,10 +78,14 @@ export async function updateWorkspace(
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to update workspace";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to update workspace" };
+    }
+    throw errorData || "Failed to update workspace";
+    }
 
   const response = await request.json();
 
@@ -95,10 +103,14 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
   });
 
   if (!request.ok) {
-    const error = await request.json();
-
-    throw error || "Failed to delete workspace";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to delete workspace" };
+    }
+    throw errorData || "Failed to delete workspace";
+    }
 }
 
 /**

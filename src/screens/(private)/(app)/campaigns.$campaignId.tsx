@@ -28,7 +28,7 @@ import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignManagement } from "@/hooks/use-campaign-management";
 import { useNiches } from "@/hooks/use-niches";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
-import { formatCurrency } from "@/shared/utils/masks";
+import { formatReais } from "@/shared/utils/masks";
 import {
   getCampaignStatusDisplayLabel,
   getCampaignStatusValue,
@@ -208,13 +208,13 @@ function RouteComponent() {
         : campaign.segment_genders || "all",
       paymentType: campaign.payment_method || "",
       paymentFixedAmount: campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
-        ? formatCurrency(campaign.payment_method_details.amount.toString())
+        ? formatReais(campaign.payment_method_details.amount)
         : "",
       paymentSwapItem: campaign.payment_method === "swap" && campaign.payment_method_details?.description
         ? campaign.payment_method_details.description.split(" - Valor de mercado:")[0]?.trim() || ""
         : "",
       paymentSwapMarketValue: campaign.payment_method === "swap" && campaign.payment_method_details?.amount
-        ? formatCurrency(campaign.payment_method_details.amount.toString())
+        ? formatReais(campaign.payment_method_details.amount)
         : "",
       paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
         ? campaign.payment_method_details.description
@@ -223,10 +223,10 @@ function RouteComponent() {
           ?.trim() || ""
         : "",
       paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
-        ? formatCurrency(campaign.payment_method_details.amount.toString())
+        ? formatReais(campaign.payment_method_details.amount)
         : "",
       paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
-        ? formatCurrency(campaign.payment_method_details.amount.toString())
+        ? formatReais(campaign.payment_method_details.amount)
         : "",
       benefits: campaign.benefits
         ? (Array.isArray(campaign.benefits)

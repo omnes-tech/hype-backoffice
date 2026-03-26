@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ import { useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
+import { unformatNumber, currencyToNumber, formatReais } from "@/shared/utils/masks";
 import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
 import { aggregateImageRightsPeriodMonths } from "@/shared/utils/campaign-image-rights";
 import { activateMural } from "@/shared/services/mural";
@@ -47,6 +47,7 @@ function RouteComponent() {
   const [currentStep, setCurrentStep] = useState(6);
   const [focusPhaseId, setFocusPhaseId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const formInitializedRef = useRef(false);
 
   // Buscar dados da campanha
   const {
@@ -98,9 +99,11 @@ function RouteComponent() {
     campaignVisibility: "public",
   });
 
-  // Carregar dados da campanha no formData quando disponível
+  // Carregar dados da campanha no formData apenas uma vez (quando disponível)
   useEffect(() => {
+    if (formInitializedRef.current) return;
     if (campaign && phases && niches.length > 0) {
+      formInitializedRef.current = true;
       // Processar subnichos
       const subnicheIds = Array.isArray(campaign.secondary_niches)
         ? campaign.secondary_niches
@@ -117,9 +120,11 @@ function RouteComponent() {
       let mainNicheId = "";
       if (subnicheIds.length > 0) {
         const firstSubnicheId = parseInt(subnicheIds[0], 10);
-        const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
-        if (firstSubniche?.parent_id) {
-          mainNicheId = firstSubniche.parent_id.toString();
+        if (!isNaN(firstSubnicheId)) {
+          const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
+          if (firstSubniche?.parent_id) {
+            mainNicheId = firstSubniche.parent_id.toString();
+          }
         }
       }
       
@@ -141,13 +146,13 @@ function RouteComponent() {
           : campaign.segment_genders || "all",
         paymentType: campaign.payment_method || "",
         paymentFixedAmount: campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
-          ? campaign.payment_method_details.amount.toString()
+          ? formatReais(campaign.payment_method_details.amount)
           : "",
         paymentSwapItem: campaign.payment_method === "swap" && campaign.payment_method_details?.description
           ? campaign.payment_method_details.description.split(" - Valor de mercado:")[0]?.trim() || ""
           : "",
         paymentSwapMarketValue: campaign.payment_method === "swap" && campaign.payment_method_details?.amount
-          ? campaign.payment_method_details.amount.toString()
+          ? formatReais(campaign.payment_method_details.amount)
           : "",
         paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
           ? campaign.payment_method_details.description
@@ -156,10 +161,10 @@ function RouteComponent() {
               ?.trim() || ""
           : "",
         paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
-          ? campaign.payment_method_details.amount.toString()
+          ? formatReais(campaign.payment_method_details.amount)
           : "",
         paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
-          ? campaign.payment_method_details.amount.toString()
+          ? formatReais(campaign.payment_method_details.amount)
           : "",
         benefits: campaign.benefits
           ? (() => {
@@ -216,7 +221,7 @@ function RouteComponent() {
 
   const totalSteps = 6;
 
-  const updateFormData = (field: keyof CampaignFormData, value: any) => {
+  const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -297,24 +302,8 @@ function RouteComponent() {
 
   // Transformar fases do formulário para o formato da API
   const transformPhasesToApiData = (phases: CampaignFormData["phases"]): CreatePhaseData[] => {
-    console.log("🔍 transformPhasesToApiData - Fases recebidas:", phases);
-    
-    const filtered = phases.filter((phase) => {
-      const isValid = phase.objective && phase.postDate;
-      if (!isValid) {
-        console.log("❌ Fase filtrada (inválida):", {
-          id: phase.id,
-          objective: phase.objective,
-          postDate: phase.postDate,
-          hasObjective: !!phase.objective,
-          hasPostDate: !!phase.postDate,
-        });
-      }
-      return isValid;
-    });
-    
-    console.log("✅ Fases válidas após filtro:", filtered.length);
-    
+    const filtered = phases.filter((phase) => phase.objective && phase.postDate);
+
     return filtered.map((phase) => {
         const formatsByNetwork: { [key: string]: { type: string; options: Array<{ type: string; quantity: number }> } } = {};
 
@@ -332,18 +321,10 @@ function RouteComponent() {
           });
         });
 
-        const contentDl = phase.contentSubmissionDeadline?.trim();
-        const correctionDl = phase.correctionSubmissionDeadline?.trim();
-        const tag = phase.hashtag?.trim();
-
         return {
           objective: phase.objective,
           post_date: phase.postDate,
-          ...(contentDl ? { content_submission_deadline: contentDl } : {}),
-          ...(correctionDl ? { correction_submission_deadline: correctionDl } : {}),
-          ...(tag ? { hashtag: tag } : {}),
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
-          // files deve ser array de URLs (strings), não enviar se vazio
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
         };
       });
@@ -365,33 +346,10 @@ function RouteComponent() {
       });
 
       // Atualizar fases
-      console.log("=== INÍCIO ATUALIZAÇÃO DE FASES ===");
-      console.log("Fases no formData antes da transformação:", formData.phases);
-      console.log("Quantidade de fases no formData:", formData.phases.length);
-      // Log detalhado de cada fase
-      formData.phases.forEach((phase, index) => {
-        console.log(`Fase ${index + 1}:`, {
-          id: phase.id,
-          objective: phase.objective,
-          postDate: phase.postDate,
-          formats: phase.formats,
-          files: phase.files,
-          objectiveType: typeof phase.objective,
-          postDateType: typeof phase.postDate,
-        });
-      });
-      
       const phasesData = transformPhasesToApiData(formData.phases);
-      console.log("Fases transformadas para API:", phasesData);
-      console.log("Quantidade de fases transformadas:", phasesData.length);
-      console.log("Fases existentes (do servidor):", phases);
-      console.log("Quantidade de fases existentes:", phases.length);
-      
+
       if (phasesData.length === 0 && formData.phases.length > 0) {
-        console.warn("Nenhuma fase válida após transformação. Verifique se objective e postDate estão preenchidos.");
-        const invalidPhases = formData.phases.filter((p) => !p.objective || !p.postDate);
-        console.warn("Fases inválidas:", invalidPhases);
-        toast.warning("Algumas fases não foram salvas. Verifique se todos os campos obrigatórios (Objetivo, Data, Hora) estão preenchidos.");
+        toast.warning("Algumas fases não foram salvas. Verifique se todos os campos obrigatórios (Objetivo, Data) estão preenchidos.");
       }
 
       // Mapear fases existentes por ID (public_id)
@@ -401,24 +359,18 @@ function RouteComponent() {
           return [phaseId, p];
         })
       );
-      
+
       // Mapear fases do formulário por ID (incluindo temporários)
       const formPhasesMap = new Map(
         formData.phases.map((p) => [p.id, p])
       );
-      
-      console.log("Fases existentes mapeadas (IDs):", Array.from(existingPhasesMap.keys()));
-      console.log("Fases do formulário mapeadas (IDs):", Array.from(formPhasesMap.keys()));
 
       // Deletar fases que foram removidas do formulário
       for (const existingPhaseId of existingPhasesMap.keys()) {
         if (!formPhasesMap.has(existingPhaseId)) {
           try {
-            console.log("🗑️ Deletando fase removida:", existingPhaseId);
             await deleteCampaignPhase(campaignId, existingPhaseId);
-            console.log("✅ Fase deletada com sucesso:", existingPhaseId);
           } catch (error: any) {
-            console.error("❌ Erro ao deletar fase:", error);
             const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
             toast.error(`Erro ao deletar fase: ${errorMessage}`);
           }
@@ -427,64 +379,45 @@ function RouteComponent() {
 
       // Criar ou atualizar fases (seguindo a ordem do formulário)
       if (phasesData.length > 0) {
-        console.log(`Processando ${phasesData.length} fase(s)...`);
-        
-        // Processar fases na ordem do formulário para manter a sequência
         for (let i = 0; i < phasesData.length; i++) {
           const phaseData = phasesData[i];
-          const originalFormPhase = formData.phases[i]; // Usar índice para correspondência direta
-          
+          const originalFormPhase = formData.phases[i];
+
           // Verificar se é uma fase existente (tem ID válido que existe no servidor)
           const phaseId = originalFormPhase?.id;
-          const isExistingPhase = phaseId && 
+          const isExistingPhase = phaseId &&
                                   existingPhasesMap.has(phaseId) &&
-                                  phaseId !== "1" && 
+                                  phaseId !== "1" &&
                                   !phaseId.startsWith("temp-") &&
-                                  phaseId.length > 10; // IDs UUID são longos
+                                  phaseId.length > 10;
 
           if (isExistingPhase && phaseId) {
-            // Atualizar fase existente
             try {
-              console.log(`[${i + 1}/${phasesData.length}] 🔄 Atualizando fase existente:`, phaseId);
-              console.log("Dados da fase:", JSON.stringify(phaseData, null, 2));
-              await updateCampaignPhase(campaignId, phaseId, phaseData);
-              console.log("✅ Fase atualizada com sucesso:", phaseId);
+              // Update only accepts objective
+              await updateCampaignPhase(campaignId, phaseId, {
+                objective: phaseData.objective,
+              });
             } catch (error: any) {
-              console.error("❌ Erro ao atualizar fase:", error);
               const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
               toast.error(`Erro ao atualizar fase ${i + 1}: ${errorMessage}`);
             }
           } else {
-            // Criar nova fase
             try {
-              console.log(`[${i + 1}/${phasesData.length}] ➕ Criando nova fase`);
-              console.log("ID da fase no form:", phaseId || "sem ID (nova)");
-              console.log("Dados da fase:", JSON.stringify(phaseData, null, 2));
-              const newPhase = await createCampaignPhase(campaignId, phaseData);
-              console.log("✅ Fase criada com sucesso:", newPhase);
+              await createCampaignPhase(campaignId, phaseData);
             } catch (error: any) {
-              console.error("❌ Erro ao criar fase:", error);
               const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
               toast.error(`Erro ao criar fase ${i + 1}: ${errorMessage}`);
             }
           }
         }
-      } else {
-        console.warn("Nenhuma fase válida para processar (criar/atualizar)");
-        if (formData.phases.length === 0) {
-          console.log("Nenhuma fase no formulário. Todas as fases existentes serão mantidas.");
-        }
       }
-      
-      console.log("=== FIM ATUALIZAÇÃO DE FASES ===");
 
       // Fazer upload do banner se houver novo arquivo
       const bannerFile = (formData as any).bannerFile;
       if (bannerFile instanceof File) {
         try {
           await uploadCampaignBanner(campaignId, bannerFile);
-        } catch (error: any) {
-          console.error("Erro ao fazer upload do banner:", error);
+        } catch {
           toast.error("Campanha atualizada, mas houve um erro ao fazer upload do banner.");
         }
       }
@@ -522,7 +455,6 @@ function RouteComponent() {
       });
       navigate({ to: "/campaigns/$campaignId", params: { campaignId } });
     } catch (error: any) {
-      console.error("Erro ao atualizar campanha:", error);
       toast.error(error?.message || "Erro ao atualizar campanha. Tente novamente.");
     }
   };

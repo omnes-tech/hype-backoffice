@@ -37,9 +37,14 @@ export async function activateMural(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to activate mural";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to activate mural" };
+    }
+    throw errorData || "Failed to activate mural";
+    }
 }
 
 /**
@@ -65,9 +70,14 @@ export async function deactivateMural(campaignId: string): Promise<void> {
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to deactivate mural";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to deactivate mural" };
+    }
+    throw errorData || "Failed to deactivate mural";
+    }
 }
 
 /**
@@ -95,9 +105,14 @@ export async function getMuralStatus(
   );
 
   if (!request.ok) {
-    const error = await request.json();
-    throw error || "Failed to get mural status";
-  }
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get mural status" };
+    }
+    throw errorData || "Failed to get mural status";
+    }
 
   const response = await request.json();
   return response.data;
