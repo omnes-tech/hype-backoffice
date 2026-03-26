@@ -56,7 +56,10 @@ export interface CreateCampaignData {
   // banner não é enviado aqui, será feito upload separado
 }
 
-export interface UpdateCampaignData extends Partial<CreateCampaignData> {}
+export interface UpdateCampaignData extends Partial<CreateCampaignData> {
+  /** Ex.: `draft` para despublicar (quando a API aceitar no PUT) */
+  status?: string;
+}
 
 /**
  * Lista todas as campanhas do workspace

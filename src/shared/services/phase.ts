@@ -4,7 +4,6 @@ import type { CampaignPhase } from "../types";
 export interface CreatePhaseData {
   objective: string;
   post_date: string;
-  publish_time?: string;
   content_submission_deadline?: string;
   correction_submission_deadline?: string;
   hashtag?: string | null;

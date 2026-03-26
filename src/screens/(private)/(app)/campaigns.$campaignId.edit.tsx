@@ -332,7 +332,6 @@ function RouteComponent() {
           });
         });
 
-        const publishTime = phase.postTime?.trim();
         const contentDl = phase.contentSubmissionDeadline?.trim();
         const correctionDl = phase.correctionSubmissionDeadline?.trim();
         const tag = phase.hashtag?.trim();
@@ -340,7 +339,6 @@ function RouteComponent() {
         return {
           objective: phase.objective,
           post_date: phase.postDate,
-          ...(publishTime ? { publish_time: publishTime } : {}),
           ...(contentDl ? { content_submission_deadline: contentDl } : {}),
           ...(correctionDl ? { correction_submission_deadline: correctionDl } : {}),
           ...(tag ? { hashtag: tag } : {}),

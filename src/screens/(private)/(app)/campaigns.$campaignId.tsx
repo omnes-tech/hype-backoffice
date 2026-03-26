@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { createFileRoute, useNavigate, useParams, Outlet, useLocation } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import { Modal } from "@/components/ui/modal";
 import { InputDate } from "@/components/ui/input-date";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 
-import { useCampaign } from "@/hooks/use-campaigns";
+import { useCampaign, useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useActivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
@@ -57,6 +58,7 @@ function RouteComponent() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
+  const [showUnpublishModal, setShowUnpublishModal] = useState(false);
 
   /** Deep links vindos de notificações — guardados antes de limpar a URL */
   const [pendingOpenChat, setPendingOpenChat] = useState<string | null>(null);
@@ -122,11 +124,13 @@ function RouteComponent() {
   }, [location.search, location.pathname, navigate]);
 
   // Query principal da campanha (dados básicos)
+  const queryClient = useQueryClient();
   const {
     data: campaign,
     isLoading: isLoadingCampaign,
     error: campaignError,
   } = useCampaign(campaignId);
+  const updateCampaignMutation = useUpdateCampaign();
 
   // Query do dashboard (fases, influenciadores, conteúdos, métricas) - UMA ÚNICA CHAMADA
   const {
@@ -536,23 +540,24 @@ function RouteComponent() {
                 <span className="text-sm text-neutral-500">
                   {progressPercentage}% Concluído
                 </span>
-                <div
-                  className={
-                    getCampaignStatusValue(campaign?.status) === "published"
-                      ? "px-3 py-2 rounded-xl bg-green-100"
-                      : "px-3 py-2 rounded-xl bg-neutral-200"
-                  }
-                >
-                  <span
-                    className={
-                      getCampaignStatusValue(campaign?.status) === "published"
-                        ? "text-sm font-normal text-success-800"
-                        : "text-sm font-normal text-neutral-950"
-                    }
+                {getCampaignStatusValue(campaign?.status) === "published" ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowUnpublishModal(true)}
+                    title="Despublicar campanha"
+                    className="px-3 py-2 rounded-xl bg-green-100 text-left transition-colors hover:bg-green-200/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 cursor-pointer"
                   >
-                    {getCampaignStatusDisplayLabel(campaign?.status)}
-                  </span>
-                </div>
+                    <span className="text-sm font-normal text-success-800">
+                      {getCampaignStatusDisplayLabel(campaign?.status)}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="px-3 py-2 rounded-xl bg-neutral-200">
+                    <span className="text-sm font-normal text-neutral-950">
+                      {getCampaignStatusDisplayLabel(campaign?.status)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -575,6 +580,67 @@ function RouteComponent() {
           campaignId={campaignId}
           campaignTitle={campaign.title}
         />
+      )}
+
+      {showUnpublishModal && (
+        <Modal
+          title="Despublicar campanha"
+          onClose={() =>
+            !updateCampaignMutation.isPending && setShowUnpublishModal(false)
+          }
+          panelClassName="max-w-md"
+        >
+          <p className="mb-6 text-sm text-neutral-600">
+            A campanha voltará ao estado de rascunho e deixará de constar como
+            publicada. Confirme se deseja continuar.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 min-w-[120px]"
+              disabled={updateCampaignMutation.isPending}
+              onClick={() => setShowUnpublishModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 min-w-[120px] bg-danger-600 hover:bg-danger-700 text-white border-0"
+              disabled={updateCampaignMutation.isPending}
+              onClick={() => {
+                updateCampaignMutation.mutate(
+                  { campaignId, data: { status: "draft" } },
+                  {
+                    onSuccess: () => {
+                      toast.success("Campanha despublicada.");
+                      setShowUnpublishModal(false);
+                      void queryClient.invalidateQueries({
+                        queryKey: ["campaigns", campaignId, "dashboard"],
+                      });
+                    },
+                    onError: (err: unknown) => {
+                      const e = err as {
+                        message?: string | string[];
+                        errors?: string[];
+                      };
+                      const msg = Array.isArray(e?.message)
+                        ? e.message.join(", ")
+                        : e?.message ||
+                          e?.errors?.join(", ") ||
+                          "Não foi possível despublicar a campanha.";
+                      toast.error(msg);
+                    },
+                  }
+                );
+              }}
+            >
+              {updateCampaignMutation.isPending
+                ? "Despublicando…"
+                : "Despublicar"}
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {/* Modal Ativar Descobrir (aberto pelo botão Publicar ou pela aba de seleção) */}
