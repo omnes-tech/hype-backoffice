@@ -17,6 +17,11 @@ import { useApproveContent, useRejectContent } from "@/hooks/use-campaign-conten
 import { useBulkContentActions } from "@/hooks/use-bulk-content-actions";
 import { getContentEvaluation } from "@/shared/services/content";
 import { getUploadUrl } from "@/lib/utils/api";
+import {
+  getSocialNetworkDisplayLabel,
+  SocialNetworkCornerBadge,
+  SocialNetworkIcon,
+} from "@/components/social-network-icon";
 import { formatDateForInput } from "@/shared/utils/date-validations";
 
 interface ContentApprovalTabProps {
@@ -740,7 +745,16 @@ export function ContentApprovalTab({
             </div>
           ) : (
               <div className="flex flex-wrap gap-x-3 gap-y-6">
-                {filteredContents.map((content) => (
+                {filteredContents.map((content) => {
+                  const resolvedSocialNetwork =
+                    content.social_network ||
+                    content.social_network_type ||
+                    content.socialNetwork ||
+                    content.social_network_obj?.type ||
+                    content.content_format?.social_network ||
+                    "";
+
+                  return (
                     <div
                       key={content.id}
                       className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
@@ -760,11 +774,17 @@ export function ContentApprovalTab({
                       )}
 
                       <div className="flex items-center justify-between pl-8">
-                        <div className="w-[60px] h-[60px] rounded-[16px] overflow-hidden shrink-0 flex items-center justify-center bg-neutral-200">
-                          <Avatar
-                            src={getUploadUrl(content.influencerAvatar)}
-                            alt={content.influencerName}
-                            size="2xl"
+                        <div className="relative w-[60px] h-[60px] rounded-[16px] overflow-visible shrink-0 flex items-center justify-center bg-neutral-200">
+                          <div className="size-full overflow-hidden rounded-[16px] flex items-center justify-center">
+                            <Avatar
+                              src={getUploadUrl(content.influencerAvatar)}
+                              alt={content.influencerName}
+                              size="2xl"
+                            />
+                          </div>
+                          <SocialNetworkCornerBadge
+                            networkType={resolvedSocialNetwork}
+                            title={getSocialNetworkDisplayLabel(resolvedSocialNetwork)}
                           />
                         </div>
                         {(content.phase || content.phase_id) && (
@@ -799,12 +819,16 @@ export function ContentApprovalTab({
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <div className="flex gap-2.5 items-center">
-                          <Icon name="Instagram" color="#737373" size={20} />
-                          <Icon name="Music" color="#737373" size={20} />
-                          <Icon name="Youtube" color="#737373" size={20} />
+                        <div className="flex gap-2.5 items-center min-w-0">
+                          {resolvedSocialNetwork ? (
+                            <SocialNetworkIcon
+                              networkType={resolvedSocialNetwork}
+                              color="#737373"
+                              size={20}
+                            />
+                          ) : null}
                         </div>
-                        <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950">
+                        <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950 shrink-0">
                           {content.content_format_type || content.contentType || "Conteúdo"}
                         </span>
                       </div>
@@ -851,7 +875,8 @@ export function ContentApprovalTab({
                         )}
                       </div>
                     </div>
-                ))}
+                  );
+                })}
               </div>
           )}
         </div>

@@ -265,7 +265,8 @@ export function CreateCampaignStepThree({
           <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
             <div className="flex flex-1 flex-col gap-2">
               <p className="text-lg font-medium text-black">
-                Incluir bônus por perfomance?
+                Incluir bônus por perfomance?{" "}
+                <span className="font-normal text-[#626262]">(opcional)</span>
               </p>
               <p className="text-base text-[#626262]">
                 Ative para oferecer vantagens extras além do cachê, ou caso a
@@ -277,7 +278,7 @@ export function CreateCampaignStepThree({
 
           {includeBonus && (
             <div className="flex flex-col gap-1">
-              <label className={labelClass}>Descrição do bônus</label>
+              <label className={labelClass}>Descrição do bônus (opcional)</label>
               <input
                 type="text"
                 placeholder="Detalhe as regras ou condições para o uso do bônus"

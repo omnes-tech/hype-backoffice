@@ -21,8 +21,8 @@ export interface CampaignDashboardData {
 }
 
 /**
- * Hook para buscar todos os dados da campanha em uma única chamada
- * Substitui múltiplas chamadas: phases, influencers, contents, metrics
+ * GET .../dashboard — influenciadores, conteúdos e métricas agregadas.
+ * Fases podem vir em GET /campaigns/:id (`phases`); o front prefere essas e usa o dashboard só como fallback para fases.
  */
 export function useCampaignDashboard(campaignId: string) {
   return useQuery({

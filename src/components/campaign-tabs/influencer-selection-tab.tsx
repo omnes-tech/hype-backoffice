@@ -546,12 +546,14 @@ export function InfluencerSelectionTab({
     });
   }, [allProfilesList, allowedSocialNetworks]);
 
+  /** Referência estável para lista vazia — evita `useEffect` que depende de perfis disparar todo render. */
+  const emptyProfileListRef = useRef<Array<{ id: string | number }>>([]);
   const influencerProfiles =
     modalType === "curation"
       ? curationProfilesFiltered
       : needsInviteProfilePicker
         ? invitableProfilesList
-        : [];
+        : emptyProfileListRef.current;
 
   const isLoadingProfiles =
     modalType === "curation"
@@ -756,13 +758,23 @@ export function InfluencerSelectionTab({
     if (modalType !== "invite" && modalType !== "preselection") return;
     if (!selectedInfluencer) return;
     const sid = selectedInfluencer.socialNetworkId?.trim();
+    let nextIds: string[] | null = null;
     if (sid) {
-      setSelectedProfileIds([sid]);
-      return;
+      nextIds = [sid];
+    } else if (influencerProfiles.length > 0) {
+      nextIds = influencerProfiles.map((p) => String(p.id));
     }
-    if (influencerProfiles.length > 0) {
-      setSelectedProfileIds(influencerProfiles.map((p) => p.id));
-    }
+    if (nextIds == null) return;
+    const idsToApply = nextIds;
+    setSelectedProfileIds((prev) => {
+      if (
+        prev.length === idsToApply.length &&
+        prev.every((id, i) => id === idsToApply[i])
+      ) {
+        return prev;
+      }
+      return idsToApply;
+    });
   }, [
     modalType,
     selectedInfluencer?.id,

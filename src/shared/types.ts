@@ -172,8 +172,25 @@ export interface Influencer {
   followers: number;
   engagement: number;
   niche: string;
-  status?: "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected";
+  status?:
+    | "applications"
+    | "pre_selection"
+    | "pre_selection_curation"
+    | "curation"
+    | "invited"
+    | "contract_pending"
+    | "approved"
+    | "script_pending"
+    | "content_pending"
+    | "pending_approval"
+    | "in_correction"
+    | "content_approved"
+    | "payment_pending"
+    | "published"
+    | "rejected";
   phase?: string;
+  /** campaign_users.id — quando a lista de inscrições vem da API enriquecida */
+  campaign_user_id?: string;
   // Perfis de rede social que se inscreveram na campanha (vem direto da API)
   social_networks?: Array<{
     id: number | string;
@@ -181,7 +198,9 @@ export interface Influencer {
     name: string;
     username?: string;
     members?: number;
-    status?: "applications" | "curation" | "invited" | "contract_pending" | "approved" | "script_pending" | "content_pending" | "pending_approval" | "in_correction" | "content_approved" | "payment_pending" | "published" | "rejected";
+    /** Foto do perfil na rede (URL/path da API) */
+    photo?: string | null;
+    status?: Influencer["status"];
   }>;
 }
 

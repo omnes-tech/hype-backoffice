@@ -6,6 +6,8 @@ import type { CampaignPhase, Influencer, CampaignContent } from "../types";
  */
 export interface DashboardPhase {
   id: string;
+  /** Alguns endpoints enviam só `public_id` */
+  public_id?: string;
   order: number;
   objective: string;
   publish_date: string;
@@ -182,20 +184,32 @@ export async function checkCampaignPublicationTracking(
   return response.data;
 }
 
+/** API: `HH:MM` ou `HH:MM:SS` → `HH:MM` (ex.: 18:00:00 → 18:00) */
+function normalizePublishTimeToClock(raw: string): string {
+  const s = raw.trim();
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (!m) return s;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
 /**
  * Transforma DashboardPhase para CampaignPhase (formato usado no frontend)
  */
 export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
   const publishTimeRaw =
     phase.publish_time != null ? String(phase.publish_time).trim() : "";
-  const postTime = publishTimeRaw !== "" ? publishTimeRaw : "18:00";
+  const postTime =
+    publishTimeRaw !== ""
+      ? normalizePublishTimeToClock(publishTimeRaw)
+      : "18:00";
   const hashtag =
     phase.hashtag != null && String(phase.hashtag).trim() !== ""
       ? String(phase.hashtag).trim()
       : undefined;
 
+  const phaseId = phase.id || phase.public_id || "";
   return {
-    id: phase.id,
+    id: phaseId,
     order: phase.order,
     createdAt: phase.created_at,
     objective: phase.objective,
@@ -216,6 +230,24 @@ export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
     ),
     files: "", // Não vem na API do dashboard
   };
+}
+
+/**
+ * Fases em GET /campaigns/:id costumam ter o mesmo shape que em GET .../dashboard.
+ * Use no front para não depender do dashboard só por fases (influenciadores/conteúdos/métricas continuam no /dashboard até a API unificar).
+ */
+export function mapApiPhasesToCampaignPhases(
+  phases: DashboardPhase[] | undefined | null
+): CampaignPhase[] {
+  if (!phases?.length) return [];
+  return phases.map(transformDashboardPhase);
+}
+
+/** Lista vinda do GET campanha sem fases → usar fallback (ex.: dashboard). */
+export function campaignPhasesListIsPresent(
+  phases: DashboardPhase[] | undefined | null
+): boolean {
+  return Array.isArray(phases) && phases.length > 0;
 }
 
 /**

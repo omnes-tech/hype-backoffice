@@ -84,7 +84,7 @@ export function CreateCampaignStepFive({
             objective: "",
             postDate: "",
             postTime: "18:00",
-            includeImageRights: true,
+            includeImageRights: false,
             imageRightsPeriod: "",
             formats: [],
             files: "",
@@ -146,7 +146,7 @@ export function CreateCampaignStepFive({
           objective: "",
           postDate: "",
           postTime: "18:00",
-          includeImageRights: true,
+          includeImageRights: false,
           imageRightsPeriod: "",
           formats: [],
           files: "",
@@ -446,7 +446,10 @@ export function CreateCampaignStepFive({
                     {/* Direitos de imagem — Figma 2283:8016 / Fase 3 */}
                     <div className="flex flex-col gap-4">
                       <p className="text-base font-medium leading-5 text-[#0A0A0A]">
-                        Deseja incluir direitos de uso de imagem para a marca?
+                        Deseja incluir direitos de uso de imagem para a marca?{" "}
+                        <span className="font-normal text-[#626262]">
+                          (opcional)
+                        </span>
                       </p>
                       <div
                         className="flex flex-wrap gap-4"

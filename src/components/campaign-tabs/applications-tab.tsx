@@ -15,6 +15,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
+import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
@@ -138,11 +139,15 @@ function buildInscriptionsProfiles(
       }
     } else {
       matchingProfiles.forEach((profile) => {
+        const profilePhoto =
+          typeof profile.photo === "string" && profile.photo.trim() !== ""
+            ? profile.photo.trim()
+            : "";
         applications.push({
           influencerId: inf.id,
           influencerName: inf.name,
           influencerUsername: inf.username,
-          influencerAvatar: inf.avatar,
+          influencerAvatar: profilePhoto || inf.avatar,
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
@@ -190,7 +195,15 @@ function ApplicationCard({
   onViewPhases: () => void;
   hideWorkflowActions?: boolean;
 }) {
-  const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+  const rawFollowers =
+    app.profileFollowers != null && app.profileFollowers > 0
+      ? app.profileFollowers
+      : app.influencerFollowers;
+  const followers = Number(rawFollowers ?? 0);
+  const engagementDisplay =
+    app.influencerEngagement != null && !Number.isNaN(Number(app.influencerEngagement))
+      ? `${Number(app.influencerEngagement)}%`
+      : "—";
   const sentAtLabel = sentAt
     ? new Date(sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
     : "—";
@@ -209,6 +222,10 @@ function ApplicationCard({
             src={getUploadUrl(app.influencerAvatar) ?? undefined}
             alt={app.influencerName}
             className="size-[60px] rounded-2xl object-cover bg-neutral-200"
+          />
+          <SocialNetworkCornerBadge
+            networkType={app.profileType}
+            title={app.profileTypeLabel}
           />
           {!hideWorkflowActions && (
             <button
@@ -254,7 +271,7 @@ function ApplicationCard({
         <div className="bg-neutral-200 rounded-lg p-3 flex flex-col gap-1">
           <p className="text-sm text-neutral-500">Engajamento</p>
           <p className="text-xl font-medium text-neutral-950">
-            {app.influencerEngagement}%
+            {engagementDisplay}
           </p>
         </div>
       </div>
@@ -425,22 +442,27 @@ export function ApplicationsTab({
           if (!matchesSearch) return false;
         }
         if (filterNiche && app.influencerNiche !== filterNiche) return false;
-        const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+        const rawF =
+          app.profileFollowers != null && app.profileFollowers > 0
+            ? app.profileFollowers
+            : app.influencerFollowers;
+        const followers = Number(rawF ?? 0);
         if (filterFollowersMin) {
-          const min = parseInt(filterFollowersMin);
+          const min = parseInt(filterFollowersMin, 10);
           if (isNaN(min) || followers < min) return false;
         }
         if (filterFollowersMax) {
-          const max = parseInt(filterFollowersMax);
+          const max = parseInt(filterFollowersMax, 10);
           if (isNaN(max) || followers > max) return false;
         }
+        const engagementNum = Number(app.influencerEngagement ?? NaN);
         if (filterEngagementMin) {
           const min = parseFloat(filterEngagementMin);
-          if (isNaN(min) || app.influencerEngagement < min) return false;
+          if (isNaN(min) || Number.isNaN(engagementNum) || engagementNum < min) return false;
         }
         if (filterEngagementMax) {
           const max = parseFloat(filterEngagementMax);
-          if (isNaN(max) || app.influencerEngagement > max) return false;
+          if (isNaN(max) || Number.isNaN(engagementNum) || engagementNum > max) return false;
         }
         return true;
       });
@@ -841,17 +863,6 @@ export function ApplicationsTab({
     }
   };
 
-  const getSocialNetworkIcon = (networkType?: string) => {
-    const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
-    return icons[networkType?.toLowerCase() || ""] || "Share2";
-  };
-
   const organicCount = applicationsWithProfiles.length;
   const preselectionCount = preselectionsWithProfiles.length;
 
@@ -1223,10 +1234,10 @@ export function ApplicationsTab({
                         className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
                       >
                         <div className="flex items-center gap-3">
-                          <Icon
-                            name={getSocialNetworkIcon(network.type)}
-                            color="#404040"
+                          <SocialNetworkIcon
+                            networkType={network.type}
                             size={20}
+                            color="#404040"
                           />
                           <div>
                             <p className="text-sm font-semibold text-neutral-950">

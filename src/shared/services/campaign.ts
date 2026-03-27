@@ -1,4 +1,6 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
+import type { CampaignPhaseUpsertPayload, CreatePhaseData } from "./phase";
+import type { DashboardPhase } from "./dashboard";
 import type { Campaign } from "../types";
 
 export interface CampaignListItem {
@@ -16,6 +18,8 @@ export interface CampaignDetail extends Campaign {
   id: string;
   public_id?: string;
   workspace_id?: string;
+  /** Quando presente no GET /campaigns/:id, substitui a necessidade de fases vindas só do /dashboard */
+  phases?: DashboardPhase[];
   secondary_niches?: Array<{ id: number; name: string }>;
   payment_method_details?: {
     amount?: number;
@@ -52,12 +56,23 @@ export interface CreateCampaignData {
   segment_state?: string[];
   segment_city?: string[];
   segment_genders?: string[];
+  /** Obrigatório na API; inteiro ≥ 0 */
   image_rights_period: number;
-  // banner não é enviado aqui, será feito upload separado
+  /**
+   * Fases criadas na mesma transação da campanha (POST /backoffice/campaigns).
+   * Omitir ou `[]` cria só a campanha; fases podem ser criadas depois via POST /campaigns/:id/phases.
+   */
+  phases?: CreatePhaseData[];
+  banner?: string | null;
+  // banner por upload: use uploadCampaignBanner após o create
 }
 
-export interface UpdateCampaignData extends Partial<CreateCampaignData> {
-  /** Ex.: `draft` para despublicar (quando a API aceitar no PUT) */
+/**
+ * PUT `/campaigns/:id` — ver `api-backoffice-update-campaign.md`.
+ * Campos opcionais omitidos preservam valor no servidor; `phases` omitido não altera fases.
+ */
+export interface UpdateCampaignData extends Partial<Omit<CreateCampaignData, "phases">> {
+  phases?: CampaignPhaseUpsertPayload[];
   status?: string;
 }
 
@@ -133,7 +148,23 @@ export async function getCampaign(campaignId: string): Promise<CampaignDetail> {
 }
 
 /**
- * Cria uma nova campanha
+ * Resposta 201: ou `{ data: campaign }` ou `{ data: { campaign, phases } }` quando `phases` veio no body.
+ */
+function parseCreateCampaignResponseBody(data: unknown): CampaignDetail {
+  if (
+    data &&
+    typeof data === "object" &&
+    "campaign" in data &&
+    (data as { campaign: unknown }).campaign &&
+    typeof (data as { campaign: unknown }).campaign === "object"
+  ) {
+    return (data as { campaign: CampaignDetail }).campaign;
+  }
+  return data as CampaignDetail;
+}
+
+/**
+ * Cria uma nova campanha (draft). Opcionalmente envia `phases` no mesmo POST (uma transação no servidor).
  */
 export async function createCampaign(
   data: CreateCampaignData
@@ -166,7 +197,7 @@ export async function createCampaign(
     }
 
   const response = await request.json();
-  return response.data;
+  return parseCreateCampaignResponseBody(response.data);
 }
 
 /**
@@ -242,7 +273,11 @@ export async function updateCampaign(
       errorData = { message: "Failed to update campaign" };
     }
     throw errorData || "Failed to update campaign";
-    }
+  }
+  /** Resposta documentada: 204 No Content (sem corpo). */
+  if (request.status === 204) {
+    return;
+  }
 }
 
 /**

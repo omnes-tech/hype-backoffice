@@ -27,7 +27,10 @@ import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
 import { useCampaignManagement } from "@/hooks/use-campaign-management";
 import { useNiches } from "@/hooks/use-niches";
-import { checkCampaignPublicationTracking } from "@/shared/services/dashboard";
+import {
+  checkCampaignPublicationTracking,
+  mapApiPhasesToCampaignPhases,
+} from "@/shared/services/dashboard";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { formatReais } from "@/shared/utils/masks";
 import {
@@ -146,6 +149,9 @@ function RouteComponent() {
       }
 
       void queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId],
+      });
+      void queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "dashboard"],
       });
       void queryClient.invalidateQueries({
@@ -167,7 +173,7 @@ function RouteComponent() {
     },
   });
 
-  // Query do dashboard (fases, influenciadores, conteúdos, métricas) - UMA ÚNICA CHAMADA
+  // Dashboard: influenciadores, conteúdos e métricas (fases vêm de GET campanha quando a API envia `phases`)
   const {
     data: dashboardData,
     isLoading: isLoadingDashboard,
@@ -191,8 +197,17 @@ function RouteComponent() {
   // Buscar nichos para determinar o nicho principal
   const { data: niches = [] } = useNiches();
 
-  // Extrair dados do dashboard
-  const phases = dashboardData?.phases || [];
+  const phasesFromCampaignDetail = useMemo(() => {
+    if (campaign?.phases === undefined || campaign.phases === null) {
+      return null;
+    }
+    return mapApiPhasesToCampaignPhases(campaign.phases);
+  }, [campaign?.phases]);
+
+  const phases =
+    phasesFromCampaignDetail !== null
+      ? phasesFromCampaignDetail
+      : dashboardData?.phases ?? [];
   const influencers = dashboardData?.influencers || [];
   const contents = dashboardData?.contents || [];
   const metrics = dashboardData?.metrics;
@@ -285,7 +300,7 @@ function RouteComponent() {
       imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
       brandFiles: "",
       phasesCount: phases.length.toString(),
-      phases: phases, // Já vem transformado do hook useCampaignDashboard
+      phases, // GET campanha (`phases`) ou, em fallback, dashboard
     };
   }, [campaign, phases, niches]);
 

@@ -14,6 +14,11 @@ import type { CampaignScript, CampaignPhase } from "@/shared/types";
 import { useCampaignScripts } from "@/hooks/use-campaign-scripts";
 import { useApproveScript, useRejectScript } from "@/hooks/use-campaign-scripts";
 import { useBulkScriptActions } from "@/hooks/use-bulk-script-actions";
+import {
+  getSocialNetworkDisplayLabel,
+  SocialNetworkCornerBadge,
+  SocialNetworkIcon,
+} from "@/components/social-network-icon";
 
 interface ScriptApprovalTabProps {
   campaignPhases?: CampaignPhase[];
@@ -425,7 +430,17 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
             </div>
           ) : (
             <div className="flex flex-wrap gap-x-3 gap-y-6">
-              {filteredScripts.map((script) => (
+              {filteredScripts.map((script) => {
+                const resolvedSocialNetwork =
+                  script.social_network ||
+                  script.social_network_type ||
+                  script.social_network_obj?.type ||
+                  (isContentFormatObject(script.content_format)
+                    ? script.content_format.social_network
+                    : "") ||
+                  "";
+
+                return (
                 <div
                   key={script.id}
                   className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
@@ -445,11 +460,17 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
 
                   {/* Top: avatar + fase */}
                   <div className="flex items-center justify-between pl-8">
-                    <div className="w-[60px] h-[60px] rounded-[16px] overflow-hidden shrink-0 flex items-center justify-center bg-neutral-200">
-                      <Avatar
-                        src={script.influencerAvatar || ""}
-                        alt={script.influencerName || script.influencer_name || ""}
-                        size="2xl"
+                    <div className="relative w-[60px] h-[60px] rounded-[16px] overflow-visible shrink-0 flex items-center justify-center bg-neutral-200">
+                      <div className="size-full overflow-hidden rounded-[16px] flex items-center justify-center">
+                        <Avatar
+                          src={script.influencerAvatar || ""}
+                          alt={script.influencerName || script.influencer_name || ""}
+                          size="2xl"
+                        />
+                      </div>
+                      <SocialNetworkCornerBadge
+                        networkType={resolvedSocialNetwork}
+                        title={getSocialNetworkDisplayLabel(resolvedSocialNetwork)}
                       />
                     </div>
                     {(script.phase || script.phase_id) && (
@@ -476,12 +497,15 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     </p>
                   </div>
 
-                  {/* Ícones de rede (Instagram, TikTok, YouTube) */}
-                  <div className="flex gap-2.5 items-center">
-                    <Icon name="Instagram" color="#737373" size={20} />
-                    <Icon name="Music" color="#737373" size={20} />
-                    <Icon name="Youtube" color="#737373" size={20} />
-                  </div>
+                  {resolvedSocialNetwork ? (
+                    <div className="flex gap-2.5 items-center">
+                      <SocialNetworkIcon
+                        networkType={resolvedSocialNetwork}
+                        color="#737373"
+                        size={20}
+                      />
+                    </div>
+                  ) : null}
 
                   {/* Preview do roteiro */}
                   <p className="text-sm text-[#4d4d4d] leading-5 h-[59px] overflow-hidden text-ellipsis line-clamp-3">
@@ -539,7 +563,8 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -4,6 +4,8 @@ import type { CampaignPhase } from "../types";
 export interface CreatePhaseData {
   objective: string;
   post_date: string;
+  /** `HH:MM` ou `HH:MM:SS` — opcional; padrão no servidor se omitido */
+  publish_time?: string;
   formats: Array<{
     type: string;
     options: Array<{
@@ -14,9 +16,11 @@ export interface CreatePhaseData {
   files?: string[];
 }
 
-export interface UpdatePhaseData {
-  objective?: string;
-}
+/** Item de `phases` no PUT `/campaigns/:id` — `id` UUID da fase existente; ausente = criar. */
+export type CampaignPhaseUpsertPayload = CreatePhaseData & { id?: string };
+
+/** PUT `/campaigns/:id/steps/:stepId` — mesmo shape que criação; campos omitidos ficam a critério do backend. */
+export type UpdatePhaseData = Partial<CreatePhaseData>;
 
 /**
  * Lista todas as fases da campanha

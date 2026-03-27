@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -15,11 +15,20 @@ import type { CampaignFormData } from "@/shared/types";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
-import { createCampaignPhase, updateCampaignPhase, deleteCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
+import {
+  campaignPhasesListIsPresent,
+  mapApiPhasesToCampaignPhases,
+} from "@/shared/services/dashboard";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
-import { unformatNumber, currencyToNumber, formatReais } from "@/shared/utils/masks";
+import { formatReais } from "@/shared/utils/masks";
 import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
-import { aggregateImageRightsPeriodMonths } from "@/shared/utils/campaign-image-rights";
+import type { CampaignPhaseUpsertPayload } from "@/shared/services/phase";
+import {
+  buildCampaignUpdatePayloadFromForm,
+  buildPhasesPayloadFromForm,
+  buildPutCampaignUpdateBody,
+  mergePaymentDetailsWithServer,
+} from "@/shared/utils/campaign-edit-request";
 import { activateMural } from "@/shared/services/mural";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,6 +57,11 @@ function RouteComponent() {
   const [focusPhaseId, setFocusPhaseId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const formInitializedRef = useRef(false);
+  /** Snapshot campanha (sem substituir fases) + fases — para diff alinhado à API de PUT. */
+  const initialCampaignApiPayloadRef = useRef<ReturnType<
+    typeof buildCampaignUpdatePayloadFromForm
+  > | null>(null);
+  const initialPhasesApiPayloadRef = useRef<CampaignPhaseUpsertPayload[] | null>(null);
 
   // Buscar dados da campanha
   const {
@@ -62,7 +76,17 @@ function RouteComponent() {
     isLoading: isLoadingDashboard,
   } = useCampaignDashboard(campaignId);
 
-  const phases = dashboardData?.phases || [];
+  const phasesFromCampaignDetail = useMemo(() => {
+    if (!campaign || !campaignPhasesListIsPresent(campaign.phases)) {
+      return null;
+    }
+    return mapApiPhasesToCampaignPhases(campaign.phases);
+  }, [campaign, campaign?.phases]);
+
+  const phases =
+    phasesFromCampaignDetail !== null
+      ? phasesFromCampaignDetail
+      : dashboardData?.phases ?? [];
   const updateCampaignMutation = useUpdateCampaign();
   
   // Buscar nichos para determinar o nicho principal na edição
@@ -102,7 +126,7 @@ function RouteComponent() {
   // Carregar dados da campanha no formData apenas uma vez (quando disponível)
   useEffect(() => {
     if (formInitializedRef.current) return;
-    if (campaign && phases && niches.length > 0) {
+    if (campaign && phases) {
       formInitializedRef.current = true;
       // Processar subnichos
       const subnicheIds = Array.isArray(campaign.secondary_niches)
@@ -128,7 +152,7 @@ function RouteComponent() {
         }
       }
       
-      setFormData({
+      const initialForm: CampaignFormData = {
         title: campaign.title || "",
         description: campaign.description || "",
         mainNiche: mainNicheId,
@@ -215,7 +239,15 @@ function RouteComponent() {
           })),
         benefitsBonus: "",
         campaignVisibility: "public",
-      });
+      };
+
+      const rawInitialPayload = buildCampaignUpdatePayloadFromForm(initialForm);
+      initialCampaignApiPayloadRef.current = mergePaymentDetailsWithServer(
+        rawInitialPayload,
+        campaign
+      );
+      initialPhasesApiPayloadRef.current = buildPhasesPayloadFromForm(initialForm);
+      setFormData(initialForm);
     }
   }, [campaign, phases, niches]);
 
@@ -225,192 +257,47 @@ function RouteComponent() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Transformar dados do formulário para o formato da API
-  const transformFormDataToApiData = (formData: CampaignFormData) => {
-    const secondary_niches = formData.subniches 
-      ? formData.subniches.split(",").filter(Boolean).map(id => parseInt(id, 10)).filter(id => !isNaN(id))
-      : [];
-
-    const buildPaymentDetails = () => {
-      const baseDetails: { amount?: number; currency?: string; description?: string } = {};
-
-      switch (formData.paymentType) {
-        case "fixed":
-          if (formData.paymentFixedAmount) {
-            baseDetails.amount = currencyToNumber(formData.paymentFixedAmount);
-            baseDetails.currency = "BRL";
-            baseDetails.description = "Pagamento fixo por influenciador";
-          }
-          break;
-        case "swap":
-          if (formData.paymentSwapItem && formData.paymentSwapMarketValue) {
-            baseDetails.description = `${formData.paymentSwapItem} - Valor de mercado: ${formData.paymentSwapMarketValue}`;
-            baseDetails.amount = currencyToNumber(formData.paymentSwapMarketValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "cpa":
-          if (formData.paymentCpaActions && formData.paymentCpaValue) {
-            baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions} - Valor: ${formData.paymentCpaValue}`;
-            baseDetails.amount = currencyToNumber(formData.paymentCpaValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "cpm":
-          if (formData.paymentCpmValue) {
-            baseDetails.amount = currencyToNumber(formData.paymentCpmValue);
-            baseDetails.currency = "BRL";
-          }
-          break;
-        case "price":
-          break;
-      }
-
-      return baseDetails;
-    };
-
-    return {
-      title: formData.title,
-      description: formData.description,
-      objective: formData.generalObjective || "awareness",
-      secondary_niches,
-      max_influencers: parseInt(unformatNumber(formData.influencersCount)) || 0,
-      payment_method: formData.paymentType || "fixed",
-      payment_method_details: buildPaymentDetails(),
-      benefits: Array.isArray(formData.benefits)
-        ? formData.benefits.filter(item => item.trim() !== "")
-        : formData.benefits
-          ? [formData.benefits].filter(item => item.trim() !== "")
-          : [],
-      rules_does: Array.isArray(formData.whatToDo) 
-        ? formData.whatToDo.filter(item => item.trim() !== "")
-        : formData.whatToDo 
-          ? [formData.whatToDo].filter(item => item.trim() !== "")
-          : [],
-      rules_does_not: Array.isArray(formData.whatNotToDo)
-        ? formData.whatNotToDo.filter(item => item.trim() !== "")
-        : formData.whatNotToDo
-          ? [formData.whatNotToDo].filter(item => item.trim() !== "")
-          : [],
-      segment_min_followers: formData.minFollowers ? parseInt(unformatNumber(formData.minFollowers)) : undefined,
-      segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
-      segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,
-      segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
-      image_rights_period: aggregateImageRightsPeriodMonths(formData.phases),
-    };
-  };
-
-  // Transformar fases do formulário para o formato da API
-  const transformPhasesToApiData = (phases: CampaignFormData["phases"]): CreatePhaseData[] => {
-    const filtered = phases.filter((phase) => phase.objective && phase.postDate);
-
-    return filtered.map((phase) => {
-        const formatsByNetwork: { [key: string]: { type: string; options: Array<{ type: string; quantity: number }> } } = {};
-
-        phase.formats.forEach((format) => {
-          const network = format.socialNetwork || "instagram";
-          if (!formatsByNetwork[network]) {
-            formatsByNetwork[network] = {
-              type: network,
-              options: [],
-            };
-          }
-          formatsByNetwork[network].options.push({
-            type: format.contentType || "post",
-            quantity: parseInt(format.quantity) || 1,
-          });
-        });
-
-        return {
-          objective: phase.objective,
-          post_date: phase.postDate,
-          formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
-          files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
-        };
-      });
-  };
-
   // Handler para submissão do formulário
   const handleSubmitCampaign = async () => {
     try {
+      if (!campaign) {
+        toast.error("Campanha não carregada. Atualize a página e tente de novo.");
+        return;
+      }
       if (!formData.title || !formData.description) {
         toast.error("Por favor, preencha todos os campos obrigatórios");
         return;
       }
 
-      // Atualizar campanha
-      const campaignData = transformFormDataToApiData(formData);
+      const incompletePhases = formData.phases.some(
+        (p) => !p.objective || !p.postDate
+      );
+      if (incompletePhases) {
+        toast.warning(
+          "Algumas fases estão incompletas (objetivo e data obrigatórios). Ajuste antes de salvar."
+        );
+        return;
+      }
+
+      const campaignDataRaw = buildCampaignUpdatePayloadFromForm(formData);
+      const nextMerged = mergePaymentDetailsWithServer(campaignDataRaw, campaign);
+      const baseline = initialCampaignApiPayloadRef.current;
+      const baselinePhases = initialPhasesApiPayloadRef.current ?? [];
+      const nextPhases = buildPhasesPayloadFromForm(formData);
+
+      const putBody = baseline
+        ? buildPutCampaignUpdateBody({
+            baseline,
+            nextMerged,
+            baselinePhases,
+            nextPhases,
+          })
+        : { ...nextMerged, phases: nextPhases };
+
       await updateCampaignMutation.mutateAsync({
         campaignId,
-        data: campaignData,
+        data: putBody,
       });
-
-      // Atualizar fases
-      const phasesData = transformPhasesToApiData(formData.phases);
-
-      if (phasesData.length === 0 && formData.phases.length > 0) {
-        toast.warning("Algumas fases não foram salvas. Verifique se todos os campos obrigatórios (Objetivo, Data) estão preenchidos.");
-      }
-
-      // Mapear fases existentes por ID (public_id)
-      const existingPhasesMap = new Map(
-        phases.map((p: any) => {
-          const phaseId = p.id || p.public_id;
-          return [phaseId, p];
-        })
-      );
-
-      // Mapear fases do formulário por ID (incluindo temporários)
-      const formPhasesMap = new Map(
-        formData.phases.map((p) => [p.id, p])
-      );
-
-      // Deletar fases que foram removidas do formulário
-      for (const existingPhaseId of existingPhasesMap.keys()) {
-        if (!formPhasesMap.has(existingPhaseId)) {
-          try {
-            await deleteCampaignPhase(campaignId, existingPhaseId);
-          } catch (error: any) {
-            const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
-            toast.error(`Erro ao deletar fase: ${errorMessage}`);
-          }
-        }
-      }
-
-      // Criar ou atualizar fases (seguindo a ordem do formulário)
-      if (phasesData.length > 0) {
-        for (let i = 0; i < phasesData.length; i++) {
-          const phaseData = phasesData[i];
-          const originalFormPhase = formData.phases[i];
-
-          // Verificar se é uma fase existente (tem ID válido que existe no servidor)
-          const phaseId = originalFormPhase?.id;
-          const isExistingPhase = phaseId &&
-                                  existingPhasesMap.has(phaseId) &&
-                                  phaseId !== "1" &&
-                                  !phaseId.startsWith("temp-") &&
-                                  phaseId.length > 10;
-
-          if (isExistingPhase && phaseId) {
-            try {
-              // Update only accepts objective
-              await updateCampaignPhase(campaignId, phaseId, {
-                objective: phaseData.objective,
-              });
-            } catch (error: any) {
-              const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
-              toast.error(`Erro ao atualizar fase ${i + 1}: ${errorMessage}`);
-            }
-          } else {
-            try {
-              await createCampaignPhase(campaignId, phaseData);
-            } catch (error: any) {
-              const errorMessage = error?.message || error?.data?.message || error?.error || "Erro desconhecido";
-              toast.error(`Erro ao criar fase ${i + 1}: ${errorMessage}`);
-            }
-          }
-        }
-      }
 
       // Fazer upload do banner se houver novo arquivo
       const bannerFile = (formData as any).bannerFile;

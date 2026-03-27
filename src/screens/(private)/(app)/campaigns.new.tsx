@@ -11,7 +11,7 @@ import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step
 import type { CampaignFormData } from "@/shared/types";
 import { useCreateCampaign } from "@/hooks/use-campaigns";
 import type { CreateCampaignData } from "@/shared/services/campaign";
-import { createCampaignPhase, type CreatePhaseData } from "@/shared/services/phase";
+import type { CreatePhaseData } from "@/shared/services/phase";
 import { uploadCampaignBanner } from "@/shared/services/campaign";
 import { unformatNumber, currencyToNumber } from "@/shared/utils/masks";
 import { suggestMuralEndDateFromFormPhases } from "@/shared/utils/date-validations";
@@ -66,7 +66,7 @@ const initialFormData: CampaignFormData = {
       objective: "",
       postDate: "",
       postTime: "18:00",
-      includeImageRights: true,
+      includeImageRights: false,
       imageRightsPeriod: "",
       formats: [],
       files: "",
@@ -93,6 +93,12 @@ function CreateCampaignPage() {
     const secondary_niches = formData.subniches
       ? formData.subniches.split(",").filter(Boolean).map((id) => parseInt(id, 10)).filter((id) => !isNaN(id))
       : [];
+
+    const benefitsFiltered = Array.isArray(formData.benefits)
+      ? formData.benefits.filter((item) => item.trim() !== "")
+      : formData.benefits
+        ? [String(formData.benefits).trim()].filter((item) => item !== "")
+        : [];
 
     const buildPaymentDetails = () => {
       const benefitsList = Array.isArray(formData.benefits)
@@ -146,7 +152,18 @@ function CreateCampaignPage() {
       return baseDetails;
     };
 
-    return {
+    const rules_does = Array.isArray(formData.whatToDo)
+      ? formData.whatToDo.filter((item) => item.trim() !== "")
+      : formData.whatToDo
+        ? [formData.whatToDo].filter((item) => (item as string).trim() !== "")
+        : [];
+    const rules_does_not = Array.isArray(formData.whatNotToDo)
+      ? formData.whatNotToDo.filter((item) => item.trim() !== "")
+      : formData.whatNotToDo
+        ? [formData.whatNotToDo].filter((item) => (item as string).trim() !== "")
+        : [];
+
+    const payload: CreateCampaignData = {
       title: formData.title,
       description: formData.description,
       objective: formData.generalObjective || "awareness",
@@ -154,27 +171,38 @@ function CreateCampaignPage() {
       max_influencers: parseInt(unformatNumber(formData.influencersCount), 10) || 0,
       payment_method: formData.paymentType || "fixed",
       payment_method_details: buildPaymentDetails(),
-      benefits: Array.isArray(formData.benefits)
-        ? formData.benefits.filter((item) => item.trim() !== "")
-        : formData.benefits
-          ? [formData.benefits].filter((item) => (item as string).trim() !== "")
-          : [],
-      rules_does: Array.isArray(formData.whatToDo)
-        ? formData.whatToDo.filter((item) => item.trim() !== "")
-        : formData.whatToDo
-          ? [formData.whatToDo].filter((item) => (item as string).trim() !== "")
-          : [],
-      rules_does_not: Array.isArray(formData.whatNotToDo)
-        ? formData.whatNotToDo.filter((item) => item.trim() !== "")
-        : formData.whatNotToDo
-          ? [formData.whatNotToDo].filter((item) => (item as string).trim() !== "")
-          : [],
-      segment_min_followers: formData.minFollowers ? parseInt(unformatNumber(formData.minFollowers), 10) : undefined,
-      segment_state: formData.state ? formData.state.split(",").filter(Boolean) : undefined,
-      segment_city: formData.city ? formData.city.split(",").filter(Boolean) : undefined,
-      segment_genders: formData.gender && formData.gender !== "all" ? [formData.gender] : undefined,
+      rules_does,
+      rules_does_not,
       image_rights_period: aggregateImageRightsPeriodMonths(formData.phases),
     };
+
+    if (benefitsFiltered.length > 0) {
+      payload.benefits = benefitsFiltered;
+    }
+    if (formData.minFollowers) {
+      const n = parseInt(unformatNumber(formData.minFollowers), 10);
+      if (!Number.isNaN(n)) payload.segment_min_followers = n;
+    }
+    if (formData.state) {
+      payload.segment_state = formData.state.split(",").filter(Boolean);
+    }
+    if (formData.city) {
+      payload.segment_city = formData.city.split(",").filter(Boolean);
+    }
+    if (formData.gender && formData.gender !== "all") {
+      payload.segment_genders = [formData.gender];
+    }
+
+    return payload;
+  };
+
+  /** API aceita `HH:MM` ou `HH:MM:SS`; normaliza `HH:MM` para segundos. */
+  const toPublishTimeForApi = (postTime: string | undefined): string | undefined => {
+    const t = (postTime ?? "").trim();
+    if (!t) return undefined;
+    const segments = t.split(":");
+    if (segments.length === 2) return `${t}:00`;
+    return t;
   };
 
   const transformPhasesToApiData = (phases: CampaignFormData["phases"]): CreatePhaseData[] => {
@@ -193,12 +221,17 @@ function CreateCampaignPage() {
           });
         });
 
-        return {
+        const publish_time = toPublishTimeForApi(phase.postTime);
+        const row: CreatePhaseData = {
           objective: phase.objective,
           post_date: phase.postDate,
           formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
           files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
         };
+        if (publish_time) {
+          row.publish_time = publish_time;
+        }
+        return row;
       });
   };
 
@@ -210,22 +243,19 @@ function CreateCampaignPage() {
         setIsCreatingCampaign(false);
         return;
       }
-      const campaignData = transformFormDataToApiData(formData);
+      const campaignPayload = transformFormDataToApiData(formData);
+      const phasesData = transformPhasesToApiData(formData.phases ?? []);
+      const campaignData: CreateCampaignData =
+        phasesData.length > 0
+          ? { ...campaignPayload, phases: phasesData }
+          : campaignPayload;
+
       const createdCampaign = await createCampaignMutation.mutateAsync(campaignData);
 
-      if (formData.phases && formData.phases.length > 0) {
-        const phasesData = transformPhasesToApiData(formData.phases);
-        if (phasesData.length > 0) {
-          for (let i = 0; i < phasesData.length; i++) {
-            try {
-              await createCampaignPhase(createdCampaign.id, phasesData[i]);
-            } catch (error: unknown) {
-              const err = error as { message?: string };
-              toast.error(`Erro ao criar fase ${i + 1}: ${err?.message || "Erro desconhecido"}`);
-            }
-          }
-          queryClient.invalidateQueries({ queryKey: ["campaigns", createdCampaign.id, "dashboard"] });
-        }
+      if (phasesData.length > 0) {
+        queryClient.invalidateQueries({
+          queryKey: ["campaigns", createdCampaign.id, "dashboard"],
+        });
       }
 
       const bannerFile = (formData as CampaignFormData & { bannerFile?: File }).bannerFile;

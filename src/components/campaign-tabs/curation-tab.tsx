@@ -15,6 +15,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
+import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
@@ -89,6 +90,8 @@ type CurationProfileStatus = "curation" | "approved" | "rejected";
 
 interface ApplicationWithProfile {
   influencerId: string;
+  /** campaign_users.id da linha da API */
+  campaignUserId: string;
   influencerName: string;
   influencerUsername: string;
   influencerAvatar: string;
@@ -131,6 +134,14 @@ function expandCurationProfiles(
     youtube: "YouTube",
     ugc: "UGC",
   };
+
+  const cardAvatar = (profilePhoto: string | null | undefined, inf: Influencer) => {
+    const fromPhoto =
+      typeof profilePhoto === "string" && profilePhoto.trim() !== ""
+        ? profilePhoto.trim()
+        : "";
+    return fromPhoto || inf.avatar || "";
+  };
   const statusMap: Record<string, CurationProfileStatus> = {
     curation: "curation",
     pre_selection_curation: "curation",
@@ -153,6 +164,7 @@ function expandCurationProfiles(
       ) {
         applications.push({
           influencerId: inf.id,
+          campaignUserId: inf.campaign_user_id ?? "",
           influencerName: inf.name,
           influencerUsername: inf.username,
           influencerAvatar: inf.avatar,
@@ -164,13 +176,14 @@ function expandCurationProfiles(
           profileTypeLabel: "Geral",
           profileUsername: inf.username,
           profileFollowers: inf.followers,
-          profileKey: `${inf.id}-general`,
+          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
           profileStatus: "curation",
         });
       }
       if (column === "approved" && infStatus === "approved" && profiles.length === 0) {
         applications.push({
           influencerId: inf.id,
+          campaignUserId: inf.campaign_user_id ?? "",
           influencerName: inf.name,
           influencerUsername: inf.username,
           influencerAvatar: inf.avatar,
@@ -182,13 +195,14 @@ function expandCurationProfiles(
           profileTypeLabel: "Geral",
           profileUsername: inf.username,
           profileFollowers: inf.followers,
-          profileKey: `${inf.id}-general`,
+          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
           profileStatus: "approved",
         });
       }
       if (column === "rejected" && infStatus === "rejected" && profiles.length === 0) {
         applications.push({
           influencerId: inf.id,
+          campaignUserId: inf.campaign_user_id ?? "",
           influencerName: inf.name,
           influencerUsername: inf.username,
           influencerAvatar: inf.avatar,
@@ -200,7 +214,7 @@ function expandCurationProfiles(
           profileTypeLabel: "Geral",
           profileUsername: inf.username,
           profileFollowers: inf.followers,
-          profileKey: `${inf.id}-general`,
+          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
           profileStatus: "rejected",
         });
       }
@@ -211,12 +225,17 @@ function expandCurationProfiles(
       const s = profile.status?.toLowerCase()?.trim();
       const profileStatus: CurationProfileStatus =
         statusMap[s ?? ""] ?? "curation";
+      const members =
+        profile.members != null && !Number.isNaN(Number(profile.members))
+          ? Number(profile.members)
+          : inf.followers;
       applications.push({
         influencerId: inf.id,
+        campaignUserId: inf.campaign_user_id ?? "",
         influencerName: inf.name,
         influencerUsername: inf.username,
-        influencerAvatar: inf.avatar,
-        influencerFollowers: inf.followers,
+        influencerAvatar: cardAvatar(profile.photo, inf),
+        influencerFollowers: members,
         influencerEngagement: inf.engagement,
         influencerNiche: inf.niche || "",
         profileId: String(profile.id),
@@ -225,9 +244,9 @@ function expandCurationProfiles(
           networkLabels[profile.type?.toLowerCase() ?? ""] ||
           profile.name ||
           profile.type,
-        profileUsername: profile.username || inf.username,
-        profileFollowers: profile.members ?? inf.followers,
-        profileKey: `${inf.id}-${profile.id}`,
+        profileUsername: (profile.username ?? "").trim() || inf.username,
+        profileFollowers: members,
+        profileKey: `${inf.campaign_user_id ?? inf.id}-${profile.id}`,
         profileStatus,
       });
     });
@@ -330,9 +349,14 @@ export function CurationTab({
     if (tabLoading) return;
 
     const id = String(focusCampaignUserId);
-    const fullInf = [...pendingInfluencers, ...approvedInfluencers, ...rejectedInfluencers].find(
-      (inf) => String(inf.id) === id
-    );
+    const matchesFocus = (inf: Influencer) =>
+      String(inf.id) === id ||
+      (inf.campaign_user_id != null && String(inf.campaign_user_id) === id);
+    const fullInf = [
+      ...pendingInfluencers,
+      ...approvedInfluencers,
+      ...rejectedInfluencers,
+    ].find(matchesFocus);
 
     if (!fullInf) {
       if (!qPending.isFetching && !qApproved.isFetching && !qRejected.isFetching) {
@@ -342,11 +366,13 @@ export function CurationTab({
       return;
     }
 
-    if (pendingCards.some((a) => String(a.influencerId) === id)) {
+    const cardMatchesFocus = (a: ApplicationWithProfile) =>
+      String(a.campaignUserId) === id || String(a.influencerId) === id;
+    if (pendingCards.some(cardMatchesFocus)) {
       setStatusFilter("pending");
-    } else if (approvedCards.some((a) => String(a.influencerId) === id)) {
+    } else if (approvedCards.some(cardMatchesFocus)) {
       setStatusFilter("approved");
-    } else if (rejectedCards.some((a) => String(a.influencerId) === id)) {
+    } else if (rejectedCards.some(cardMatchesFocus)) {
       setStatusFilter("rejected");
     }
 
@@ -626,17 +652,6 @@ export function CurationTab({
     }
   };
 
-  const getSocialNetworkIcon = (networkType?: string) => {
-    const icons: { [key: string]: keyof typeof import("lucide-react").icons } = {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
-    return icons[networkType?.toLowerCase() || ""] || "Share2";
-  };
-
   const getNicheName = (nicheId: string) => {
     if (!nicheId) return null;
     const n = niches.find((x) => x.id.toString() === nicheId.toString());
@@ -831,61 +846,101 @@ export function CurationTab({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredApplications.map((app) => {
-                const followers = app.profileFollowers > 0 ? app.profileFollowers : app.influencerFollowers;
+                const rawFollowers =
+                  app.profileFollowers != null && app.profileFollowers > 0
+                    ? app.profileFollowers
+                    : app.influencerFollowers;
+                const followers = Number(rawFollowers ?? 0);
+                const engagementDisplay =
+                  app.influencerEngagement != null &&
+                  !Number.isNaN(Number(app.influencerEngagement))
+                    ? `${Number(app.influencerEngagement)}%`
+                    : "—";
                 const nicheName = getNicheName(app.influencerNiche);
                 const isPending = app.profileStatus === "curation";
 
                 return (
                   <div
                     key={app.profileKey}
-                    className={`relative bg-neutral-100 rounded-xl p-4 flex flex-col gap-5 border transition-colors ${selectedInfluencers.has(app.profileKey) && isPending
+                    className={`bg-neutral-100 rounded-xl p-3 flex flex-col gap-5 border transition-colors ${
+                      selectedInfluencers.has(app.profileKey) && isPending
                         ? "border-primary-500 ring-1 ring-primary-200"
                         : "border-transparent"
-                      }`}
+                    }`}
                   >
-                    <div className="relative flex items-start justify-between">
-                      <img
-                        src={getUploadUrl(app.influencerAvatar) ?? undefined}
-                        alt={app.influencerName}
-                        className="size-[60px] rounded-2xl object-cover bg-neutral-200"
-                      />
+                    {/* Mesmo layout que ApplicationCard (inscrições) */}
+                    <div className="flex items-center justify-between">
+                      <div className="relative shrink-0">
+                        <img
+                          src={getUploadUrl(app.influencerAvatar) ?? undefined}
+                          alt={app.influencerName}
+                          className="size-[60px] rounded-2xl object-cover bg-neutral-200"
+                        />
+                        <SocialNetworkCornerBadge
+                          networkType={app.profileType}
+                          title={app.profileTypeLabel}
+                        />
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectApplication(app.profileKey)}
+                            className="absolute -left-2 -top-2 flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm"
+                            aria-pressed={selectedInfluencers.has(app.profileKey)}
+                          >
+                            {selectedInfluencers.has(app.profileKey) ? (
+                              <Icon
+                                name="Check"
+                                size={14}
+                                color="var(--color-primary-600)"
+                                className="text-primary-600"
+                              />
+                            ) : (
+                              <div className="size-3 rounded-full border-2 border-neutral-300" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <button
                         type="button"
-                        className="size-10 rounded-lg bg-warning-200 flex items-center justify-center shrink-0"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#ffdf2a]"
                         aria-label="Salvar"
                       >
-                        <Icon name="Bookmark" size={20} color="var(--color-warning-700)" />
+                        <Icon name="Bookmark" size={24} color="#171717" />
                       </button>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-lg font-medium text-neutral-950 truncate">
+
+                    <div className="flex flex-col gap-0.5">
+                      <p className="truncate text-lg font-medium leading-6 text-neutral-950">
                         {app.influencerName}
                       </p>
-                      <p className="text-sm text-neutral-500 truncate">
+                      <p className="truncate text-sm leading-5 text-neutral-500">
                         @{app.profileUsername}
                       </p>
                     </div>
+
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-neutral-200 rounded-lg p-3">
-                        <p className="text-xs text-neutral-500">Seguidores</p>
-                        <p className="text-sm font-semibold text-neutral-950">
+                      <div className="flex flex-col gap-1 rounded-lg bg-neutral-200 p-3">
+                        <p className="text-sm text-neutral-500">Seguidores</p>
+                        <p className="text-xl font-medium text-neutral-950">
                           {followers.toLocaleString("pt-BR")}
                         </p>
                       </div>
-                      <div className="bg-neutral-200 rounded-lg p-3">
-                        <p className="text-xs text-neutral-500">Engajamento</p>
-                        <p className="text-sm font-semibold text-neutral-950">
-                          {app.influencerEngagement}%
+                      <div className="flex flex-col gap-1 rounded-lg bg-neutral-200 p-3">
+                        <p className="text-sm text-neutral-500">Engajamento</p>
+                        <p className="text-xl font-medium text-neutral-950">
+                          {engagementDisplay}
                         </p>
                       </div>
                     </div>
+
                     {nicheName && (
-                      <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-primary-100 text-primary-600 text-sm font-medium w-fit">
-                        {nicheName}
-                      </span>
+                      <div className="rounded-xl bg-primary-100 px-3 py-3">
+                        <p className="text-sm font-normal text-primary-600">{nicheName}</p>
+                      </div>
                     )}
-                    <div className="space-y-4 pt-1">
-                      <p className="text-sm font-medium text-neutral-500">
+
+                    <div className="flex flex-col gap-3">
+                      <p className="text-base font-medium text-neutral-500 leading-5">
                         {app.profileStatus === "curation"
                           ? "Enviado em: —"
                           : app.profileStatus === "approved"
@@ -894,68 +949,70 @@ export function CurationTab({
                       </p>
                       {isPending ? (
                         <>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
                             <Button
                               onClick={() => handleApprove(app)}
-                              className="flex-1 h-11 rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0 w-min"
+                              className="h-11 rounded-full border-0 bg-primary-600 text-base font-semibold text-white hover:bg-primary-700"
                             >
-                              <Icon name="Check" size={20} color="#fff"/>
+                              <Icon name="Check" size={24} color="#fafafa" />
                               Aprovar
                             </Button>
                             <Button
                               variant="outline"
                               onClick={() => handleReject(app)}
-                              className="flex-1 h-11 rounded-full font-semibold text-neutral-600 border-neutral-200 hover:bg-neutral-50 w-min"
+                              className="h-11 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
                             >
-                              <Icon name="X" size={20} color="#525252"/>
+                              <Icon name="X" size={24} color="#525252" />
                               Reprovar
                             </Button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigate({
-                                to: "/campaigns/$campaignId/influencer/$influencerId",
-                                params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
-                              });
-                            }}
-                            className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 underline"
-                          >
-                            <Icon name="ExternalLink" size={16} color="#737373" />
-                            Ver perfil
-                          </button>
+                          <div className="flex flex-wrap items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigate({
+                                  to: "/campaigns/$campaignId/influencer/$influencerId",
+                                  params: {
+                                    campaignId: campaignId ?? "",
+                                    influencerId: app.influencerId,
+                                  },
+                                });
+                              }}
+                              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+                            >
+                              <Icon name="Link" size={24} color="#737373" />
+                              Ver perfil
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <p className="text-sm font-medium text-neutral-600">
+                          <p className="text-base font-medium text-neutral-600">
                             {app.profileStatus === "approved"
                               ? "Aprovado para campanha"
                               : "× Reprovado"}
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigate({
-                                to: "/campaigns/$campaignId/influencer/$influencerId",
-                                params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
-                              });
-                            }}
-                            className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 underline"
-                          >
-                            <Icon name="ExternalLink" size={16} color="#737373" />
-                            Ver perfil
-                          </button>
+                          <div className="flex flex-wrap items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigate({
+                                  to: "/campaigns/$campaignId/influencer/$influencerId",
+                                  params: {
+                                    campaignId: campaignId ?? "",
+                                    influencerId: app.influencerId,
+                                  },
+                                });
+                              }}
+                              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
+                            >
+                              <Icon name="Link" size={24} color="#737373" />
+                              Ver perfil
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>
-                    {isPending && (
-                      <div className="absolute top-2 left-2">
-                        <Checkbox
-                          checked={selectedInfluencers.has(app.profileKey)}
-                          onCheckedChange={() => handleSelectApplication(app.profileKey)}
-                        />
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -1074,10 +1131,10 @@ export function CurationTab({
                         className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
                       >
                         <div className="flex items-center gap-3">
-                          <Icon
-                            name={getSocialNetworkIcon(network.type)}
-                            color="#404040"
+                          <SocialNetworkIcon
+                            networkType={network.type}
                             size={20}
+                            color="#404040"
                           />
                           <div>
                             <p className="text-sm font-semibold text-neutral-950">
@@ -1129,13 +1186,16 @@ export function CurationTab({
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Seguidores totais</p>
                 <p className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.followers.toLocaleString("pt-BR")}
+                  {Number(selectedProfileInfluencer.followers ?? 0).toLocaleString("pt-BR")}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
                 <p className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.engagement}%
+                  {selectedProfileInfluencer.engagement != null &&
+                  !Number.isNaN(Number(selectedProfileInfluencer.engagement))
+                    ? `${Number(selectedProfileInfluencer.engagement)}%`
+                    : "—"}
                 </p>
               </div>
               <div className="col-span-2">

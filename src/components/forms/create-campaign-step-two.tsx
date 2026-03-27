@@ -279,7 +279,8 @@ export function CreateCampaignStepTwo({
           Perfil dos influenciadores
         </h2>
         <p className="text-lg leading-8 text-[#404040]">
-          Defina o perfil mínimo dos influenciadores para esta campanha.
+          Defina o perfil mínimo dos influenciadores para esta campanha. Segmentação
+          por seguidores, localização e gênero é opcional.
         </p>
       </div>
 
@@ -305,7 +306,8 @@ export function CreateCampaignStepTwo({
           <div className="flex flex-1 items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
             <div className="flex flex-1 flex-col gap-2">
               <p className="text-lg font-medium text-black">
-                Deseja segmentar seguidores?
+                Deseja segmentar seguidores?{" "}
+                <span className="font-normal text-[#626262]">(opcional)</span>
               </p>
               <p className="text-base text-[#626262]">
                 Ative para filtrar influenciadores com base em seus seguidores
@@ -320,7 +322,7 @@ export function CreateCampaignStepTwo({
           {segmentFollowers && (
             <div className="flex flex-col gap-1">
               <label className={labelClass}>
-                Quantidade mínima de seguidores
+                Quantidade mínima de seguidores (opcional)
               </label>
               <input
                 type="text"
@@ -397,7 +399,9 @@ export function CreateCampaignStepTwo({
       <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
         <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
           <div className="flex flex-1 flex-col gap-2">
-            <p className="text-lg font-medium text-black">Localização</p>
+            <p className="text-lg font-medium text-black">
+              Localização <span className="font-normal text-[#626262]">(opcional)</span>
+            </p>
             <p className="text-base text-[#404040]">
               Defina onde os influenciadores devem estar. A cidade depende do
               estado
@@ -442,7 +446,8 @@ export function CreateCampaignStepTwo({
         <div className="flex items-center gap-6 rounded-[16px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
           <div className="flex flex-1 flex-col gap-2">
             <p className="text-lg font-medium text-black">
-              Segmentar por gênero
+              Segmentar por gênero{" "}
+              <span className="font-normal text-[#626262]">(opcional)</span>
             </p>
             <p className="text-base text-[#404040]">
               Selecione o gênero do influenciador aceito para a campanha

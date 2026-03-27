@@ -1,21 +1,25 @@
 import { useState, useMemo } from "react";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Filler,
   Tooltip,
+  Legend,
   type ChartOptions,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
+import { getUploadUrl } from "@/lib/utils/api";
 import type {
   CampaignContent,
   ContentMetrics,
@@ -23,7 +27,16 @@ import type {
   CampaignPhase,
 } from "@/shared/types";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 const TIME_RANGE_OPTIONS = [
   { value: "all", label: "Geral" },
@@ -57,6 +70,11 @@ interface EngagementDayData {
   interactions: number;
 }
 
+/** Placeholder alinhado ao Figma até a API enviar faixa etária por rede */
+const DEMO_AGE_LABELS = ["18-29", "30-49", "50-64", "+65"];
+const DEMO_INSTAGRAM_PCT = [85, 55, 28, 12];
+const DEMO_YOUTUBE_PCT = [92, 60, 32, 15];
+
 function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   const chartData = {
     labels: WEEKDAYS,
@@ -80,6 +98,7 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
     plugins: {
       tooltip: {
         backgroundColor: "#f9f9f9",
@@ -88,15 +107,17 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
         padding: 10,
         cornerRadius: 4,
         displayColors: false,
+        titleFont: { size: 14, weight: "normal" },
+        bodyFont: { size: 14 },
         callbacks: {
           title(tooltipItems) {
             const idx = tooltipItems[0]?.dataIndex ?? 0;
             return FULL_DAY_NAMES[idx] ?? "";
           },
-          afterBody(tooltipItems) {
-            const idx = tooltipItems[0]?.dataIndex ?? 0;
+          label(tooltipItem) {
+            const idx = tooltipItem.dataIndex ?? 0;
             const d = data[idx];
-            if (!d) return [];
+            if (!d) return "";
             return [
               `Taxa de Engajamento: ${d.engagement.toFixed(1)}%`,
               `Total de Interações: ${d.interactions.toLocaleString("pt-BR")}`,
@@ -112,7 +133,7 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
         grid: { display: false },
         ticks: {
           color: "#646464",
-          font: { size: 14 },
+          font: { size: 14, family: "DM Sans, sans-serif" },
         },
       },
       y: {
@@ -129,11 +150,95 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   return <Line data={chartData} options={options} />;
 }
 
+function DemographicsBarChart() {
+  const chartData = {
+    labels: DEMO_AGE_LABELS,
+    datasets: [
+      {
+        label: "Instagram",
+        data: DEMO_INSTAGRAM_PCT,
+        backgroundColor: "#278cff",
+        borderRadius: 12,
+        borderSkipped: false,
+        maxBarThickness: 36,
+      },
+      {
+        label: "Youtube",
+        data: DEMO_YOUTUBE_PCT,
+        backgroundColor: "#ff633c",
+        borderRadius: 12,
+        borderSkipped: false,
+        maxBarThickness: 36,
+      },
+    ],
+  };
+
+  const options: ChartOptions<"bar"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#f9f9f9",
+        titleColor: "#202020",
+        bodyColor: "#202020",
+        padding: 10,
+        cornerRadius: 4,
+        displayColors: true,
+        boxPadding: 4,
+        callbacks: {
+          title(items) {
+            const age = items[0]?.label ?? "";
+            return age;
+          },
+          label(ctx) {
+            const label = ctx.dataset.label ?? "";
+            const v = ctx.parsed.y;
+            return `${label}: ${v}%`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: "#202020", font: { size: 16 } },
+      },
+      y: {
+        beginAtZero: true,
+        max: 100,
+        grid: { color: "#d8d8d8" },
+        ticks: {
+          color: "#646464",
+          callback: (v) => `${v}%`,
+        },
+      },
+    },
+  };
+
+  return <Bar data={chartData} options={options} />;
+}
+
 interface MetricsTabProps {
   contents: CampaignContent[];
   metrics: { [contentId: string]: ContentMetrics };
   campaignPhases?: CampaignPhase[];
   identifiedPosts?: IdentifiedPost[];
+}
+
+const CITY_PLACEHOLDERS = [
+  { rank: 1, name: "Curitiba", cardClass: "bg-[#f0ffed]", circleClass: "bg-emerald-200 text-[#3b3b3b]" },
+  { rank: 2, name: "São Paulo", cardClass: "bg-[#f9ffd5]", circleClass: "bg-amber-200 text-[#3b3b3b]" },
+  { rank: 3, name: "Fortaleza", cardClass: "bg-[#eefcff]", circleClass: "bg-sky-200 text-[#3b3b3b]" },
+  { rank: 4, name: "Sorocaba", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-[#3b3b3b]" },
+  { rank: 5, name: "Minas Gerais", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
+] as const;
+
+function ageBracketForMaxPercent(values: number[]): string {
+  const i = values.indexOf(Math.max(...values));
+  const raw = DEMO_AGE_LABELS[i] ?? "—";
+  if (raw === "—") return raw;
+  return raw.replace("-", "–");
 }
 
 export function MetricsTab({
@@ -142,12 +247,20 @@ export function MetricsTab({
   campaignPhases = [],
   identifiedPosts: propsIdentifiedPosts = [],
 }: MetricsTabProps) {
+  const navigate = useNavigate();
+  const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const [selectedContent, setSelectedContent] = useState<CampaignContent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [selectedSocialFilter, setSelectedSocialFilter] = useState<string>("all");
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>("all");
   const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
+
+  const topInstagramAge = useMemo(
+    () => ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT),
+    []
+  );
+  const topYoutubeAge = useMemo(() => ageBracketForMaxPercent(DEMO_YOUTUBE_PCT), []);
 
   const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
@@ -300,21 +413,13 @@ export function MetricsTab({
 
   return (
     <>
-      <div className="flex flex-col gap-8">
-        {/* Section header */}
-        <div>
-          <h2 className="text-2xl font-semibold text-[#0A0A0A]">Métricas e conteúdos</h2>
-          <p className="text-sm text-[#7c7c7c] mt-1">
-            Acompanhe as métricas gerais da campanha, os principais influenciadores e os conteúdos publicados.
-          </p>
-        </div>
-
-        {/* Card 1: Métricas totais */}
-        <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-2xl font-semibold text-black">Métricas totais</h3>
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="w-[200px] min-w-0">
+      <div className="flex flex-col gap-6">
+        {/* Métricas totais — Figma 2482:21951 */}
+        <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <h3 className="text-2xl font-semibold text-black shrink-0">Métricas totais</h3>
+            <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-start lg:gap-2">
+              <div className="min-w-0 w-full max-w-[354px] lg:w-[min(354px,100%)]">
                 <Select
                   placeholder="Rede Social"
                   options={socialNetworks}
@@ -322,7 +427,7 @@ export function MetricsTab({
                   onChange={setSelectedSocialFilter}
                 />
               </div>
-              <div className="w-[200px] min-w-0">
+              <div className="min-w-0 w-full max-w-[354px] lg:w-[min(354px,100%)]">
                 <Select
                   placeholder="Fase"
                   options={phaseOptions}
@@ -330,16 +435,16 @@ export function MetricsTab({
                   onChange={setSelectedPhaseFilter}
                 />
               </div>
-              <div className="bg-[#f5f5f5] flex items-center p-1 rounded-[32px]">
+              <div className="bg-[#f5f5f5] inline-flex flex-wrap items-center gap-0 rounded-[32px] p-1 self-start">
                 {TIME_RANGE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setSelectedTimeRange(opt.value)}
-                    className={`px-4 py-2.5 rounded-[24px] text-sm font-medium transition-colors ${
+                    className={`px-4 py-2.5 rounded-[24px] text-sm font-medium transition-colors min-w-18 ${
                       selectedTimeRange === opt.value
-                        ? "bg-primary-600 text-white"
-                        : "text-[#646464] hover:bg-white/50"
+                        ? "bg-primary-600/90 text-white shadow-sm"
+                        : "text-[#646464] hover:bg-white/60"
                     }`}
                   >
                     {opt.label}
@@ -349,61 +454,118 @@ export function MetricsTab({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            <div className="bg-[#f2f2f2] rounded-lg px-4 pt-3 pb-5 flex flex-col gap-8 min-w-[200px] flex-1 max-w-[362px]">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#c8f5ff] rounded-lg size-9 flex items-center justify-center">
-                  <Icon name="Eye" color="#0A0A0A" size={24} />
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="bg-[#f2f2f2] rounded-lg border-t-4 border-t-[#c8f5ff] px-4 pt-3 pb-5 flex flex-col gap-8">
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#c8f5ff] rounded-lg size-9 flex items-center justify-center shrink-0">
+                    <Icon name="Eye" color="#0A0A0A" size={24} />
+                  </div>
+                  <span className="text-base font-medium text-black">Visualizações</span>
                 </div>
-                <span className="text-base font-medium text-black">Visualizações</span>
+                <p className="text-2xl font-bold text-black tabular-nums">
+                  {totalMetrics.views.toLocaleString("pt-BR")}
+                </p>
               </div>
-              <p className="text-2xl font-bold text-black">
-                {totalMetrics.views.toLocaleString("pt-BR")}
-              </p>
+              <div className="bg-[#f2f2f2] rounded-lg border-t-4 border-t-[#ceffc8] px-4 pt-3 pb-5 flex flex-col gap-8">
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#ceffc8] rounded-lg size-9 flex items-center justify-center shrink-0">
+                    <Icon name="ThumbsUp" color="#0A0A0A" size={24} />
+                  </div>
+                  <span className="text-base font-medium text-black">Curtidas</span>
+                </div>
+                <p className="text-2xl font-bold text-black tabular-nums">
+                  {totalMetrics.likes.toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <div className="bg-[#f2f2f2] rounded-lg border-t-4 border-t-[#ffffc8] px-4 pt-3 pb-5 flex flex-col gap-8">
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#ffffc8] rounded-lg size-9 flex items-center justify-center shrink-0">
+                    <Icon name="MessageCircle" color="#0A0A0A" size={24} />
+                  </div>
+                  <span className="text-base font-medium text-black">Comentários</span>
+                </div>
+                <p className="text-2xl font-bold text-black tabular-nums">
+                  {totalMetrics.comments.toLocaleString("pt-BR")}
+                </p>
+              </div>
             </div>
-            <div className="bg-[#f2f2f2] rounded-lg px-4 pt-3 pb-5 flex flex-col gap-8 min-w-[200px] flex-1 max-w-[362px]">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#ceffc8] rounded-lg size-9 flex items-center justify-center">
-                  <Icon name="ThumbsUp" color="#0A0A0A" size={24} />
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px]">
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#fac8ff] rounded-lg size-9 flex items-center justify-center shrink-0">
+                    <Icon name="ChartLine" color="#0A0A0A" size={24} />
+                  </div>
+                  <span className="text-base font-medium text-black">Engajamento</span>
                 </div>
-                <span className="text-base font-medium text-black">Curtidas</span>
-              </div>
-              <p className="text-2xl font-bold text-black">
-                {totalMetrics.likes.toLocaleString("pt-BR")}
-              </p>
-            </div>
-            <div className="bg-[#f2f2f2] rounded-lg px-4 pt-3 pb-5 flex flex-col gap-8 min-w-[200px] flex-1 max-w-[362px]">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#ffffc8] rounded-lg size-9 flex items-center justify-center">
-                  <Icon name="MessageCircle" color="#0A0A0A" size={24} />
+                <div className="h-[260px] w-full min-h-0 flex-1">
+                  <EngagementLineChart data={engagementChartData} />
                 </div>
-                <span className="text-base font-medium text-black">Comentários</span>
               </div>
-              <p className="text-2xl font-bold text-black">
-                {totalMetrics.comments.toLocaleString("pt-BR")}
-              </p>
-            </div>
-            <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 flex-1 min-w-[280px]">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#fac8ff] rounded-lg size-9 flex items-center justify-center">
-                  <Icon name="ChartLine" color="#0A0A0A" size={24} />
+
+              <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[17px] text-[#646464]">Maior público Instagram</p>
+                    <p className="text-2xl font-bold text-black">{topInstagramAge} anos</p>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:text-right">
+                    <p className="text-[17px] text-[#646464]">Maior público YouTube</p>
+                    <p className="text-2xl font-bold text-black">{topYoutubeAge} anos</p>
+                  </div>
                 </div>
-                <span className="text-base font-medium text-black">Engajamento</span>
-              </div>
-              <div className="h-[220px] w-full">
-                <EngagementLineChart data={engagementChartData} />
+                <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
+                  <div className="flex items-center gap-2">
+                    <span className="size-4 rounded bg-[#ff633c]" aria-hidden />
+                    <span>Youtube</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="size-4 rounded bg-[#278cff]" aria-hidden />
+                    <span>Instagram</span>
+                  </div>
+                </div>
+                <div className="h-[220px] w-full min-h-0 flex-1">
+                  <DemographicsBarChart />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Top 4 influenciadores */}
-        <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
+        {/* Cidades com melhor performance — Figma 2487:18050 */}
+        <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
+          <h3 className="text-2xl font-semibold text-black">Cidades com melhor performance</h3>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            {CITY_PLACEHOLDERS.map((city) => (
+              <div
+                key={city.rank}
+                className={`flex flex-1 flex-col gap-5 min-w-[170px] rounded-xl px-3 pt-4 pb-5 ${city.cardClass}`}
+              >
+                <div className="flex items-center justify-center gap-2.5">
+                  <div
+                    className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${city.circleClass}`}
+                  >
+                    <span className="text-xl font-medium">{city.rank}</span>
+                  </div>
+                  <p className="text-lg font-medium text-black">{city.name}</p>
+                </div>
+                <p className="text-lg font-medium text-black text-center">1,2k de engajamento</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-neutral-500">
+            Ranking ilustrativo. Dados por cidade serão exibidos quando a API estiver disponível.
+          </p>
+        </div>
+
+        {/* Top 4 influenciadores — Figma 2663:18565 */}
+        <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
             <h3 className="text-2xl font-semibold text-black">Top 4 influenciadores</h3>
             <button
               type="button"
-              className="text-base text-[#7c7c7c] underline hover:text-black"
+              className="text-base text-[#7c7c7c] underline decoration-solid hover:text-black"
             >
               Ver mais
             </button>
@@ -418,44 +580,51 @@ export function MetricsTab({
                 const engagementAvg =
                   m.engagementCount > 0 ? (m.engagementSum / m.engagementCount).toFixed(1) : "0";
                 const socialNetworksList = Array.from(
-                  new Set(getInfluencerContents(inf.influencerId).map((c) => c.socialNetwork))
+                  new Set(
+                    getInfluencerContents(inf.influencerId)
+                      .map((c) => c.socialNetwork)
+                      .filter(Boolean)
+                  )
                 );
+                const avatarSrc = getUploadUrl(inf.influencerAvatar) ?? inf.influencerAvatar;
                 return (
                   <div
                     key={inf.influencerId}
-                    className="flex flex-col gap-5 p-3 rounded-[12px] min-w-[260px] flex-1 max-w-[320px]"
+                    className="flex min-w-[260px] flex-1 flex-col gap-5 rounded-xl p-3"
                     style={{ backgroundColor: top4CardBg[idx] ?? "#f2f2f2" }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full items-center gap-2">
                       <img
-                        src={inf.influencerAvatar}
+                        src={avatarSrc}
                         alt={inf.influencerName}
-                        className="size-10 rounded-lg object-cover"
+                        className="size-10 shrink-0 rounded-lg object-cover bg-neutral-200"
                       />
-                      <p className="text-lg font-medium text-black truncate">{inf.influencerName}</p>
+                      <p className="truncate text-lg font-medium text-black">{inf.influencerName}</p>
                     </div>
-                    <div className="flex flex-wrap gap-y-6 justify-between">
-                      <div className="flex flex-col gap-3 min-w-[100px]">
+                    <div className="flex flex-wrap content-center items-center justify-between gap-y-6">
+                      <div className="flex min-w-[115px] flex-col gap-3">
                         <p className="text-sm text-[#4d4d4d]">Ranking</p>
                         <p className="text-lg font-medium" style={{ color: rankingColors[idx] ?? "#0A0A0A" }}>
                           {idx + 1}º
                         </p>
                       </div>
-                      <div className="flex flex-col gap-3 items-end min-w-[100px]">
+                      <div className="flex min-w-[115px] flex-col items-end gap-3">
                         <p className="text-sm text-[#4d4d4d]">Post</p>
-                        <p className="text-lg font-medium text-black">1/{contentsCount || 1}</p>
+                        <p className="text-lg font-medium text-black">
+                          1/{contentsCount || 1}
+                        </p>
                       </div>
-                      <div className="flex flex-col gap-3 min-w-[100px]">
+                      <div className="flex min-w-[115px] flex-col gap-3">
                         <p className="text-sm text-[#4d4d4d]">Alcance / Visu</p>
                         <p className="text-lg font-medium text-black">{formatCompact(m.views)}</p>
                       </div>
-                      <div className="flex flex-col gap-3 items-end">
+                      <div className="flex flex-col items-end gap-3">
                         <p className="text-sm text-[#4d4d4d]">Engajamento</p>
                         <p className="text-lg font-medium text-black">{engagementAvg}%</p>
                       </div>
                       <div className="flex flex-col gap-3">
                         <p className="text-sm text-[#4d4d4d]">Rede social</p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2.5">
                           {socialNetworksList.slice(0, 3).map((sn) => (
                             <Icon
                               key={sn}
@@ -466,24 +635,31 @@ export function MetricsTab({
                           ))}
                         </div>
                       </div>
-                      <div className="flex flex-col gap-3 items-end">
+                      <div className="flex flex-col items-end gap-3">
                         <p className="text-sm text-[#4d4d4d]">Status</p>
-                        <span className="bg-[#ceffc4] px-4 py-2 rounded-[32px] text-base text-black">
+                        <span className="rounded-[32px] bg-[#ceffc4] px-4 py-2 text-base font-normal text-black">
                           Concluído
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex w-full items-center justify-between gap-2">
                       <button
                         type="button"
-                        className="flex items-center gap-1 text-[#4d4d4d] text-base font-medium underline"
+                        className="flex items-center gap-1 text-base font-medium text-[#4d4d4d] underline decoration-solid"
                       >
-                        <Icon name="TrendingUp" color="#4d4d4d" size={24} />
-                        % Performance
+                        <Icon name="Wallet" color="#4d4d4d" size={24} />
+                        Performance
                       </button>
                       <button
                         type="button"
-                        className="flex items-center gap-1 text-[#4d4d4d] text-base font-medium underline"
+                        onClick={() => {
+                          if (!campaignId) return;
+                          navigate({
+                            to: "/campaigns/$campaignId/influencer/$influencerId",
+                            params: { campaignId, influencerId: inf.influencerId },
+                          });
+                        }}
+                        className="flex items-center gap-1 text-base font-medium text-[#4d4d4d] underline decoration-solid hover:text-neutral-950"
                       >
                         <Icon name="Link" color="#4d4d4d" size={24} />
                         Ver perfil
@@ -496,13 +672,13 @@ export function MetricsTab({
           </div>
         </div>
 
-        {/* Card 3: Conteúdos publicados */}
-        <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
+        {/* Conteúdos publicados — Figma 2488:17504 */}
+        <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
             <h3 className="text-2xl font-semibold text-black">Conteúdos publicados</h3>
             <button
               type="button"
-              className="text-base text-[#7c7c7c] underline hover:text-black"
+              className="text-base text-[#7c7c7c] underline decoration-solid hover:text-black"
             >
               Ver mais
             </button>
@@ -519,76 +695,84 @@ export function MetricsTab({
                 const phaseOrder =
                   content.phase?.order ??
                   ((campaignPhases.findIndex((p) => p.id === content.phase_id) + 1) || "?");
+                const avatarSrc =
+                  getUploadUrl(content.influencerAvatar) ?? content.influencerAvatar;
+                const previewSrc = getUploadUrl(content.previewUrl) ?? content.previewUrl;
                 return (
                   <div
                     key={content.id}
-                    className="bg-[#f2f2f2] rounded-[12px] p-3 flex flex-col gap-5 min-w-[260px] w-[270px] cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleContentClick(content)}
+                    className="flex min-w-[260px] w-[min(270px,100%)] flex-col gap-5 rounded-xl bg-[#f2f2f2] p-3 transition-shadow hover:shadow-md"
                   >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={content.influencerAvatar}
-                        alt={content.influencerName}
-                        className="size-10 rounded-lg object-cover"
-                      />
-                      <p className="text-lg font-medium text-black truncate">{content.influencerName}</p>
-                    </div>
-                    <div className="h-[137px] rounded-lg overflow-hidden bg-[#e5e5e5]">
-                      {content.previewUrl ? (
+                    <button
+                      type="button"
+                      className="flex w-full flex-col gap-5 text-left"
+                      onClick={() => handleContentClick(content)}
+                    >
+                      <div className="flex w-full items-center gap-2">
                         <img
-                          src={content.previewUrl}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
+                          src={avatarSrc}
+                          alt={content.influencerName}
+                          className="size-10 shrink-0 rounded-lg object-cover bg-neutral-200"
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Icon name="Image" color="#A3A3A3" size={32} />
+                        <p className="truncate text-lg font-medium text-black">{content.influencerName}</p>
+                      </div>
+                      <div className="h-[137px] w-full overflow-hidden rounded-lg bg-[#e5e5e5]">
+                        {previewSrc ? (
+                          <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Icon name="Image" color="#A3A3A3" size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap content-center items-center justify-between gap-y-6">
+                        <div className="flex min-w-[115px] flex-col gap-3">
+                          <p className="text-sm text-[#4d4d4d]">Fase</p>
+                          <p className="text-lg font-medium text-black">{phaseOrder}</p>
                         </div>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-y-5 justify-between">
-                      <div className="flex flex-col gap-3 min-w-[100px]">
-                        <p className="text-sm text-[#4d4d4d]">Fase</p>
-                        <p className="text-lg font-medium text-black">{phaseOrder}</p>
+                        <div className="flex min-w-[115px] flex-col items-end gap-3">
+                          <p className="text-sm text-[#4d4d4d]">Data da postagem</p>
+                          <p className="text-lg font-medium text-black">
+                            {(content.publishedAt ?? content.published_at)
+                              ? new Date(
+                                  (content.publishedAt ?? content.published_at) as string
+                                ).toLocaleDateString("pt-BR")
+                              : "-"}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          <p className="text-sm text-[#4d4d4d]">Curtidas</p>
+                          <p className="text-lg font-medium text-black">
+                            {contentMetrics ? formatCompact(contentMetrics.likes) : "-"}
+                          </p>
+                        </div>
+                        <div className="flex min-w-[115px] flex-col items-end gap-3">
+                          <p className="text-sm text-[#4d4d4d]">Alcance / Visu</p>
+                          <p className="text-lg font-medium text-black">
+                            {contentMetrics ? formatCompact(contentMetrics.views) : "-"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-3 items-end min-w-[100px]">
-                        <p className="text-sm text-[#4d4d4d]">Data da postagem</p>
-                        <p className="text-lg font-medium text-black">
-                          {(content.publishedAt ?? content.published_at)
-                            ? new Date((content.publishedAt ?? content.published_at) as string).toLocaleDateString("pt-BR")
-                            : "-"}
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-3 min-w-[100px]">
-                        <p className="text-sm text-[#4d4d4d]">Curtidas</p>
-                        <p className="text-lg font-medium text-black">
-                          {contentMetrics ? formatCompact(contentMetrics.likes) : "-"}
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-3 items-end min-w-[100px]">
-                        <p className="text-sm text-[#4d4d4d]">Alcance / Visu</p>
-                        <p className="text-lg font-medium text-black">
-                          {contentMetrics ? formatCompact(contentMetrics.views) : "-"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
+                    </button>
+                    <div className="flex items-center">
                       <Icon
                         name={getSocialNetworkIcon(content.socialNetwork)}
                         color="#4d4d4d"
                         size={20}
                       />
                     </div>
-                    <button
-                      type="button"
-                      className="text-[#4d4d4d] text-base font-medium underline text-left"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (content.postUrl) window.open(content.postUrl, "_blank");
-                      }}
-                    >
-                      Visualizar postagem
-                    </button>
+                    <div className="flex w-full justify-center border-t border-transparent pt-1">
+                      <button
+                        type="button"
+                        className="text-center text-base font-medium text-[#4d4d4d] underline decoration-solid hover:text-neutral-950"
+                        onClick={() => {
+                          if (content.postUrl) window.open(content.postUrl, "_blank");
+                          else handleContentClick(content);
+                        }}
+                      >
+                        Visualizar postagem
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -597,7 +781,7 @@ export function MetricsTab({
         </div>
 
         {/* Publicações identificadas */}
-        <div className="bg-white rounded-[12px] p-5 border border-[#e5e5e5]">
+        <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-neutral-950">
@@ -722,7 +906,7 @@ export function MetricsTab({
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
                 <Avatar
-                  src={selectedContent.influencerAvatar}
+                  src={getUploadUrl(selectedContent.influencerAvatar) ?? selectedContent.influencerAvatar}
                   alt={selectedContent.influencerName}
                   size="lg"
                 />
@@ -739,7 +923,7 @@ export function MetricsTab({
               <div className="rounded-xl overflow-hidden bg-neutral-200 aspect-video">
                 {selectedContent.previewUrl ? (
                   <img
-                    src={selectedContent.previewUrl}
+                    src={getUploadUrl(selectedContent.previewUrl) ?? selectedContent.previewUrl}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />

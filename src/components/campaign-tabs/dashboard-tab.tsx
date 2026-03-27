@@ -211,6 +211,32 @@ function timestampFromPublishDate(dateStr: string): number {
   return new Date(y, mo - 1, d).getTime();
 }
 
+/** Data a partir de `publish_date` / postDate (YYYY-MM-DD). */
+function formatPhasePublishDatePtBr(
+  dateStr: string | undefined | null,
+  style: "short" | "long"
+): string {
+  if (!dateStr?.trim()) return "-";
+  const t = timestampFromPublishDate(dateStr);
+  if (!Number.isFinite(t)) return "-";
+  return new Date(t).toLocaleDateString(
+    "pt-BR",
+    style === "long"
+      ? { day: "2-digit", month: "long", year: "numeric" }
+      : { day: "2-digit", month: "2-digit", year: "numeric" }
+  );
+}
+
+/** `publish_time` da API (`HH:MM` ou `HH:MM:SS`) → exibição HH:MM */
+function formatPhasePublishTimePtBr(timeStr: string | undefined | null): string {
+  if (timeStr == null) return "";
+  const t = String(timeStr).trim();
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(t);
+  if (!m) return t;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
 /** Data local do instante de criação (created_at ISO). */
 function timestampFromPhaseCreatedAt(iso: string): number {
   const dt = new Date(iso);
@@ -450,6 +476,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
               <div className="border-t border-[#E5E5E5]">
                 {campaign.phases.slice(0, 5).map((phase, index) => {
                   const isExpanded = expandedPhases.has(phase.id);
+                  const timeLabel = formatPhasePublishTimePtBr(phase.postTime);
                   return (
                     <div key={phase.id} className="border-b border-[#E5E5E5] last:border-b-0">
                       <button
@@ -464,7 +491,8 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
                             textColor="text-primary-900"
                           />
                           <span className="text-base text-neutral-500">
-                            {phase.postDate ? new Date(phase.postDate).toLocaleDateString("pt-BR") : "-"}
+                            {formatPhasePublishDatePtBr(phase.postDate, "short")}
+                            {timeLabel ? ` · ${timeLabel}` : ""}
                           </span>
                         </div>
                         <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} size={16} color="#404040" />
@@ -483,8 +511,8 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
                             <div>
                               <p className="text-sm text-neutral-500 mb-1">Data e horário da postagem</p>
                               <p className="text-base text-neutral-950">
-                                {phase.postDate ? new Date(phase.postDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "-"}
-                                {phase.postTime ? ` às ${phase.postTime}` : ""}
+                                {formatPhasePublishDatePtBr(phase.postDate, "long")}
+                                {timeLabel ? ` às ${timeLabel}` : ""}
                               </p>
                             </div>
                             {phase.formats && phase.formats.length > 0 && (
