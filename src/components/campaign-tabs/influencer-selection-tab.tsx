@@ -27,6 +27,7 @@ import { ListSelector } from "@/components/influencer-lists/list-selector";
 import {
   getInfluencerProfiles,
   getCampaignInfluencerInvitableProfiles,
+  type InfluencerProfile,
 } from "@/shared/services/influencer";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -547,7 +548,7 @@ export function InfluencerSelectionTab({
   }, [allProfilesList, allowedSocialNetworks]);
 
   /** Referência estável para lista vazia — evita `useEffect` que depende de perfis disparar todo render. */
-  const emptyProfileListRef = useRef<Array<{ id: string | number }>>([]);
+  const emptyProfileListRef = useRef<InfluencerProfile[]>([]);
   const influencerProfiles =
     modalType === "curation"
       ? curationProfilesFiltered
