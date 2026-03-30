@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useContentMetrics } from "@/hooks/use-campaign-metrics";
+import type { TopCityRow, AudienceByAgePayload } from "@/shared/services/metrics";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -70,10 +72,45 @@ interface EngagementDayData {
   interactions: number;
 }
 
-/** Placeholder alinhado ao Figma até a API enviar faixa etária por rede */
-const DEMO_AGE_LABELS = ["18-29", "30-49", "50-64", "+65"];
-const DEMO_INSTAGRAM_PCT = [85, 55, 28, 12];
-const DEMO_YOUTUBE_PCT = [92, 60, 32, 15];
+function sortDemographicsLabels(labels: string[]): string[] {
+  const score = (label: string) => {
+    const m = /(\d+)/.exec(label.replace(/\s/g, ""));
+    return m ? parseInt(m[1], 10) : 9999;
+  };
+  return [...labels].sort((a, b) => score(a) - score(b));
+}
+
+function formatNetworkDisplayName(key: string): string {
+  const k = key.toLowerCase();
+  if (k === "youtube") return "YouTube";
+  if (k === "instagram") return "Instagram";
+  if (k === "tiktok") return "TikTok";
+  if (k === "facebook") return "Facebook";
+  if (k === "twitter" || k === "x") return "X";
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function barColorForNetwork(key: string, index: number): string {
+  const map: Record<string, string> = {
+    instagram: "#278cff",
+    youtube: "#ff633c",
+    tiktok: "#000000",
+    facebook: "#1877f2",
+    twitter: "#1da1f2",
+    x: "#0a0a0a",
+  };
+  return map[key.toLowerCase()] ?? `hsl(${(index * 53 + 20) % 360} 62% 48%)`;
+}
+
+function topAgeBracketYears(
+  audience: AudienceByAgePayload | null | undefined,
+  networkKey: string
+): string {
+  const raw = audience?.networks?.[networkKey] ?? audience?.networks?.[networkKey.toLowerCase()];
+  if (!raw?.has_data || !raw.age_buckets?.length) return "—";
+  const best = raw.age_buckets.reduce((a, b) => (b.percent > a.percent ? b : a));
+  return `${best.label.replace(/-/g, "–")} anos`;
+}
 
 function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   const chartData = {
@@ -150,28 +187,35 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   return <Line data={chartData} options={options} />;
 }
 
-function DemographicsBarChart() {
-  const chartData = {
-    labels: DEMO_AGE_LABELS,
-    datasets: [
-      {
-        label: "Instagram",
-        data: DEMO_INSTAGRAM_PCT,
-        backgroundColor: "#278cff",
-        borderRadius: 12,
-        borderSkipped: false,
-        maxBarThickness: 36,
-      },
-      {
-        label: "Youtube",
-        data: DEMO_YOUTUBE_PCT,
-        backgroundColor: "#ff633c",
-        borderRadius: 12,
-        borderSkipped: false,
-        maxBarThickness: 36,
-      },
-    ],
-  };
+function DemographicsBarChart({
+  audienceByAge,
+}: {
+  audienceByAge: AudienceByAgePayload | null | undefined;
+}) {
+  const chartConfig = useMemo(() => {
+    const networks = audienceByAge?.networks ?? {};
+    const active = Object.entries(networks).filter(
+      ([, v]) => v.has_data && (v.age_buckets?.length ?? 0) > 0
+    );
+    if (active.length === 0) return null;
+    const labelSet = new Set<string>();
+    for (const [, net] of active) {
+      net.age_buckets.forEach((b) => labelSet.add(b.label));
+    }
+    const labels = sortDemographicsLabels([...labelSet]);
+    const datasets = active.map(([key, net], idx) => ({
+      label: formatNetworkDisplayName(key),
+      data: labels.map((lbl) => {
+        const b = net.age_buckets.find((x) => x.label === lbl);
+        return b?.percent ?? 0;
+      }),
+      backgroundColor: barColorForNetwork(key, idx),
+      borderRadius: 12,
+      borderSkipped: false as const,
+      maxBarThickness: 36,
+    }));
+    return { labels, datasets };
+  }, [audienceByAge]);
 
   const options: ChartOptions<"bar"> = {
     responsive: true,
@@ -188,13 +232,12 @@ function DemographicsBarChart() {
         boxPadding: 4,
         callbacks: {
           title(items) {
-            const age = items[0]?.label ?? "";
-            return age;
+            return items[0]?.label ?? "";
           },
           label(ctx) {
             const label = ctx.dataset.label ?? "";
             const v = ctx.parsed.y;
-            return `${label}: ${v}%`;
+            return `${label}: ${typeof v === "number" ? v.toFixed(1) : v}%`;
           },
         },
       },
@@ -216,7 +259,36 @@ function DemographicsBarChart() {
     },
   };
 
-  return <Bar data={chartData} options={options} />;
+  if (!chartConfig) {
+    return (
+      <div className="h-[220px] w-full flex items-center justify-center text-sm text-[#646464] text-center px-4">
+        Demografia por idade indisponível para os posts identificados nesta campanha.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
+        {chartConfig.datasets.map((ds) => (
+          <div key={ds.label} className="flex items-center gap-2">
+            <span
+              className="size-4 rounded shrink-0"
+              style={{ backgroundColor: ds.backgroundColor as string }}
+              aria-hidden
+            />
+            <span>{ds.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="h-[220px] w-full min-h-0 flex-1 mt-2">
+        <Bar
+          data={{ labels: chartConfig.labels, datasets: chartConfig.datasets }}
+          options={options}
+        />
+      </div>
+    </>
+  );
 }
 
 interface MetricsTabProps {
@@ -224,28 +296,27 @@ interface MetricsTabProps {
   metrics: { [contentId: string]: ContentMetrics };
   campaignPhases?: CampaignPhase[];
   identifiedPosts?: IdentifiedPost[];
+  topCities?: TopCityRow[];
+  audienceByAge?: AudienceByAgePayload | null;
+  tabAnalyticsLoading?: boolean;
 }
 
-const CITY_PLACEHOLDERS = [
-  { rank: 1, name: "Curitiba", cardClass: "bg-[#f0ffed]", circleClass: "bg-emerald-200 text-[#3b3b3b]" },
-  { rank: 2, name: "São Paulo", cardClass: "bg-[#f9ffd5]", circleClass: "bg-amber-200 text-[#3b3b3b]" },
-  { rank: 3, name: "Fortaleza", cardClass: "bg-[#eefcff]", circleClass: "bg-sky-200 text-[#3b3b3b]" },
-  { rank: 4, name: "Sorocaba", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-[#3b3b3b]" },
-  { rank: 5, name: "Minas Gerais", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
+const CITY_CARD_STYLES = [
+  { cardClass: "bg-[#f0ffed]", circleClass: "bg-emerald-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f9ffd5]", circleClass: "bg-amber-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#eefcff]", circleClass: "bg-sky-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
 ] as const;
-
-function ageBracketForMaxPercent(values: number[]): string {
-  const i = values.indexOf(Math.max(...values));
-  const raw = DEMO_AGE_LABELS[i] ?? "—";
-  if (raw === "—") return raw;
-  return raw.replace("-", "–");
-}
 
 export function MetricsTab({
   contents,
   metrics,
   campaignPhases = [],
   identifiedPosts: propsIdentifiedPosts = [],
+  topCities = [],
+  audienceByAge = null,
+  tabAnalyticsLoading = false,
 }: MetricsTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
@@ -257,10 +328,26 @@ export function MetricsTab({
   const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
 
   const topInstagramAge = useMemo(
-    () => ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT),
-    []
+    () => topAgeBracketYears(audienceByAge, "instagram"),
+    [audienceByAge]
   );
-  const topYoutubeAge = useMemo(() => ageBracketForMaxPercent(DEMO_YOUTUBE_PCT), []);
+  const topYoutubeAge = useMemo(
+    () => topAgeBracketYears(audienceByAge, "youtube"),
+    [audienceByAge]
+  );
+
+  const { data: modalContentMetrics } = useContentMetrics(
+    campaignId ?? "",
+    selectedContent?.id ?? "",
+    { enabled: isModalOpen && !!campaignId && !!selectedContent?.id }
+  );
+
+  const detailMetricsForModal = useMemo(
+    () =>
+      modalContentMetrics ??
+      (selectedContent ? metrics[selectedContent.id] ?? null : null),
+    [modalContentMetrics, selectedContent, metrics]
+  );
 
   const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
@@ -508,25 +595,15 @@ export function MetricsTab({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div className="flex flex-col gap-3">
                     <p className="text-[17px] text-[#646464]">Maior público Instagram</p>
-                    <p className="text-2xl font-bold text-black">{topInstagramAge} anos</p>
+                    <p className="text-2xl font-bold text-black">{topInstagramAge}</p>
                   </div>
                   <div className="flex flex-col gap-3 sm:text-right">
                     <p className="text-[17px] text-[#646464]">Maior público YouTube</p>
-                    <p className="text-2xl font-bold text-black">{topYoutubeAge} anos</p>
+                    <p className="text-2xl font-bold text-black">{topYoutubeAge}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
-                  <div className="flex items-center gap-2">
-                    <span className="size-4 rounded bg-[#ff633c]" aria-hidden />
-                    <span>Youtube</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="size-4 rounded bg-[#278cff]" aria-hidden />
-                    <span>Instagram</span>
-                  </div>
-                </div>
-                <div className="h-[220px] w-full min-h-0 flex-1">
-                  <DemographicsBarChart />
+                <div className="flex flex-col gap-2 min-h-[220px]">
+                  <DemographicsBarChart audienceByAge={audienceByAge} />
                 </div>
               </div>
             </div>
@@ -537,26 +614,47 @@ export function MetricsTab({
         <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
           <h3 className="text-2xl font-semibold text-black">Cidades com melhor performance</h3>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            {CITY_PLACEHOLDERS.map((city) => (
-              <div
-                key={city.rank}
-                className={`flex flex-1 flex-col gap-5 min-w-[170px] rounded-xl px-3 pt-4 pb-5 ${city.cardClass}`}
-              >
-                <div className="flex items-center justify-center gap-2.5">
-                  <div
-                    className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${city.circleClass}`}
-                  >
-                    <span className="text-xl font-medium">{city.rank}</span>
-                  </div>
-                  <p className="text-lg font-medium text-black">{city.name}</p>
+            {tabAnalyticsLoading && topCities.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={`city-skel-${i}`}
+                  className="flex flex-1 flex-col gap-5 min-w-[170px] rounded-xl px-3 pt-4 pb-5 bg-neutral-100 animate-pulse"
+                >
+                  <div className="h-11 w-full rounded-lg bg-neutral-200" />
+                  <div className="h-6 w-3/4 mx-auto rounded bg-neutral-200" />
                 </div>
-                <p className="text-lg font-medium text-black text-center">1,2k de engajamento</p>
-              </div>
-            ))}
+              ))
+            ) : topCities.length === 0 ? (
+              <p className="text-sm text-[#646464] py-2">
+                Nenhuma cidade com dados de endereço e engajamento para esta campanha.
+              </p>
+            ) : (
+              topCities.map((city, i) => {
+                const style = CITY_CARD_STYLES[i % CITY_CARD_STYLES.length];
+                return (
+                  <div
+                    key={`${city.city_name}-${city.state}-${city.rank}`}
+                    className={`flex flex-1 flex-col gap-5 min-w-[170px] rounded-xl px-3 pt-4 pb-5 ${style.cardClass}`}
+                  >
+                    <div className="flex items-center justify-center gap-2.5">
+                      <div
+                        className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${style.circleClass}`}
+                      >
+                        <span className="text-xl font-medium">{city.rank}</span>
+                      </div>
+                      <p className="text-lg font-medium text-black text-center leading-tight">
+                        {city.city_name}
+                        <span className="text-base font-normal text-[#646464]"> / {city.state}</span>
+                      </p>
+                    </div>
+                    <p className="text-lg font-medium text-black text-center">
+                      {formatCompact(city.engagement_score)} de engajamento
+                    </p>
+                  </div>
+                );
+              })
+            )}
           </div>
-          <p className="text-xs text-neutral-500">
-            Ranking ilustrativo. Dados por cidade serão exibidos quando a API estiver disponível.
-          </p>
         </div>
 
         {/* Top 4 influenciadores — Figma 2663:18565 */}
@@ -934,52 +1032,42 @@ export function MetricsTab({
                 )}
               </div>
 
-              {getContentMetrics(selectedContent.id) ? (
+              {detailMetricsForModal ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Visualizações</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.views.toLocaleString(
-                        "pt-BR"
-                      )}
+                      {detailMetricsForModal.views.toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Curtidas</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.likes.toLocaleString(
-                        "pt-BR"
-                      )}
+                      {detailMetricsForModal.likes.toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Comentários</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.comments.toLocaleString(
-                        "pt-BR"
-                      )}
+                      {detailMetricsForModal.comments.toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Compartilhamentos</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.shares.toLocaleString(
-                        "pt-BR"
-                      )}
+                      {detailMetricsForModal.shares.toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Alcance</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.reach.toLocaleString(
-                        "pt-BR"
-                      )}
+                      {detailMetricsForModal.reach.toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Taxa de engajamento</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.engagement.toFixed(1)}%
+                      {detailMetricsForModal.engagement.toFixed(1)}%
                     </p>
                   </div>
                 </div>

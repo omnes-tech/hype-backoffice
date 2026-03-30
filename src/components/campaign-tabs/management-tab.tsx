@@ -53,7 +53,7 @@ interface StatusHistory {
   notes?: string;
 }
 
-interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
+interface ExtendedInfluencer extends Omit<Influencer, "id"> {
   id: string | number;
   /** ID do usuário na plataforma (rota /influencer/$influencerId) */
   user_id?: string | number;
@@ -69,11 +69,10 @@ interface ExtendedInfluencer extends Omit<Influencer, 'id'> {
 }
 
 function participantToExtended(
-  p: CampaignManagementParticipant
+  p: CampaignManagementParticipant,
 ): ExtendedInfluencer {
   const chronological = [...(p.status_history || [])].sort(
-    (a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
   const statusHistory = chronological.map((h) => ({
     id: String(h.id),
@@ -81,8 +80,7 @@ function participantToExtended(
     timestamp: h.timestamp,
     notes: h.notes,
   }));
-  const primaryNetwork =
-    p.social_network || p.social_networks?.[0]?.type;
+  const primaryNetwork = p.social_network || p.social_networks?.[0]?.type;
   return {
     id: p.id,
     user_id: p.user_id,
@@ -101,14 +99,18 @@ function participantToExtended(
 
 // Helper para converter ID para string
 const idToString = (id: string | number): string => {
-  return typeof id === 'number' ? String(id) : id;
+  return typeof id === "number" ? String(id) : id;
 };
 
 // Cores e labels alinhados ao Figma (FORÇA TAREFA - Gerenciamento)
 const kanbanColumns = [
   { id: "applications", label: "Inscrições", color: "bg-[#f5f5f5]" },
   { id: "pre_selection", label: "Pré-seleção", color: "bg-[#faf5ff]" },
-  { id: "pre_selection_curation", label: "Curadoria pré-seleção", color: "bg-[#f2e2ff]" },
+  {
+    id: "pre_selection_curation",
+    label: "Curadoria pré-seleção",
+    color: "bg-[#f2e2ff]",
+  },
   { id: "curation", label: "Curadoria", color: "bg-[#f0f6ff]" },
   { id: "invited", label: "Convidados", color: "bg-[#fdfce9]" },
   {
@@ -174,10 +176,10 @@ function SortableInfluencerCard({
   onClick: (influencer: ExtendedInfluencer) => void;
   getCurrentStatus: (inf: ExtendedInfluencer) => string;
   getAvailableActions: (
-    status: string
+    status: string,
   ) => Array<{ label: string; action: string; targetStatus?: string }>;
   getSocialNetworkIcon: (
-    network?: string
+    network?: string,
   ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
@@ -304,10 +306,10 @@ function KanbanColumn({
   onInfluencerClick: (inf: ExtendedInfluencer) => void;
   getCurrentStatus: (inf: ExtendedInfluencer) => string;
   getAvailableActions: (
-    status: string
+    status: string,
   ) => Array<{ label: string; action: string; targetStatus?: string }>;
   getSocialNetworkIcon: (
-    network?: string
+    network?: string,
   ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
   onApprove: (influencer: ExtendedInfluencer, targetStatus: string) => void;
@@ -374,7 +376,7 @@ function DragOverlayCard({
 }: {
   influencer: ExtendedInfluencer;
   getSocialNetworkIcon: (
-    network?: string
+    network?: string,
   ) => keyof typeof import("lucide-react").icons;
   getSocialNetworkLabel: (network?: string) => string;
 }) {
@@ -466,15 +468,15 @@ export function ManagementTab({
       if (!influencerToOpen) {
         influencerToOpen = influencersState.find((inf) => {
           const infId =
-            typeof inf.id === "string"
-              ? parseInt(inf.id, 10)
-              : Number(inf.id);
-          return infId === influencerIdNum || String(inf.id) === influencerIdStr;
+            typeof inf.id === "string" ? parseInt(inf.id, 10) : Number(inf.id);
+          return (
+            infId === influencerIdNum || String(inf.id) === influencerIdStr
+          );
         });
       }
     } else {
       influencerToOpen = influencersState.find(
-        (inf) => String(inf.id) === influencerIdStr
+        (inf) => String(inf.id) === influencerIdStr,
       );
     }
 
@@ -483,18 +485,13 @@ export function ManagementTab({
       setIsChatModalOpen(true);
     }
     finish();
-  }, [
-    openChatInfluencerId,
-    influencersState,
-    isLoading,
-    onOpenChatConsumed,
-  ]);
+  }, [openChatInfluencerId, influencersState, isLoading, onOpenChatConsumed]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
   /** Todas selecionadas = Geral (Kanban completo). Subconjunto = só essas colunas. */
-  const [selectedPhaseFilterIds, setSelectedPhaseFilterIds] = useState<string[]>(() =>
-    kanbanColumns.map((c) => c.id)
-  );
+  const [selectedPhaseFilterIds, setSelectedPhaseFilterIds] = useState<
+    string[]
+  >(() => kanbanColumns.map((c) => c.id));
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Hooks para mutations
@@ -507,7 +504,7 @@ export function ManagementTab({
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor),
   );
 
   const isCampaignUser = (_id: string) => true;
@@ -540,7 +537,7 @@ export function ManagementTab({
       // Get the most recent status from history
       const sortedHistory = [...inf.statusHistory].sort(
         (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       );
       return sortedHistory[0].status;
     }
@@ -559,7 +556,7 @@ export function ManagementTab({
   const updateInfluencerStatus = (
     influencerId: string,
     newStatus: string,
-    notes?: string
+    notes?: string,
   ) => {
     setInfluencersState((prev) =>
       prev.map((inf) => {
@@ -576,20 +573,21 @@ export function ManagementTab({
           };
         }
         return inf;
-      })
+      }),
     );
   };
 
   const handleApprove = (
     influencer: ExtendedInfluencer,
-    targetStatus: string
+    targetStatus: string,
   ) => {
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
-    const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string'
-        ? Number(influencer.social_networks[0].id)
-        : influencer.social_networks[0].id)
-      : undefined;
+    const networkId =
+      influencer.social_networks && influencer.social_networks.length === 1
+        ? typeof influencer.social_networks[0].id === "string"
+          ? Number(influencer.social_networks[0].id)
+          : influencer.social_networks[0].id
+        : undefined;
 
     updateStatus(
       {
@@ -603,7 +601,7 @@ export function ManagementTab({
           updateInfluencerStatus(
             idToString(influencer.id),
             targetStatus,
-            "Aprovado pelo usuário"
+            "Aprovado pelo usuário",
           );
           toast.success("Influenciador aprovado com sucesso!");
           setIsModalOpen(false);
@@ -612,7 +610,7 @@ export function ManagementTab({
         onError: (error: any) => {
           toast.error(error?.message || "Erro ao aprovar influenciador");
         },
-      }
+      },
     );
   };
 
@@ -623,11 +621,12 @@ export function ManagementTab({
     }
 
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
-    const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string'
-        ? Number(influencer.social_networks[0].id)
-        : influencer.social_networks[0].id)
-      : undefined;
+    const networkId =
+      influencer.social_networks && influencer.social_networks.length === 1
+        ? typeof influencer.social_networks[0].id === "string"
+          ? Number(influencer.social_networks[0].id)
+          : influencer.social_networks[0].id
+        : undefined;
 
     updateStatus(
       {
@@ -638,7 +637,11 @@ export function ManagementTab({
       },
       {
         onSuccess: () => {
-          updateInfluencerStatus(idToString(influencer.id), "rejected", feedback);
+          updateInfluencerStatus(
+            idToString(influencer.id),
+            "rejected",
+            feedback,
+          );
           toast.success("Influenciador recusado");
           setIsRejectModalOpen(false);
           setRejectFeedback("");
@@ -648,17 +651,18 @@ export function ManagementTab({
         onError: (error: any) => {
           toast.error(error?.message || "Erro ao recusar influenciador");
         },
-      }
+      },
     );
   };
 
   const handleMoveToCuration = (influencer: ExtendedInfluencer) => {
     // Se o influenciador tiver apenas uma rede social, usar o network_id dela
-    const networkId = influencer.social_networks && influencer.social_networks.length === 1
-      ? (typeof influencer.social_networks[0].id === 'string'
-        ? Number(influencer.social_networks[0].id)
-        : influencer.social_networks[0].id)
-      : undefined;
+    const networkId =
+      influencer.social_networks && influencer.social_networks.length === 1
+        ? typeof influencer.social_networks[0].id === "string"
+          ? Number(influencer.social_networks[0].id)
+          : influencer.social_networks[0].id
+        : undefined;
 
     updateStatus(
       {
@@ -672,7 +676,7 @@ export function ManagementTab({
           updateInfluencerStatus(
             idToString(influencer.id),
             "curation",
-            "Movido para curadoria"
+            "Movido para curadoria",
           );
           toast.success("Influenciador movido para curadoria");
           setIsModalOpen(false);
@@ -680,10 +684,10 @@ export function ManagementTab({
         },
         onError: (error: any) => {
           toast.error(
-            error?.message || "Erro ao mover influenciador para curadoria"
+            error?.message || "Erro ao mover influenciador para curadoria",
           );
         },
-      }
+      },
     );
   };
 
@@ -692,13 +696,14 @@ export function ManagementTab({
     // Nota: Aprovar/Recusar foram removidos - essas ações devem ser feitas nas guias específicas
     switch (status) {
       case "applications":
-        return [
-          { label: "Mover para Pré-seleção", action: "pre_selection", targetStatus: "pre_selection" },
-          { label: "Mover para Curadoria", action: "curation", targetStatus: "curation" },
-        ];
+        return [];
       case "pre_selection":
         return [
-          { label: "Mover para Curadoria pré-seleção", action: "pre_selection_curation", targetStatus: "pre_selection_curation" },
+          {
+            label: "Mover para Curadoria pré-seleção",
+            action: "pre_selection_curation",
+            targetStatus: "pre_selection_curation",
+          },
         ];
       case "pre_selection_curation":
         return [];
@@ -745,7 +750,11 @@ export function ManagementTab({
       case "rejected":
         // Rejeitado - pode ser reativado movendo para applications ou curation
         return [
-          { label: "Reativar (Applications)", action: "applications", targetStatus: "applications" },
+          {
+            label: "Reativar (Applications)",
+            action: "applications",
+            targetStatus: "applications",
+          },
         ];
       default:
         return [];
@@ -759,13 +768,13 @@ export function ManagementTab({
 
   const getSocialNetworkIcon = (network?: string) => {
     const icons: { [key: string]: keyof typeof import("lucide-react").icons } =
-    {
-      instagram: "Instagram",
-      youtube: "Youtube",
-      tiktok: "Music",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
+      {
+        instagram: "Instagram",
+        youtube: "Youtube",
+        tiktok: "Music",
+        facebook: "Facebook",
+        twitter: "Twitter",
+      };
     return icons[network || ""] || "Share2";
   };
 
@@ -803,7 +812,7 @@ export function ManagementTab({
 
     // Se está arrastando sobre outro card
     const activeInfluencer = extendedInfluencers.find(
-      (inf) => inf.id === activeId
+      (inf) => inf.id === activeId,
     );
     const overInfluencer = extendedInfluencers.find((inf) => inf.id === overId);
 
@@ -829,7 +838,7 @@ export function ManagementTab({
 
     // Encontra o influenciador sendo arrastado
     const draggedInfluencer = extendedInfluencers.find(
-      (inf) => inf.id === activeId
+      (inf) => inf.id === activeId,
     );
     if (!draggedInfluencer) return;
 
@@ -846,12 +855,12 @@ export function ManagementTab({
         // Para usuários da campanha, validar transição
         const canMove = validateUserStatusTransition(
           currentStatus,
-          targetStatus
+          targetStatus,
         );
 
         if (!canMove) {
           toast.error(
-            `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`
+            `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`,
           );
           return;
         }
@@ -859,11 +868,13 @@ export function ManagementTab({
         // Atualizar status do influenciador via API usando a rota correta
         const notes = getTransitionNote(currentStatus, targetStatus);
         // Se o influenciador tiver apenas uma rede social, usar o network_id dela
-        const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
-          ? (typeof draggedInfluencer.social_networks[0].id === 'string'
-            ? Number(draggedInfluencer.social_networks[0].id)
-            : draggedInfluencer.social_networks[0].id)
-          : undefined;
+        const networkId =
+          draggedInfluencer.social_networks &&
+          draggedInfluencer.social_networks.length === 1
+            ? typeof draggedInfluencer.social_networks[0].id === "string"
+              ? Number(draggedInfluencer.social_networks[0].id)
+              : draggedInfluencer.social_networks[0].id
+            : undefined;
 
         updateStatus(
           {
@@ -874,15 +885,19 @@ export function ManagementTab({
           },
           {
             onSuccess: () => {
-              updateInfluencerStatus(idToString(draggedInfluencer.id), targetStatus, notes);
+              updateInfluencerStatus(
+                idToString(draggedInfluencer.id),
+                targetStatus,
+                notes,
+              );
               toast.success("Status do usuário atualizado com sucesso!");
             },
             onError: (error: any) => {
               toast.error(
-                error?.message || "Erro ao atualizar status do usuário"
+                error?.message || "Erro ao atualizar status do usuário",
               );
             },
-          }
+          },
         );
         return;
       }
@@ -892,7 +907,7 @@ export function ManagementTab({
 
       if (!canMove) {
         toast.error(
-          `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`
+          `Não é possível mover de "${getStatusLabel(currentStatus)}" para "${getStatusLabel(targetStatus)}"`,
         );
         return;
       }
@@ -903,11 +918,13 @@ export function ManagementTab({
             ? "pre_selection"
             : targetStatus === "pre_selection_curation"
               ? "pre_selection_curation"
-              : targetStatus === "approved" || targetStatus === "approved_progress"
+              : targetStatus === "approved" ||
+                  targetStatus === "approved_progress"
                 ? "approved"
                 : targetStatus === "rejected"
                   ? "rejected"
-                  : targetStatus === "applications" || targetStatus === "inscriptions"
+                  : targetStatus === "applications" ||
+                      targetStatus === "inscriptions"
                     ? "applications"
                     : targetStatus === "invited"
                       ? "invited"
@@ -932,11 +949,13 @@ export function ManagementTab({
       // Atualiza o status do influenciador via API
       const notes = getTransitionNote(currentStatus, targetStatus);
       // Se o influenciador tiver apenas uma rede social, usar o network_id dela
-      const networkId = draggedInfluencer.social_networks && draggedInfluencer.social_networks.length === 1
-        ? (typeof draggedInfluencer.social_networks[0].id === 'string'
-          ? Number(draggedInfluencer.social_networks[0].id)
-          : draggedInfluencer.social_networks[0].id)
-        : undefined;
+      const networkId =
+        draggedInfluencer.social_networks &&
+        draggedInfluencer.social_networks.length === 1
+          ? typeof draggedInfluencer.social_networks[0].id === "string"
+            ? Number(draggedInfluencer.social_networks[0].id)
+            : draggedInfluencer.social_networks[0].id
+          : undefined;
 
       updateStatus(
         {
@@ -947,13 +966,17 @@ export function ManagementTab({
         },
         {
           onSuccess: () => {
-            updateInfluencerStatus(idToString(draggedInfluencer.id), targetStatus, notes);
+            updateInfluencerStatus(
+              idToString(draggedInfluencer.id),
+              targetStatus,
+              notes,
+            );
             toast.success("Status atualizado com sucesso!");
           },
           onError: (error: any) => {
             toast.error(error?.message || "Erro ao atualizar status");
           },
-        }
+        },
       );
       return;
     }
@@ -973,7 +996,7 @@ export function ManagementTab({
 
   const validateStatusTransition = (
     fromStatus: string,
-    toStatus: string
+    toStatus: string,
   ): boolean => {
     // Regras de transição válidas conforme documentação de status
     // Baseado em: API_ENDPOINTS_BACKOFFICE_CHAT.md e Untitled.md
@@ -1023,7 +1046,7 @@ export function ManagementTab({
   // Os status pending_approval, in_correction, content_approved, payment_pending, published são automáticos
   const validateUserStatusTransition = (
     fromStatus: string,
-    toStatus: string
+    toStatus: string,
   ): boolean => {
     // Status automáticos não podem ser movidos manualmente
     const automaticStatuses = [
@@ -1079,13 +1102,16 @@ export function ManagementTab({
       "applications->invited": "Convidado para participar",
       "applications->rejected": "Recusado",
       // Transições de pre_selection
-      "pre_selection->pre_selection_curation": "Movido para curadoria da pré-seleção",
+      "pre_selection->pre_selection_curation":
+        "Movido para curadoria da pré-seleção",
       "pre_selection->curation": "Movido para curadoria",
       "pre_selection->rejected": "Recusado",
       // Transições de pre_selection_curation
       "pre_selection_curation->curation": "Movido para curadoria",
-      "pre_selection_curation->invited": "Convidado após curadoria da pré-seleção",
-      "pre_selection_curation->approved": "Aprovado após curadoria da pré-seleção",
+      "pre_selection_curation->invited":
+        "Convidado após curadoria da pré-seleção",
+      "pre_selection_curation->approved":
+        "Aprovado após curadoria da pré-seleção",
       "pre_selection_curation->rejected": "Recusado",
       // Transições de curation
       "curation->invited": "Convidado após curadoria",
@@ -1102,14 +1128,16 @@ export function ManagementTab({
       "approved->rejected": "Removido da campanha",
       "approved->curation": "Movido para curadoria",
       // Transições de script_pending
-      "script_pending->content_pending": "Roteiro aprovado, aguardando conteúdo",
+      "script_pending->content_pending":
+        "Roteiro aprovado, aguardando conteúdo",
       "script_pending->rejected": "Roteiro recusado",
       // Transições de content_pending
       "content_pending->pending_approval": "Conteúdo enviado para aprovação",
       "content_pending->rejected": "Recusado",
       // Transições de pending_approval
       "pending_approval->content_approved": "Conteúdo aprovado",
-      "pending_approval->in_correction": "Conteúdo recusado, aguardando correção",
+      "pending_approval->in_correction":
+        "Conteúdo recusado, aguardando correção",
       // Transições de in_correction
       "in_correction->pending_approval": "Novo conteúdo enviado após correção",
       // Transições de content_approved
@@ -1130,7 +1158,8 @@ export function ManagementTab({
       "approved_progress->pending_approval": "Conteúdo enviado para aprovação",
       "approved_progress->awaiting_approval": "Conteúdo enviado para aprovação",
       "awaiting_approval->content_approved": "Conteúdo aprovado",
-      "awaiting_approval->in_correction": "Conteúdo recusado, aguardando correção",
+      "awaiting_approval->in_correction":
+        "Conteúdo recusado, aguardando correção",
       "in_correction->awaiting_approval": "Novo conteúdo enviado",
     };
 
@@ -1207,10 +1236,11 @@ export function ManagementTab({
                 <button
                   type="button"
                   onClick={() => setSelectedPhaseFilterIds([...allPhaseIds])}
-                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isAllPhasesFilterSelected
-                    ? "bg-primary-600 text-white border-transparent"
-                    : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                    }`}
+                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${
+                    isAllPhasesFilterSelected
+                      ? "bg-primary-600 text-white border-transparent"
+                      : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                  }`}
                 >
                   Geral
                 </button>
@@ -1221,10 +1251,11 @@ export function ManagementTab({
                       key={col.id}
                       type="button"
                       onClick={() => togglePhaseFilter(col.id)}
-                      className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isActive
-                        ? "bg-primary-600 text-white border-transparent"
-                        : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                        }`}
+                      className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-primary-600 text-white border-transparent"
+                          : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                      }`}
                     >
                       {col.label}
                     </button>
@@ -1243,9 +1274,11 @@ export function ManagementTab({
                 <div className="px-5 pb-5 overflow-x-auto">
                   <div className="flex gap-3 min-w-max">
                     {columnsToShow.map((column) => {
-                      const columnInfluencers = getInfluencersByStatus(column.id);
+                      const columnInfluencers = getInfluencersByStatus(
+                        column.id,
+                      );
                       const influencerIds = columnInfluencers.map((inf) =>
-                        idToString(inf.id)
+                        idToString(inf.id),
                       );
                       return (
                         <KanbanColumn
@@ -1272,7 +1305,7 @@ export function ManagementTab({
                     <DragOverlayCard
                       influencer={
                         extendedInfluencers.find(
-                          (inf) => idToString(inf.id) === activeId
+                          (inf) => idToString(inf.id) === activeId,
                         )!
                       }
                       getSocialNetworkIcon={getSocialNetworkIcon}
@@ -1310,7 +1343,8 @@ export function ManagementTab({
                   @{selectedInfluencer.username}
                 </p>
                 {/* Mostrar todas as redes sociais */}
-                {selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0 ? (
+                {selectedInfluencer.social_networks &&
+                selectedInfluencer.social_networks.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {selectedInfluencer.social_networks.map((network) => (
                       <Badge
@@ -1325,7 +1359,7 @@ export function ManagementTab({
                   <div className="flex items-center gap-2 mt-1">
                     <Icon
                       name={getSocialNetworkIcon(
-                        selectedInfluencer.socialNetwork
+                        selectedInfluencer.socialNetwork,
                       )}
                       color="#404040"
                       size={16}
@@ -1356,7 +1390,9 @@ export function ManagementTab({
                   {(() => {
                     const nicheId = selectedInfluencer.niche;
                     if (!nicheId) return "-";
-                    const niche = niches.find((n) => n.id.toString() === nicheId.toString());
+                    const niche = niches.find(
+                      (n) => n.id.toString() === nicheId.toString(),
+                    );
                     return niche?.name || nicheId;
                   })()}
                 </p>
@@ -1372,54 +1408,59 @@ export function ManagementTab({
             </div>
 
             {/* Redes Sociais */}
-            {selectedInfluencer.social_networks && selectedInfluencer.social_networks.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-neutral-950 mb-3">
-                  Redes Sociais Utilizadas
-                </p>
-                <div className="bg-neutral-50 rounded-2xl p-4">
-                  <div className="flex flex-col gap-3">
-                    {selectedInfluencer.social_networks.map((network) => (
-                      <div
-                        key={network.id}
-                        className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon
-                            name={getSocialNetworkIcon(network.type)}
-                            color="#404040"
-                            size={20}
-                          />
-                          <div>
-                            <p className="text-sm font-semibold text-neutral-950">
-                              {getSocialNetworkLabel(network.type)}
-                            </p>
-                            {network.username && (
-                              <p className="text-xs text-neutral-600">
-                                @{network.username}
+            {selectedInfluencer.social_networks &&
+              selectedInfluencer.social_networks.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-neutral-950 mb-3">
+                    Redes Sociais Utilizadas
+                  </p>
+                  <div className="bg-neutral-50 rounded-2xl p-4">
+                    <div className="flex flex-col gap-3">
+                      {selectedInfluencer.social_networks.map((network) => (
+                        <div
+                          key={network.id}
+                          className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon
+                              name={getSocialNetworkIcon(network.type)}
+                              color="#404040"
+                              size={20}
+                            />
+                            <div>
+                              <p className="text-sm font-semibold text-neutral-950">
+                                {getSocialNetworkLabel(network.type)}
                               </p>
-                            )}
-                            {network.name && network.name !== network.username && (
-                              <p className="text-xs text-neutral-600">
-                                {network.name}
-                              </p>
-                            )}
+                              {network.username && (
+                                <p className="text-xs text-neutral-600">
+                                  @{network.username}
+                                </p>
+                              )}
+                              {network.name &&
+                                network.name !== network.username && (
+                                  <p className="text-xs text-neutral-600">
+                                    {network.name}
+                                  </p>
+                                )}
+                            </div>
                           </div>
+                          {network.members !== undefined &&
+                            network.members > 0 && (
+                              <div className="text-right">
+                                <p className="text-sm font-semibold text-neutral-950">
+                                  {network.members.toLocaleString("pt-BR")}
+                                </p>
+                                <p className="text-xs text-neutral-600">
+                                  seguidores
+                                </p>
+                              </div>
+                            )}
                         </div>
-                        {network.members !== undefined && network.members > 0 && (
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-neutral-950">
-                              {network.members.toLocaleString("pt-BR")}
-                            </p>
-                            <p className="text-xs text-neutral-600">seguidores</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Log Histórico Completo */}
             {selectedInfluencer.statusHistory &&
@@ -1434,7 +1475,7 @@ export function ManagementTab({
                         .sort(
                           (a, b) =>
                             new Date(b.timestamp).getTime() -
-                            new Date(a.timestamp).getTime()
+                            new Date(a.timestamp).getTime(),
                         )
                         .map((history) => (
                           <div
@@ -1452,7 +1493,7 @@ export function ManagementTab({
                                     day: "2-digit",
                                     month: "2-digit",
                                     year: "numeric",
-                                  }
+                                  },
                                 )}
                                 {" às "}
                                 {new Date(history.timestamp).toLocaleTimeString(
@@ -1460,7 +1501,7 @@ export function ManagementTab({
                                   {
                                     hour: "2-digit",
                                     minute: "2-digit",
-                                  }
+                                  },
                                 )}
                               </span>
                             </div>
@@ -1497,12 +1538,12 @@ export function ManagementTab({
                 onClick={() => {
                   const userId =
                     selectedInfluencer.user_id != null &&
-                      String(selectedInfluencer.user_id).trim() !== ""
+                    String(selectedInfluencer.user_id).trim() !== ""
                       ? String(selectedInfluencer.user_id)
                       : null;
                   if (!userId) {
                     toast.error(
-                      "Não foi possível abrir o perfil: usuário sem user_id."
+                      "Não foi possível abrir o perfil: usuário sem user_id.",
                     );
                     return;
                   }
@@ -1644,18 +1685,15 @@ function ChatModal({
 
   const needsUserLookup = platformUserFromParticipant == null;
 
-  const { data: campaignUsers = [], isLoading: isLoadingUsers } = useCampaignUsers(
-    campaignId ?? "",
-    {
-      enabled:
-        !!campaignId && needsUserLookup && campaignUserIdNum > 0,
-    }
-  );
+  const { data: campaignUsers = [], isLoading: isLoadingUsers } =
+    useCampaignUsers(campaignId ?? "", {
+      enabled: !!campaignId && needsUserLookup && campaignUserIdNum > 0,
+    });
 
   const platformUserId = useMemo(() => {
     if (platformUserFromParticipant != null) return platformUserFromParticipant;
     const row = campaignUsers.find(
-      (u) => String(u.id) === String(influencer.id)
+      (u) => String(u.id) === String(influencer.id),
     );
     if (row?.user_id == null) return null;
     const n = Number.parseInt(String(row.user_id), 10);
@@ -1677,8 +1715,7 @@ function ChatModal({
     campaignId: campaignId ?? "",
     influencerId: platformUserId ?? 0,
     campaignUserId: campaignUserIdNum,
-    enabled:
-      !!campaignId && canChat && !loadingChatIdentity,
+    enabled: !!campaignId && canChat && !loadingChatIdentity,
   });
 
   const [newMessage, setNewMessage] = useState("");
@@ -1712,7 +1749,7 @@ function ChatModal({
 
     // Upload de arquivos: criar URLs temporárias e revogar após envio
     const attachmentUrls = attachments.map((att) =>
-      URL.createObjectURL(att.file)
+      URL.createObjectURL(att.file),
     );
 
     sendMessage(newMessage.trim(), attachmentUrls);
@@ -1744,7 +1781,6 @@ function ChatModal({
   return (
     <Modal title={`Chat com ${influencer.name}`} onClose={onClose}>
       <div className="flex flex-col h-[600px]">
-
         {/* Erro */}
         {chatError && (
           <div className="mb-2 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs">
@@ -1754,7 +1790,9 @@ function ChatModal({
 
         {loadingChatIdentity ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-neutral-600">Carregando informações do chat...</p>
+            <p className="text-neutral-600">
+              Carregando informações do chat...
+            </p>
           </div>
         ) : !canChat ? (
           <div className="flex-1 flex items-center justify-center">
@@ -1776,7 +1814,9 @@ function ChatModal({
           <div className="flex-1 overflow-y-auto flex flex-col gap-4 mb-4">
             {messages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-neutral-600">Nenhuma mensagem ainda. Inicie a conversa!</p>
+                <p className="text-neutral-600">
+                  Nenhuma mensagem ainda. Inicie a conversa!
+                </p>
               </div>
             ) : (
               messages.map((msg) => {
@@ -1784,8 +1824,9 @@ function ChatModal({
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-3 items-end ${fromInfluencer ? "justify-start" : "justify-end"
-                      }`}
+                    className={`flex gap-3 items-end ${
+                      fromInfluencer ? "justify-start" : "justify-end"
+                    }`}
                   >
                     {/* Avatar do influenciador (ESQUERDA) */}
                     {fromInfluencer && (
@@ -1799,15 +1840,17 @@ function ChatModal({
 
                     {/* Mensagem */}
                     <div
-                      className={`max-w-[70%] rounded-2xl p-3 ${fromInfluencer
-                        ? "bg-neutral-100 text-neutral-950 rounded-bl-sm"
-                        : "bg-primary-600 text-neutral-50 rounded-br-sm"
-                        }`}
+                      className={`max-w-[70%] rounded-2xl p-3 ${
+                        fromInfluencer
+                          ? "bg-neutral-100 text-neutral-950 rounded-bl-sm"
+                          : "bg-primary-600 text-neutral-50 rounded-br-sm"
+                      }`}
                     >
-
                       {/* Texto da mensagem */}
                       {msg.message && (
-                        <p className={`text-sm mb-2 ${fromInfluencer ? "text-neutral-950" : "text-neutral-50"}`}>
+                        <p
+                          className={`text-sm mb-2 ${fromInfluencer ? "text-neutral-950" : "text-neutral-50"}`}
+                        >
                           {msg.message}
                         </p>
                       )}
@@ -1815,39 +1858,46 @@ function ChatModal({
                       {/* Anexos */}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="flex flex-col gap-2 mb-2">
-                          {msg.attachments.map((attUrl: string, idx: number) => (
-                            <div
-                              key={idx}
-                              className={`flex items-center gap-2 p-2 rounded-lg ${fromInfluencer
-                                ? "bg-neutral-200"
-                                : "bg-primary-500"
+                          {msg.attachments.map(
+                            (attUrl: string, idx: number) => (
+                              <div
+                                key={idx}
+                                className={`flex items-center gap-2 p-2 rounded-lg ${
+                                  fromInfluencer
+                                    ? "bg-neutral-200"
+                                    : "bg-primary-500"
                                 }`}
-                            >
-                              <Icon
-                                name="Paperclip"
-                                color={fromInfluencer ? "#404040" : "#FAFAFA"}
-                                size={16}
-                              />
-                              <a
-                                href={attUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`text-xs underline truncate flex-1 ${fromInfluencer ? "text-neutral-700" : "text-neutral-50"
-                                  }`}
                               >
-                                Anexo {idx + 1}
-                              </a>
-                            </div>
-                          ))}
+                                <Icon
+                                  name="Paperclip"
+                                  color={fromInfluencer ? "#404040" : "#FAFAFA"}
+                                  size={16}
+                                />
+                                <a
+                                  href={attUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`text-xs underline truncate flex-1 ${
+                                    fromInfluencer
+                                      ? "text-neutral-700"
+                                      : "text-neutral-50"
+                                  }`}
+                                >
+                                  Anexo {idx + 1}
+                                </a>
+                              </div>
+                            ),
+                          )}
                         </div>
                       )}
 
                       {/* Timestamp */}
                       <p
-                        className={`text-xs mt-1 ${fromInfluencer
-                          ? "text-neutral-500"
-                          : "text-neutral-200 opacity-80"
-                          }`}
+                        className={`text-xs mt-1 ${
+                          fromInfluencer
+                            ? "text-neutral-500"
+                            : "text-neutral-200 opacity-80"
+                        }`}
                       >
                         {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
                           hour: "2-digit",
@@ -1917,7 +1967,9 @@ function ChatModal({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-            placeholder={isConnected ? "Digite sua mensagem..." : "Conectando..."}
+            placeholder={
+              isConnected ? "Digite sua mensagem..." : "Conectando..."
+            }
             disabled={!isConnected || !canChat}
             className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
           />
