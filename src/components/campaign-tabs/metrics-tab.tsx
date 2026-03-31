@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useContentMetrics } from "@/hooks/use-campaign-metrics";
+import type { TopCityRow, AudienceByAgePayload } from "@/shared/services/metrics";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -241,6 +243,9 @@ interface MetricsTabProps {
   contents: CampaignContent[];
   campaignPhases?: CampaignPhase[];
   identifiedPosts?: IdentifiedPost[];
+  topCities?: TopCityRow[];
+  audienceByAge?: AudienceByAgePayload | null;
+  tabAnalyticsLoading?: boolean;
 }
 
 const CITY_RANK_STYLES = [
@@ -251,17 +256,13 @@ const CITY_RANK_STYLES = [
   { cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
 ] as const;
 
-function ageBracketForMaxPercent(values: number[]): string {
-  const i = values.indexOf(Math.max(...values));
-  const raw = DEMO_AGE_LABELS[i] ?? "—";
-  if (raw === "—") return raw;
-  return raw.replace("-", "–");
-}
-
 export function MetricsTab({
   contents,
   campaignPhases = [],
   identifiedPosts: propsIdentifiedPosts = [],
+  topCities = [],
+  audienceByAge = null,
+  tabAnalyticsLoading = false,
 }: MetricsTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });

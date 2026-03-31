@@ -329,6 +329,7 @@ export function transformDashboardContent(
 ): CampaignContent {
   return {
     id: content.id,
+    phase_id: content.phase_id,
     influencerId: content.influencer_id,
     influencerName: content.influencer_name,
     influencerAvatar: content.influencer_avatar || "",

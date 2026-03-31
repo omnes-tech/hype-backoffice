@@ -24,7 +24,12 @@ import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/util
 import { useCampaign, useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useActivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
-import { useIdentifiedPosts } from "@/hooks/use-campaign-metrics";
+import {
+  useIdentifiedPosts,
+  useCampaignTabContentsMetrics,
+  useCampaignTopCities,
+  useCampaignAudienceByAge,
+} from "@/hooks/use-campaign-metrics";
 import { useCampaignManagement } from "@/hooks/use-campaign-management";
 import { useNiches } from "@/hooks/use-niches";
 import {
@@ -160,6 +165,9 @@ function RouteComponent() {
       void queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "metrics"],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, "metrics-tab"],
+      });
     },
     onError: (err: unknown) => {
       const e = err as {
@@ -183,6 +191,22 @@ function RouteComponent() {
   const {
     data: identifiedPosts = [],
   } = useIdentifiedPosts(campaignId);
+
+  const metricsTabActive = activeTab === "metrics";
+  const tabContentsMetricsQuery = useCampaignTabContentsMetrics(campaignId, {
+    enabled: metricsTabActive,
+  });
+  const topCitiesQuery = useCampaignTopCities(campaignId, 5, {
+    enabled: metricsTabActive,
+  });
+  const audienceByAgeQuery = useCampaignAudienceByAge(campaignId, {
+    enabled: metricsTabActive,
+  });
+  const tabAnalyticsLoading =
+    metricsTabActive &&
+    (tabContentsMetricsQuery.isLoading ||
+      topCitiesQuery.isLoading ||
+      audienceByAgeQuery.isLoading);
 
   const {
     data: managementData,
@@ -511,6 +535,9 @@ function RouteComponent() {
             contents={contents}
             campaignPhases={phases}
             identifiedPosts={identifiedPosts}
+            topCities={topCitiesQuery.data ?? []}
+            audienceByAge={audienceByAgeQuery.data ?? null}
+            tabAnalyticsLoading={tabAnalyticsLoading}
           />
         );
       default:
