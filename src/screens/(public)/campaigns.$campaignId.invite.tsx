@@ -15,6 +15,17 @@ export const Route = createFileRoute("/(public)/campaigns/$campaignId/invite")({
   component: PublicCampaignInviteScreen,
 });
 
+const HYPEAPP_PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
+
+/** Android: abre o app se instalado; senão `S.browser_fallback_url` leva à Play Store (Chrome). */
+const HYPEAPP_ANDROID_OPEN_INTENT = `intent://#Intent;package=br.com.hypeapp.v2;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${encodeURIComponent(HYPEAPP_PLAY_STORE_URL)};end`;
+
+function hrefOpenHypeappApp(): string {
+  if (typeof navigator === "undefined") return HYPEAPP_PLAY_STORE_URL;
+  return /Android/i.test(navigator.userAgent) ? HYPEAPP_ANDROID_OPEN_INTENT : HYPEAPP_PLAY_STORE_URL;
+}
+
 const linkPrimaryClass =
   "inline-flex items-center justify-center min-h-11 px-8 rounded-full font-semibold text-sm bg-primary-600 hover:bg-primary-700 text-white border-0 transition-colors w-full sm:w-auto text-center";
 
@@ -263,12 +274,13 @@ function PublicCampaignInviteScreen() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-neutral-100">
-            <Link to="/sign-in" className={linkPrimaryClass}>
-              Entrar no backoffice (marca)
-            </Link>
-            <Link to="/sign-up" className={linkOutlineClass}>
-              Criar conta backoffice
-            </Link>
+            <a
+              href={hrefOpenHypeappApp()}
+              rel="noopener noreferrer"
+              className={linkPrimaryClass}
+            >
+              Abrir no app Hypeapp
+            </a>
           </div>
         </div>
     </div>

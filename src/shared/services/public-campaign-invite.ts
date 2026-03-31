@@ -9,7 +9,8 @@ export interface PublicCampaignInviteData {
   title: string;
   description: string;
   objective?: string;
-  status?: string;
+  /** Valor bruto ou `{ value, label }` — use `getCampaignStatusDisplayLabel` na UI */
+  status?: unknown;
   banner?: string | null;
   max_influencers?: number;
   segment_min_followers?: number;
@@ -26,9 +27,77 @@ export interface PublicCampaignInviteData {
   image_rights_period?: number;
 }
 
+const NESTED_TEXT_KEYS = [
+  "label",
+  "title",
+  "name",
+  "value",
+  "text",
+  "description",
+  "pt",
+  "pt_BR",
+  "pt-BR",
+  "en",
+  "default",
+] as const;
+
+const BANNER_REF_KEYS = [
+  "url",
+  "path",
+  "key",
+  "src",
+  "banner_url",
+  "file_url",
+] as const;
+
+/** Evita `String(obj)` → "[object Object]" quando a API envia objeto ou i18n. */
+function coerceDisplayText(value: unknown, fallback: string): string {
+  if (value == null) return fallback;
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t || fallback;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (Array.isArray(value) && value.length > 0) {
+    return coerceDisplayText(value[0], fallback);
+  }
+  if (typeof value === "object" && value !== null) {
+    const o = value as Record<string, unknown>;
+    for (const key of NESTED_TEXT_KEYS) {
+      const hit = o[key];
+      if (typeof hit === "string" && hit.trim()) return hit.trim();
+    }
+    for (const v of Object.values(o)) {
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return fallback;
+}
+
+function coerceBannerRef(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t || null;
+  }
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const o = value as Record<string, unknown>;
+    for (const key of BANNER_REF_KEYS) {
+      const hit = o[key];
+      if (typeof hit === "string" && hit.trim()) return hit.trim();
+    }
+  }
+  return null;
+}
+
 function asStringArray(v: unknown): string[] | undefined {
   if (Array.isArray(v)) {
-    const out = v.map((x) => String(x).trim()).filter(Boolean);
+    const out = v
+      .map((x) => coerceDisplayText(x, "").trim())
+      .filter(Boolean);
     return out.length ? out : undefined;
   }
   if (typeof v === "string" && v.trim()) {
@@ -46,31 +115,32 @@ function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInvi
   const paymentDetails = raw.payment_method_details as Record<string, unknown> | undefined;
 
   return {
-    title: String(raw.title ?? raw.name ?? "Campanha"),
-    description: String(raw.description ?? ""),
-    objective:
-      raw.objective != null && String(raw.objective).trim()
-        ? String(raw.objective)
-        : undefined,
-    status: raw.status != null ? String(raw.status) : undefined,
+    title: coerceDisplayText(raw.title ?? raw.name, "Campanha"),
+    description: coerceDisplayText(raw.description, ""),
+    objective: (() => {
+      const t = coerceDisplayText(raw.objective, "");
+      return t || undefined;
+    })(),
+    status: raw.status ?? undefined,
     banner:
-      raw.banner != null
-        ? String(raw.banner)
-        : raw.banner_url != null
-          ? String(raw.banner_url)
-          : null,
+      coerceBannerRef(raw.banner) ??
+      coerceBannerRef(raw.banner_url) ??
+      null,
     max_influencers:
       raw.max_influencers != null ? Number(raw.max_influencers) : undefined,
     segment_min_followers:
       raw.segment_min_followers != null
         ? Number(raw.segment_min_followers)
         : undefined,
-    primary_niche:
-      primary && typeof primary === "object"
-        ? { name: primary.name != null ? String(primary.name) : undefined }
-        : undefined,
-    payment_method:
-      raw.payment_method != null ? String(raw.payment_method) : undefined,
+    primary_niche: (() => {
+      if (!primary || typeof primary !== "object") return undefined;
+      const name = coerceDisplayText(primary.name, "");
+      return name ? { name } : undefined;
+    })(),
+    payment_method: (() => {
+      const pm = coerceDisplayText(raw.payment_method, "");
+      return pm || undefined;
+    })(),
     payment_method_details: paymentDetails
       ? {
           amount:
@@ -81,10 +151,10 @@ function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInvi
             paymentDetails.currency != null
               ? String(paymentDetails.currency)
               : undefined,
-          description:
-            paymentDetails.description != null
-              ? String(paymentDetails.description)
-              : undefined,
+          description: (() => {
+            const d = coerceDisplayText(paymentDetails.description, "");
+            return d || undefined;
+          })(),
         }
       : undefined,
     benefits: asStringArray(raw.benefits),

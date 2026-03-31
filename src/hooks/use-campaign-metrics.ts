@@ -9,6 +9,16 @@ import {
   getCampaignAudienceByAge,
 } from "@/shared/services/metrics";
 
+function resolveQueryEnabled(
+  enabledOrOptions?: boolean | { enabled?: boolean }
+): boolean {
+  if (enabledOrOptions === undefined) return true;
+  if (typeof enabledOrOptions === "object" && enabledOrOptions !== null) {
+    return enabledOrOptions.enabled ?? true;
+  }
+  return enabledOrOptions;
+}
+
 export function useCampaignMetrics(campaignId: string) {
   return useQuery({
     queryKey: ["campaigns", campaignId, "metrics"],
@@ -28,7 +38,12 @@ export function useCampaignContentsMetricsMap(campaignId: string, enabled = true
 }
 
 /** GET .../metrics/top-cities */
-export function useCampaignTopCities(campaignId: string, limit = 5, enabled = true) {
+export function useCampaignTopCities(
+  campaignId: string,
+  limit = 5,
+  enabledOrOptions?: boolean | { enabled?: boolean }
+) {
+  const enabled = resolveQueryEnabled(enabledOrOptions);
   return useQuery({
     queryKey: ["campaigns", campaignId, "metrics", "top-cities", limit],
     queryFn: () => getCampaignTopCities(campaignId, limit),
@@ -38,7 +53,11 @@ export function useCampaignTopCities(campaignId: string, limit = 5, enabled = tr
 }
 
 /** GET .../metrics/audience-by-age */
-export function useCampaignAudienceByAge(campaignId: string, enabled = true) {
+export function useCampaignAudienceByAge(
+  campaignId: string,
+  enabledOrOptions?: boolean | { enabled?: boolean }
+) {
+  const enabled = resolveQueryEnabled(enabledOrOptions);
   return useQuery({
     queryKey: ["campaigns", campaignId, "metrics", "audience-by-age"],
     queryFn: () => getCampaignAudienceByAge(campaignId),
@@ -62,46 +81,18 @@ export function useContentMetrics(
 ) {
   return useQuery({
     queryKey: ["campaigns", campaignId, "metrics", "contents", contentId],
-    queryKey: ["campaigns", campaignId, "metrics", "contents", contentId],
     queryFn: () => getContentMetrics(campaignId, contentId),
     enabled:
       (options?.enabled ?? true) && !!campaignId && !!contentId,
   });
 }
 
-/** Métricas por conteúdo (lote) — tab Métricas e conteúdos */
+/** Métricas por conteúdo (lote) — mesmo cache que useCampaignContentsMetricsMap */
 export function useCampaignTabContentsMetrics(
   campaignId: string,
   options?: { enabled?: boolean }
 ) {
-  return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics-tab", "contents"],
-    queryFn: () => getCampaignTabContentsMetrics(campaignId),
-    enabled: (options?.enabled ?? true) && !!campaignId,
-  });
-}
-
-export function useCampaignTopCities(
-  campaignId: string,
-  limit = 5,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics-tab", "top-cities", limit],
-    queryFn: () => getCampaignTopCities(campaignId, limit),
-    enabled: (options?.enabled ?? true) && !!campaignId,
-  });
-}
-
-export function useCampaignAudienceByAge(
-  campaignId: string,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics-tab", "audience-by-age"],
-    queryFn: () => getCampaignAudienceByAge(campaignId),
-    enabled: (options?.enabled ?? true) && !!campaignId,
-  });
+  return useCampaignContentsMetricsMap(campaignId, options?.enabled ?? true);
 }
 
 export function useIdentifiedPosts(

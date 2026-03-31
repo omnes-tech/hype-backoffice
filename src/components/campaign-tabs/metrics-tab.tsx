@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useContentMetrics } from "@/hooks/use-campaign-metrics";
-import type { TopCityRow, AudienceByAgePayload } from "@/shared/services/metrics";
+import type {
+  CampaignTopCityRow,
+  CampaignAudienceByAgeResponse,
+} from "@/shared/services/metrics";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,11 +28,7 @@ import {
   buildAudienceBarSeries,
   topAgeBracketLabel,
 } from "@/shared/services/metrics";
-import {
-  useCampaignContentsMetricsMap,
-  useCampaignTopCities,
-  useCampaignAudienceByAge,
-} from "@/hooks/use-campaign-metrics";
+import { useCampaignContentsMetricsMap } from "@/hooks/use-campaign-metrics";
 import type {
   CampaignContent,
   ContentMetrics,
@@ -85,6 +83,13 @@ interface EngagementDayData {
 const DEMO_AGE_LABELS = ["18-29", "30-49", "50-64", "+65"];
 const DEMO_INSTAGRAM_PCT = [85, 55, 28, 12];
 const DEMO_YOUTUBE_PCT = [92, 60, 32, 15];
+
+function ageBracketForMaxPercent(values: number[]): string {
+  const i = values.indexOf(Math.max(...values));
+  const raw = DEMO_AGE_LABELS[i] ?? "—";
+  if (raw === "—") return raw;
+  return raw.replace("-", "–");
+}
 
 const EMPTY_CONTENT_METRICS_MAP: Record<string, ContentMetrics> = {};
 
@@ -243,8 +248,8 @@ interface MetricsTabProps {
   contents: CampaignContent[];
   campaignPhases?: CampaignPhase[];
   identifiedPosts?: IdentifiedPost[];
-  topCities?: TopCityRow[];
-  audienceByAge?: AudienceByAgePayload | null;
+  topCities?: CampaignTopCityRow[];
+  audienceByAge?: CampaignAudienceByAgeResponse | null;
   tabAnalyticsLoading?: boolean;
 }
 
@@ -274,15 +279,13 @@ export function MetricsTab({
   const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
 
   const contentsMetricsQuery = useCampaignContentsMetricsMap(campaignId ?? "");
-  const topCitiesQuery = useCampaignTopCities(campaignId ?? "", 5);
-  const audienceQuery = useCampaignAudienceByAge(campaignId ?? "");
 
   const metricsByContentId =
     contentsMetricsQuery.data?.by_content_id ?? EMPTY_CONTENT_METRICS_MAP;
 
   const audienceBarSeries = useMemo(
-    () => buildAudienceBarSeries(audienceQuery.data?.networks),
-    [audienceQuery.data]
+    () => buildAudienceBarSeries(audienceByAge?.networks),
+    [audienceByAge]
   );
 
   const chartLabels = audienceBarSeries?.labels.length
@@ -295,22 +298,22 @@ export function MetricsTab({
     ? audienceBarSeries.youtube
     : DEMO_YOUTUBE_PCT;
 
-  const igBuckets = audienceQuery.data?.networks?.instagram?.age_buckets;
-  const ytBuckets = audienceQuery.data?.networks?.youtube?.age_buckets;
+  const igBuckets = audienceByAge?.networks?.instagram?.age_buckets;
+  const ytBuckets = audienceByAge?.networks?.youtube?.age_buckets;
 
   const topInstagramAge = useMemo(() => {
-    if (audienceQuery.data?.networks?.instagram?.has_data && igBuckets?.length) {
+    if (audienceByAge?.networks?.instagram?.has_data && igBuckets?.length) {
       return topAgeBracketLabel(igBuckets);
     }
     return ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT);
-  }, [audienceQuery.data, igBuckets]);
+  }, [audienceByAge, igBuckets]);
 
   const topYoutubeAge = useMemo(() => {
-    if (audienceQuery.data?.networks?.youtube?.has_data && ytBuckets?.length) {
+    if (audienceByAge?.networks?.youtube?.has_data && ytBuckets?.length) {
       return topAgeBracketLabel(ytBuckets);
     }
     return ageBracketForMaxPercent(DEMO_YOUTUBE_PCT);
-  }, [audienceQuery.data, ytBuckets]);
+  }, [audienceByAge, ytBuckets]);
 
   const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
@@ -599,15 +602,15 @@ export function MetricsTab({
         {/* Cidades — GET .../metrics/top-cities */}
         <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
           <h3 className="text-2xl font-semibold text-black">Cidades com melhor performance</h3>
-          {topCitiesQuery.isPending ? (
+          {tabAnalyticsLoading ? (
             <p className="text-sm text-neutral-500">Carregando cidades...</p>
-          ) : (topCitiesQuery.data?.length ?? 0) === 0 ? (
+          ) : topCities.length === 0 ? (
             <p className="text-sm text-neutral-500">
               Nenhum dado de cidade ainda (posts identificados com métricas e endereços dos influenciadores).
             </p>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              {(topCitiesQuery.data ?? []).map((city, idx) => {
+              {topCities.map((city, idx) => {
                 const style = CITY_RANK_STYLES[idx] ?? CITY_RANK_STYLES[CITY_RANK_STYLES.length - 1];
                 const rank = city.rank || idx + 1;
                 const label = [city.city_name, city.state].filter(Boolean).join(" · ") || "—";
