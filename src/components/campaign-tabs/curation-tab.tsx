@@ -971,11 +971,8 @@ export function CurationTab({
                               type="button"
                               onClick={() => {
                                 navigate({
-                                  to: "/campaigns/$campaignId/influencer/$influencerId",
-                                  params: {
-                                    campaignId: campaignId ?? "",
-                                    influencerId: app.influencerId,
-                                  },
+                                  to: "/influencer/$influencerId",
+                                  params: { influencerId: app.influencerId },
                                 });
                               }}
                               className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
@@ -997,11 +994,8 @@ export function CurationTab({
                               type="button"
                               onClick={() => {
                                 navigate({
-                                  to: "/campaigns/$campaignId/influencer/$influencerId",
-                                  params: {
-                                    campaignId: campaignId ?? "",
-                                    influencerId: app.influencerId,
-                                  },
+                                  to: "/influencer/$influencerId",
+                                  params: { influencerId: app.influencerId },
                                 });
                               }}
                               className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"

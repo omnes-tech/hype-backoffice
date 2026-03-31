@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 
 import authLayoutImage from "@/assets/images/auth-layout-image.png";
 import hypeappLogo from "@/assets/images/hypeapp-logo.png";
@@ -9,6 +8,17 @@ export const Route = createFileRoute("/(public)")({
 });
 
 function RouteComponent() {
+  const { pathname } = useLocation();
+  const isCampaignPublicInvite = /\/campaigns\/[^/]+\/invite\/?$/.test(pathname);
+
+  if (isCampaignPublicInvite) {
+    return (
+      <div className="min-h-screen w-full bg-neutral-100 overflow-y-auto">
+        <Outlet />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen bg-neutral-50 flex">
       <div className="w-1/2 relative">
@@ -25,7 +35,7 @@ function RouteComponent() {
         />
       </div>
 
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center overflow-y-auto">
         <Outlet />
       </div>
     </div>

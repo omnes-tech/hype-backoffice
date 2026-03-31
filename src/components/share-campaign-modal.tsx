@@ -21,9 +21,9 @@ export function ShareCampaignModal({
 }: ShareCampaignModalProps) {
   const [copied, setCopied] = useState(false);
   
-  // Construir o link da campanha
-  const campaignUrl = `${window.location.origin}/campaigns/${campaignId}`;
-  const shareText = `Confira esta campanha: ${campaignTitle}`;
+  // Link de convite: abre a tela focada em compartilhar e acessar inscrições
+  const campaignUrl = `${window.location.origin}/campaigns/${campaignId}/invite`;
+  const shareText = `Convite para a campanha: ${campaignTitle}`;
 
   const handleCopyLink = async () => {
     try {

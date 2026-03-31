@@ -1,5 +1,6 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type { Influencer } from "../types";
+import type { AudienceNetworkAgeData } from "./metrics";
 
 /** Métricas por rede (ex.: instagram, tiktok, youtube) */
 export interface MetricsByNetwork {
@@ -33,12 +34,15 @@ export interface HypeappCampaignItem {
   likes?: number;
 }
 
-/** Resposta do GET /campaigns/:campaignId/influencer/:influencerId (perfil do influenciador na campanha) */
+/**
+ * Perfil do influenciador no backoffice.
+ * `campaign` é preenchido quando o backend quiser breadcrumb de contexto (opcional na rota standalone).
+ */
 export interface CampaignInfluencerProfileResponse {
-  campaign: {
+  campaign?: {
     id: string;
     title: string;
-  };
+  } | null;
   influencer: {
     id: string;
     name: string;
@@ -70,16 +74,21 @@ export interface CampaignInfluencerProfileResponse {
   trust_index?: number | null;
   top_contents?: TopContentItem[];
   hypeapp_campaigns?: HypeappCampaignItem[];
+  /**
+   * Audiência por idade (mesmo formato de GET .../metrics/audience-by-age).
+   * Opcional até o backend incluir em GET /influencers/:id/profile.
+   */
+  audience_by_age?: {
+    networks: Record<string, AudienceNetworkAgeData>;
+  } | null;
 }
 
 /**
- * Busca dados do perfil do influenciador no contexto da campanha.
- * GET /campaigns/:campaignId/influencer/:influencerId
- * influencerId = id do campaign_user (mesmo da lista do dashboard).
- * Retorna 404 se campanha ou influenciador não existirem.
+ * Perfil do influenciador (página dedicada, fora da URL da campanha).
+ * GET /influencers/:influencerId/profile
+ * O identificador deve ser o mesmo usado nas navegações “Ver perfil” (alinhar com o backend).
  */
-export async function getCampaignInfluencerProfile(
-  campaignId: string,
+export async function getInfluencerProfile(
   influencerId: string
 ): Promise<CampaignInfluencerProfileResponse> {
   const workspaceId = getWorkspaceId();
@@ -88,7 +97,7 @@ export async function getCampaignInfluencerProfile(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencer/${influencerId}`),
+    getApiUrl(`/influencers/${influencerId}/profile`),
     {
       method: "GET",
       headers: {
@@ -102,7 +111,7 @@ export async function getCampaignInfluencerProfile(
 
   if (!request.ok) {
     if (request.status === 404) {
-      const error = new Error("Influenciador ou campanha não encontrados") as any;
+      const error = new Error("Influenciador não encontrado") as any;
       error.status = 404;
       throw error;
     }

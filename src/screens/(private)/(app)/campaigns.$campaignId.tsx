@@ -509,7 +509,6 @@ function RouteComponent() {
         return (
           <MetricsTab
             contents={contents}
-            metrics={{}}
             campaignPhases={phases}
             identifiedPosts={identifiedPosts}
           />

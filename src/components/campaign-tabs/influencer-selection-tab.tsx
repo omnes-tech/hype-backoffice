@@ -1071,11 +1071,8 @@ export function InfluencerSelectionTab({
                         onPreSelection={() => handleAction(influencer, "preselection")}
                         onViewProfile={() =>
                           navigate({
-                            to: "/campaigns/$campaignId/influencer/$influencerId",
-                            params: {
-                              campaignId: campaignId ?? "",
-                              influencerId: influencer.id,
-                            },
+                            to: "/influencer/$influencerId",
+                            params: { influencerId: influencer.id },
                           })
                         }
                         formatFollowers={formatFollowers}
@@ -1199,11 +1196,8 @@ export function InfluencerSelectionTab({
                         onPreSelection={() => handleAction(influencer, "preselection")}
                         onViewProfile={() =>
                           navigate({
-                            to: "/campaigns/$campaignId/influencer/$influencerId",
-                            params: {
-                              campaignId: campaignId ?? "",
-                              influencerId: influencer.id,
-                            },
+                            to: "/influencer/$influencerId",
+                            params: { influencerId: influencer.id },
                           })
                         }
                         formatFollowers={formatFollowers}

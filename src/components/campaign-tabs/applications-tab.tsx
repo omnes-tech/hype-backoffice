@@ -1110,8 +1110,8 @@ export function ApplicationsTab({
                       }
                       onViewPhases={() =>
                         navigate({
-                          to: "/campaigns/$campaignId/influencer/$influencerId",
-                          params: { campaignId: campaignId ?? "", influencerId: app.influencerId },
+                          to: "/influencer/$influencerId",
+                          params: { influencerId: app.influencerId },
                         })
                       }
                       hideWorkflowActions={segmentTab === "preselection"}

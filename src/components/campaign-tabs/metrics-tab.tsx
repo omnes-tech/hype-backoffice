@@ -20,6 +20,15 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { getUploadUrl } from "@/lib/utils/api";
+import {
+  buildAudienceBarSeries,
+  topAgeBracketLabel,
+} from "@/shared/services/metrics";
+import {
+  useCampaignContentsMetricsMap,
+  useCampaignTopCities,
+  useCampaignAudienceByAge,
+} from "@/hooks/use-campaign-metrics";
 import type {
   CampaignContent,
   ContentMetrics,
@@ -70,10 +79,54 @@ interface EngagementDayData {
   interactions: number;
 }
 
-/** Placeholder alinhado ao Figma até a API enviar faixa etária por rede */
+/** Fallback visual quando a API não retorna faixas etárias */
 const DEMO_AGE_LABELS = ["18-29", "30-49", "50-64", "+65"];
 const DEMO_INSTAGRAM_PCT = [85, 55, 28, 12];
 const DEMO_YOUTUBE_PCT = [92, 60, 32, 15];
+
+const EMPTY_CONTENT_METRICS_MAP: Record<string, ContentMetrics> = {};
+
+const barDemographicsOptions: ChartOptions<"bar"> = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: "#f9f9f9",
+      titleColor: "#202020",
+      bodyColor: "#202020",
+      padding: 10,
+      cornerRadius: 4,
+      displayColors: true,
+      boxPadding: 4,
+      callbacks: {
+        title(items) {
+          return items[0]?.label ?? "";
+        },
+        label(ctx) {
+          const label = ctx.dataset.label ?? "";
+          const v = ctx.parsed.y;
+          return `${label}: ${v}%`;
+        },
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { color: "#202020", font: { size: 16 } },
+    },
+    y: {
+      beginAtZero: true,
+      max: 100,
+      grid: { color: "#d8d8d8" },
+      ticks: {
+        color: "#646464",
+        callback: (v) => `${v}%`,
+      },
+    },
+  },
+};
 
 function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   const chartData = {
@@ -150,13 +203,21 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   return <Line data={chartData} options={options} />;
 }
 
-function DemographicsBarChart() {
+function DemographicsBarChart({
+  labels,
+  instagramData,
+  youtubeData,
+}: {
+  labels: string[];
+  instagramData: number[];
+  youtubeData: number[];
+}) {
   const chartData = {
-    labels: DEMO_AGE_LABELS,
+    labels,
     datasets: [
       {
         label: "Instagram",
-        data: DEMO_INSTAGRAM_PCT,
+        data: instagramData,
         backgroundColor: "#278cff",
         borderRadius: 12,
         borderSkipped: false,
@@ -164,7 +225,7 @@ function DemographicsBarChart() {
       },
       {
         label: "Youtube",
-        data: DEMO_YOUTUBE_PCT,
+        data: youtubeData,
         backgroundColor: "#ff633c",
         borderRadius: 12,
         borderSkipped: false,
@@ -173,65 +234,21 @@ function DemographicsBarChart() {
     ],
   };
 
-  const options: ChartOptions<"bar"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "#f9f9f9",
-        titleColor: "#202020",
-        bodyColor: "#202020",
-        padding: 10,
-        cornerRadius: 4,
-        displayColors: true,
-        boxPadding: 4,
-        callbacks: {
-          title(items) {
-            const age = items[0]?.label ?? "";
-            return age;
-          },
-          label(ctx) {
-            const label = ctx.dataset.label ?? "";
-            const v = ctx.parsed.y;
-            return `${label}: ${v}%`;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: "#202020", font: { size: 16 } },
-      },
-      y: {
-        beginAtZero: true,
-        max: 100,
-        grid: { color: "#d8d8d8" },
-        ticks: {
-          color: "#646464",
-          callback: (v) => `${v}%`,
-        },
-      },
-    },
-  };
-
-  return <Bar data={chartData} options={options} />;
+  return <Bar data={chartData} options={barDemographicsOptions} />;
 }
 
 interface MetricsTabProps {
   contents: CampaignContent[];
-  metrics: { [contentId: string]: ContentMetrics };
   campaignPhases?: CampaignPhase[];
   identifiedPosts?: IdentifiedPost[];
 }
 
-const CITY_PLACEHOLDERS = [
-  { rank: 1, name: "Curitiba", cardClass: "bg-[#f0ffed]", circleClass: "bg-emerald-200 text-[#3b3b3b]" },
-  { rank: 2, name: "São Paulo", cardClass: "bg-[#f9ffd5]", circleClass: "bg-amber-200 text-[#3b3b3b]" },
-  { rank: 3, name: "Fortaleza", cardClass: "bg-[#eefcff]", circleClass: "bg-sky-200 text-[#3b3b3b]" },
-  { rank: 4, name: "Sorocaba", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-[#3b3b3b]" },
-  { rank: 5, name: "Minas Gerais", cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
+const CITY_RANK_STYLES = [
+  { cardClass: "bg-[#f0ffed]", circleClass: "bg-emerald-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f9ffd5]", circleClass: "bg-amber-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#eefcff]", circleClass: "bg-sky-200 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-[#3b3b3b]" },
+  { cardClass: "bg-[#f2f2f2]", circleClass: "bg-neutral-300 text-neutral-950" },
 ] as const;
 
 function ageBracketForMaxPercent(values: number[]): string {
@@ -243,7 +260,6 @@ function ageBracketForMaxPercent(values: number[]): string {
 
 export function MetricsTab({
   contents,
-  metrics,
   campaignPhases = [],
   identifiedPosts: propsIdentifiedPosts = [],
 }: MetricsTabProps) {
@@ -256,11 +272,44 @@ export function MetricsTab({
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>("all");
   const [hasViewedNewPosts, setHasViewedNewPosts] = useState(false);
 
-  const topInstagramAge = useMemo(
-    () => ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT),
-    []
+  const contentsMetricsQuery = useCampaignContentsMetricsMap(campaignId ?? "");
+  const topCitiesQuery = useCampaignTopCities(campaignId ?? "", 5);
+  const audienceQuery = useCampaignAudienceByAge(campaignId ?? "");
+
+  const metricsByContentId =
+    contentsMetricsQuery.data?.by_content_id ?? EMPTY_CONTENT_METRICS_MAP;
+
+  const audienceBarSeries = useMemo(
+    () => buildAudienceBarSeries(audienceQuery.data?.networks),
+    [audienceQuery.data]
   );
-  const topYoutubeAge = useMemo(() => ageBracketForMaxPercent(DEMO_YOUTUBE_PCT), []);
+
+  const chartLabels = audienceBarSeries?.labels.length
+    ? audienceBarSeries.labels
+    : DEMO_AGE_LABELS;
+  const chartInstagram = audienceBarSeries?.labels.length
+    ? audienceBarSeries.instagram
+    : DEMO_INSTAGRAM_PCT;
+  const chartYoutube = audienceBarSeries?.labels.length
+    ? audienceBarSeries.youtube
+    : DEMO_YOUTUBE_PCT;
+
+  const igBuckets = audienceQuery.data?.networks?.instagram?.age_buckets;
+  const ytBuckets = audienceQuery.data?.networks?.youtube?.age_buckets;
+
+  const topInstagramAge = useMemo(() => {
+    if (audienceQuery.data?.networks?.instagram?.has_data && igBuckets?.length) {
+      return topAgeBracketLabel(igBuckets);
+    }
+    return ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT);
+  }, [audienceQuery.data, igBuckets]);
+
+  const topYoutubeAge = useMemo(() => {
+    if (audienceQuery.data?.networks?.youtube?.has_data && ytBuckets?.length) {
+      return topAgeBracketLabel(ytBuckets);
+    }
+    return ageBracketForMaxPercent(DEMO_YOUTUBE_PCT);
+  }, [audienceQuery.data, ytBuckets]);
 
   const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
@@ -309,8 +358,8 @@ export function MetricsTab({
     return list;
   }, [publishedContents, selectedPhaseFilter, selectedSocialFilter, selectedTimeRange]);
 
-  const getContentMetrics = (contentId: string): ContentMetrics | null => {
-    return metrics[contentId] || null;
+  const lookupContentMetrics = (contentId: string): ContentMetrics | null => {
+    return metricsByContentId[contentId] ?? null;
   };
 
   const getInfluencerContents = (influencerId: string) => {
@@ -320,7 +369,7 @@ export function MetricsTab({
   const totalMetrics = useMemo(() => {
     return contentsForTotals.reduce(
       (acc, content) => {
-        const m = getContentMetrics(content.id);
+        const m = lookupContentMetrics(content.id);
         if (m) {
           acc.views += m.views;
           acc.likes += m.likes;
@@ -330,7 +379,7 @@ export function MetricsTab({
       },
       { views: 0, likes: 0, comments: 0 }
     );
-  }, [contentsForTotals, metrics]);
+  }, [contentsForTotals, metricsByContentId]);
 
   const engagementChartData = useMemo(() => {
     const byDay: Array<{ engagement: number; views: number; interactions: number }> = [
@@ -343,7 +392,7 @@ export function MetricsTab({
       { engagement: 0, views: 0, interactions: 0 },
     ];
     contentsForTotals.forEach((content) => {
-      const m = getContentMetrics(content.id);
+      const m = lookupContentMetrics(content.id);
       const dateStr = content.publishedAt || content.published_at;
       if (m && dateStr) {
         const d = new Date(dateStr);
@@ -354,13 +403,13 @@ export function MetricsTab({
       }
     });
     return byDay;
-  }, [contentsForTotals, metrics]);
+  }, [contentsForTotals, metricsByContentId]);
 
   const getInfluencerTotalMetrics = (influencerId: string) => {
     const influencerContents = getInfluencerContents(influencerId);
     return influencerContents.reduce(
       (acc, content) => {
-        const contentMetrics = getContentMetrics(content.id);
+        const contentMetrics = lookupContentMetrics(content.id);
         if (contentMetrics) {
           acc.views += contentMetrics.views;
           acc.likes += contentMetrics.likes;
@@ -390,7 +439,7 @@ export function MetricsTab({
       }))
       .sort((a, b) => b.totalViews - a.totalViews)
       .slice(0, 4);
-  }, [uniqueInfluencers, metrics, publishedContents]);
+  }, [uniqueInfluencers, metricsByContentId, publishedContents]);
 
   const handleContentClick = (content: CampaignContent) => {
     setSelectedContent(content);
@@ -419,7 +468,7 @@ export function MetricsTab({
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <h3 className="text-2xl font-semibold text-black shrink-0">Métricas totais</h3>
             <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-start lg:gap-2">
-              <div className="min-w-0 w-full max-w-[354px] lg:w-[min(354px,100%)]">
+              <div className="min-w-0 w-min">
                 <Select
                   placeholder="Rede Social"
                   options={socialNetworks}
@@ -427,7 +476,7 @@ export function MetricsTab({
                   onChange={setSelectedSocialFilter}
                 />
               </div>
-              <div className="min-w-0 w-full max-w-[354px] lg:w-[min(354px,100%)]">
+              <div className="min-w-0 w-min">
                 <Select
                   placeholder="Fase"
                   options={phaseOptions}
@@ -508,11 +557,15 @@ export function MetricsTab({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div className="flex flex-col gap-3">
                     <p className="text-[17px] text-[#646464]">Maior público Instagram</p>
-                    <p className="text-2xl font-bold text-black">{topInstagramAge} anos</p>
+                    <p className="text-2xl font-bold text-black">
+                      {topInstagramAge === "—" ? "—" : `${topInstagramAge} anos`}
+                    </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:text-right">
                     <p className="text-[17px] text-[#646464]">Maior público YouTube</p>
-                    <p className="text-2xl font-bold text-black">{topYoutubeAge} anos</p>
+                    <p className="text-2xl font-bold text-black">
+                      {topYoutubeAge === "—" ? "—" : `${topYoutubeAge} anos`}
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
@@ -526,37 +579,58 @@ export function MetricsTab({
                   </div>
                 </div>
                 <div className="h-[220px] w-full min-h-0 flex-1">
-                  <DemographicsBarChart />
+                  <DemographicsBarChart
+                    labels={chartLabels}
+                    instagramData={chartInstagram}
+                    youtubeData={chartYoutube}
+                  />
                 </div>
+                {!audienceBarSeries && (
+                  <p className="text-xs text-neutral-500">
+                    Gráfico ilustrativo: a API ainda não retornou faixas etárias para esta campanha.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Cidades com melhor performance — Figma 2487:18050 */}
+        {/* Cidades — GET .../metrics/top-cities */}
         <div className="bg-white rounded-xl px-4 py-5 flex flex-col gap-6 shadow-sm">
           <h3 className="text-2xl font-semibold text-black">Cidades com melhor performance</h3>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            {CITY_PLACEHOLDERS.map((city) => (
-              <div
-                key={city.rank}
-                className={`flex flex-1 flex-col gap-5 min-w-[170px] rounded-xl px-3 pt-4 pb-5 ${city.cardClass}`}
-              >
-                <div className="flex items-center justify-center gap-2.5">
+          {topCitiesQuery.isPending ? (
+            <p className="text-sm text-neutral-500">Carregando cidades...</p>
+          ) : (topCitiesQuery.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Nenhum dado de cidade ainda (posts identificados com métricas e endereços dos influenciadores).
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {(topCitiesQuery.data ?? []).map((city, idx) => {
+                const style = CITY_RANK_STYLES[idx] ?? CITY_RANK_STYLES[CITY_RANK_STYLES.length - 1];
+                const rank = city.rank || idx + 1;
+                const label = [city.city_name, city.state].filter(Boolean).join(" · ") || "—";
+                return (
                   <div
-                    className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${city.circleClass}`}
+                    key={`${city.city_name}-${city.state}-${rank}`}
+                    className={`flex min-w-[170px] flex-1 flex-col gap-5 rounded-xl px-3 pt-4 pb-5 ${style.cardClass}`}
                   >
-                    <span className="text-xl font-medium">{city.rank}</span>
+                    <div className="flex items-center justify-center gap-2.5">
+                      <div
+                        className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${style.circleClass}`}
+                      >
+                        <span className="text-xl font-medium">{rank}</span>
+                      </div>
+                      <p className="text-lg font-medium text-black">{label}</p>
+                    </div>
+                    <p className="text-center text-lg font-medium text-black">
+                      {formatCompact(city.engagement_score)} de engajamento
+                    </p>
                   </div>
-                  <p className="text-lg font-medium text-black">{city.name}</p>
-                </div>
-                <p className="text-lg font-medium text-black text-center">1,2k de engajamento</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-neutral-500">
-            Ranking ilustrativo. Dados por cidade serão exibidos quando a API estiver disponível.
-          </p>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Top 4 influenciadores — Figma 2663:18565 */}
@@ -653,10 +727,9 @@ export function MetricsTab({
                       <button
                         type="button"
                         onClick={() => {
-                          if (!campaignId) return;
                           navigate({
-                            to: "/campaigns/$campaignId/influencer/$influencerId",
-                            params: { campaignId, influencerId: inf.influencerId },
+                            to: "/influencer/$influencerId",
+                            params: { influencerId: inf.influencerId },
                           });
                         }}
                         className="flex items-center gap-1 text-base font-medium text-[#4d4d4d] underline decoration-solid hover:text-neutral-950"
@@ -691,7 +764,7 @@ export function MetricsTab({
           ) : (
             <div className="flex flex-wrap gap-3">
               {publishedContents.slice(0, 8).map((content) => {
-                const contentMetrics = getContentMetrics(content.id);
+                const contentMetrics = lookupContentMetrics(content.id);
                 const phaseOrder =
                   content.phase?.order ??
                   ((campaignPhases.findIndex((p) => p.id === content.phase_id) + 1) || "?");
@@ -934,12 +1007,12 @@ export function MetricsTab({
                 )}
               </div>
 
-              {getContentMetrics(selectedContent.id) ? (
+              {lookupContentMetrics(selectedContent.id) ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Visualizações</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.views.toLocaleString(
+                      {lookupContentMetrics(selectedContent.id)!.views.toLocaleString(
                         "pt-BR"
                       )}
                     </p>
@@ -947,7 +1020,7 @@ export function MetricsTab({
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Curtidas</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.likes.toLocaleString(
+                      {lookupContentMetrics(selectedContent.id)!.likes.toLocaleString(
                         "pt-BR"
                       )}
                     </p>
@@ -955,7 +1028,7 @@ export function MetricsTab({
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Comentários</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.comments.toLocaleString(
+                      {lookupContentMetrics(selectedContent.id)!.comments.toLocaleString(
                         "pt-BR"
                       )}
                     </p>
@@ -963,7 +1036,7 @@ export function MetricsTab({
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Compartilhamentos</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.shares.toLocaleString(
+                      {lookupContentMetrics(selectedContent.id)!.shares.toLocaleString(
                         "pt-BR"
                       )}
                     </p>
@@ -971,7 +1044,7 @@ export function MetricsTab({
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Alcance</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.reach.toLocaleString(
+                      {lookupContentMetrics(selectedContent.id)!.reach.toLocaleString(
                         "pt-BR"
                       )}
                     </p>
@@ -979,7 +1052,7 @@ export function MetricsTab({
                   <div className="bg-neutral-50 rounded-2xl p-4">
                     <p className="text-sm text-neutral-600 mb-1">Taxa de engajamento</p>
                     <p className="text-2xl font-semibold text-neutral-950">
-                      {getContentMetrics(selectedContent.id)!.engagement.toFixed(1)}%
+                      {lookupContentMetrics(selectedContent.id)!.engagement.toFixed(1)}%
                     </p>
                   </div>
                 </div>

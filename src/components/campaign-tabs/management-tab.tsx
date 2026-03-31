@@ -1509,11 +1509,8 @@ export function ManagementTab({
                   setIsModalOpen(false);
                   setSelectedInfluencer(null);
                   navigate({
-                    to: "/campaigns/$campaignId/influencer/$influencerId",
-                    params: {
-                      campaignId: campaignId ?? "",
-                      influencerId: userId,
-                    },
+                    to: "/influencer/$influencerId",
+                    params: { influencerId: userId },
                   });
                 }}
               >
