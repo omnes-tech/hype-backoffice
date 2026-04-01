@@ -1,6 +1,19 @@
 import { getApiUrl, getAuthToken } from "@/lib/utils/api";
 import type { Niche } from "../types";
 
+/** Garante array plano a partir de `data` (array direto ou `{ niches | items }`). */
+function normalizeNichesPayload(data: unknown): Niche[] {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data as Niche[];
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    if (Array.isArray(o.niches)) return o.niches as Niche[];
+    if (Array.isArray(o.items)) return o.items as Niche[];
+    if (Array.isArray(o.data)) return o.data as Niche[];
+  }
+  return [];
+}
+
 /**
  * Busca todos os nichos disponíveis
  */
@@ -29,6 +42,6 @@ export async function getNiches(): Promise<Niche[]> {
 
   const response = await request.json();
 
-  return response.data;
+  return normalizeNichesPayload(response.data);
 }
 

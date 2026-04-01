@@ -1,4 +1,5 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
+import { extractNicheFromApiRow } from "@/shared/utils/niche-display";
 
 /** Perfil social em um item de seleção (documentação INFLUENCER_SELECTION_API.md) */
 export interface InfluencerSelectionSocialNetwork {
@@ -21,6 +22,10 @@ export interface InfluencerSelectionProfileItem {
   social_network: InfluencerSelectionSocialNetwork;
   user: InfluencerSelectionUser;
   niche_ids: number[];
+  /** Nome legível quando a API envia (ex.: niche_name). */
+  niche_name?: string;
+  /** Todos os nomes quando a API envia lista (ex.: nichos aninhados). */
+  niche_names?: string[];
   /** Presente apenas em `recommended` */
   match_reason?: string;
 }
@@ -81,13 +86,90 @@ function normalizeProfileItem(raw: unknown): InfluencerSelectionProfileItem | nu
   const user = normalizeUser(o.user);
   if (!sn || !user) return null;
   const nicheRaw = o.niche_ids ?? o.nicheIds;
-  const niche_ids = Array.isArray(nicheRaw)
-    ? nicheRaw.map((x) => Number(x)).filter((n) => Number.isFinite(n))
-    : [];
+  const niche_ids: number[] = [];
+  let niche_name: string | undefined;
+  if (Array.isArray(nicheRaw)) {
+    for (const x of nicheRaw) {
+      if (typeof x === "number" && Number.isFinite(x)) {
+        niche_ids.push(x);
+        continue;
+      }
+      if (typeof x === "string" && x.trim()) {
+        const n = Number(x);
+        if (Number.isFinite(n)) niche_ids.push(n);
+        continue;
+      }
+      if (x != null && typeof x === "object" && !Array.isArray(x)) {
+        const ox = x as Record<string, unknown>;
+        const id = Number(ox.id);
+        if (Number.isFinite(id)) niche_ids.push(id);
+        const nm = ox.name;
+        if (typeof nm === "string" && nm.trim()) {
+          niche_name = niche_name ?? nm.trim();
+        }
+      }
+    }
+  }
   const mr = o.match_reason ?? o.matchReason;
   const match_reason =
     typeof mr === "string" && mr.trim() ? mr.trim() : undefined;
-  return { social_network: sn, user, niche_ids, match_reason };
+
+  const nn = o.niche_name ?? o.nicheName;
+  if (typeof nn === "string" && nn.trim()) niche_name = niche_name ?? nn.trim();
+
+  let niche_names: string[] | undefined;
+  if (Array.isArray(o.niche_names)) {
+    const strs = o.niche_names
+      .map((e) => (typeof e === "string" ? e.trim() : ""))
+      .filter(Boolean);
+    if (strs.length) {
+      niche_names = strs;
+      niche_name = niche_name ?? strs[0];
+    }
+  }
+
+  const primaryNiche = o.primary_niche ?? o.primaryNiche;
+  if (!niche_name && primaryNiche && typeof primaryNiche === "object") {
+    const pn = primaryNiche as Record<string, unknown>;
+    const pnm = pn.name;
+    if (typeof pnm === "string" && pnm.trim()) niche_name = pnm.trim();
+  }
+
+  const subNm = o.sub_niche_name ?? o.subNicheName ?? o.subniche_name;
+  if (typeof subNm === "string" && subNm.trim()) {
+    niche_name = niche_name ?? subNm.trim();
+  }
+
+  const fromRoot = extractNicheFromApiRow(o);
+  if (fromRoot.nicheName) niche_name = niche_name ?? fromRoot.nicheName;
+
+  if (o.user && typeof o.user === "object") {
+    const fromUser = extractNicheFromApiRow(o.user as Record<string, unknown>);
+    if (fromUser.nicheName) niche_name = niche_name ?? fromUser.nicheName;
+  }
+
+  const nichesArr = o.niches ?? o.user_niches ?? o.influencer_niches;
+  if (Array.isArray(nichesArr)) {
+    for (const el of nichesArr) {
+      if (el != null && typeof el === "object" && !Array.isArray(el)) {
+        const en = el as Record<string, unknown>;
+        const nm = en.name;
+        if (typeof nm === "string" && nm.trim()) {
+          niche_name = niche_name ?? nm.trim();
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    social_network: sn,
+    user,
+    niche_ids,
+    niche_name,
+    niche_names,
+    match_reason,
+  };
 }
 
 function normalizeItems(arr: unknown): InfluencerSelectionProfileItem[] {

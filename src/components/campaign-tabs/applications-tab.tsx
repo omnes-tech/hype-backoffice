@@ -15,6 +15,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
+import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
 
 function Skeleton({ className }: { className?: string }) {
@@ -89,6 +90,7 @@ interface ApplicationWithProfile {
   influencerFollowers: number;
   influencerEngagement: number;
   influencerNiche: string;
+  influencerNicheName?: string;
   profileId: string;
   profileType: string;
   profileTypeLabel: string;
@@ -129,6 +131,7 @@ function buildInscriptionsProfiles(
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
+          influencerNicheName: inf.nicheName,
           profileId: "",
           profileType: "",
           profileTypeLabel: "Geral",
@@ -151,6 +154,7 @@ function buildInscriptionsProfiles(
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
+          influencerNicheName: inf.nicheName,
           profileId: String(profile.id),
           profileType: profile.type,
           profileTypeLabel:
@@ -1086,9 +1090,11 @@ export function ApplicationsTab({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentFilteredList.map((app) => {
-                  const nicheName = app.influencerNiche
-                    ? (niches.find((n) => n.id.toString() === app.influencerNiche.toString())?.name ?? app.influencerNiche)
-                    : null;
+                  const nicheName = resolveNicheDisplayName(
+                    app.influencerNiche,
+                    niches,
+                    app.influencerNicheName,
+                  );
                   return (
                     <ApplicationCard
                       key={app.profileKey}
@@ -1301,12 +1307,13 @@ export function ApplicationsTab({
               <div className="col-span-2">
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <Badge
-                  text={(() => {
-                    const nicheId = selectedProfileInfluencer.niche;
-                    if (!nicheId) return "-";
-                    const niche = niches.find((n) => n.id.toString() === nicheId.toString());
-                    return niche?.name || nicheId;
-                  })()}
+                  text={
+                    resolveNicheDisplayName(
+                      selectedProfileInfluencer.niche,
+                      niches,
+                      selectedProfileInfluencer.nicheName,
+                    ) ?? "-"
+                  }
                   backgroundColor="bg-tertiary-50"
                   textColor="text-tertiary-900"
                 />

@@ -31,6 +31,7 @@ import {
 } from "@/shared/services/influencer";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
+import { resolveNicheDisplayNameFromIds } from "@/shared/utils/niche-display";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -44,6 +45,8 @@ interface ExtendedInfluencer extends Influencer {
   /** PK `social_networks` — alinhado à API de seleção / convite por perfil */
   socialNetworkId?: string;
   selectionSource?: "recommended" | "catalog";
+  /** `niche_ids` crus da API de influencer-selection (resolver nome via GET /niches). */
+  selectionNicheIds?: number[];
 }
 
 interface InfluencerSelectionTabProps {
@@ -244,6 +247,11 @@ function selectionItemToExtended(
     followers: sn.members ?? 0,
     engagement: 0,
     niche: firstNiche != null ? String(firstNiche) : "",
+    nicheName: item.niche_name,
+    selectionNicheIds:
+      item.niche_ids?.length && item.niche_ids.every((n) => Number.isFinite(n))
+        ? [...item.niche_ids]
+        : undefined,
     socialNetwork: networkType,
     recommendationReason:
       source === "recommended" ? item.match_reason : undefined,
@@ -344,9 +352,17 @@ function InfluencerCard({
   onViewProfile?: () => void;
   formatFollowers: (n: number) => string;
 }) {
-  const nicheLabel =
-    influencer.niche &&
-    (niches.find((n) => n.id.toString() === String(influencer.niche))?.name ?? String(influencer.niche));
+  const nicheIds =
+    influencer.selectionNicheIds?.length ?
+      influencer.selectionNicheIds
+    : influencer.niche ?
+      [Number(influencer.niche)].filter((n) => Number.isFinite(n))
+    : [];
+  const nicheLabel = resolveNicheDisplayNameFromIds(
+    nicheIds,
+    niches,
+    influencer.nicheName,
+  );
   const avatarSrc = influencer.avatar ? getUploadUrl(influencer.avatar) : undefined;
   const bookmarkYellow = !isInvited;
 

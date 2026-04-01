@@ -1,4 +1,5 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
+import { extractNicheFromApiRow } from "@/shared/utils/niche-display";
 
 /** Item de `status_history` conforme `API_CAMPAIGN_MANAGEMENT.md` */
 export interface CampaignManagementStatusHistoryItem {
@@ -20,6 +21,7 @@ export interface CampaignManagementParticipant {
   followers: number;
   engagement: number;
   niche?: string;
+  nicheName?: string;
   gender?: string;
   social_network?: string;
   social_networks?: Array<{
@@ -68,6 +70,8 @@ function normalizeParticipant(raw: Record<string, unknown>): CampaignManagementP
         .filter(Boolean) as CampaignManagementStatusHistoryItem[]
     : [];
 
+  const { niche: nicheId, nicheName } = extractNicheFromApiRow(raw);
+
   return {
     id,
     user_id: raw.user_id != null ? String(raw.user_id) : undefined,
@@ -76,7 +80,8 @@ function normalizeParticipant(raw: Record<string, unknown>): CampaignManagementP
     avatar: String(raw.avatar ?? ""),
     followers: typeof raw.followers === "number" ? raw.followers : 0,
     engagement: typeof raw.engagement === "number" ? raw.engagement : 0,
-    niche: raw.niche != null ? String(raw.niche) : undefined,
+    niche: nicheId || undefined,
+    nicheName,
     gender: raw.gender != null ? String(raw.gender) : undefined,
     social_network:
       raw.social_network != null ? String(raw.social_network) : undefined,

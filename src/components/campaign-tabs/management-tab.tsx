@@ -36,6 +36,7 @@ import { useChat } from "@/hooks/use-chat";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNiches } from "@/hooks/use-niches";
+import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 
 interface ManagementTabProps {
   participants: CampaignManagementParticipant[];
@@ -90,6 +91,7 @@ function participantToExtended(
     followers: p.followers ?? 0,
     engagement: p.engagement ?? 0,
     niche: p.niche || "",
+    nicheName: p.nicheName,
     status: (p.status || "applications") as Influencer["status"],
     social_networks: p.social_networks,
     socialNetwork: primaryNetwork,
@@ -1387,14 +1389,11 @@ export function ManagementTab({
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <p className="text-lg font-semibold text-neutral-950">
-                  {(() => {
-                    const nicheId = selectedInfluencer.niche;
-                    if (!nicheId) return "-";
-                    const niche = niches.find(
-                      (n) => n.id.toString() === nicheId.toString(),
-                    );
-                    return niche?.name || nicheId;
-                  })()}
+                  {resolveNicheDisplayName(
+                    selectedInfluencer.niche,
+                    niches,
+                    selectedInfluencer.nicheName,
+                  ) ?? "-"}
                 </p>
               </div>
               <div>

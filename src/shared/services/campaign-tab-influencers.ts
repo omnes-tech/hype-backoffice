@@ -4,6 +4,7 @@ import {
   transformDashboardInfluencer,
   type DashboardInfluencer,
 } from "@/shared/services/dashboard";
+import { extractNicheFromApiRow } from "@/shared/utils/niche-display";
 
 /** @see docs/API_INSCRICOES_CURADORIA.md §3 */
 export type InscriptionsSegment = "applications" | "pre_selection";
@@ -36,6 +37,8 @@ export interface InscriptionApiRow {
   social_network?: InscriptionApiSocialNetwork | null;
   status: string;
   niche?: string | null;
+  niche_id?: string | number | null;
+  niche_name?: string | null;
   engagement?: number | null;
 }
 
@@ -95,6 +98,10 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
       ? sn.photo.trim()
       : "";
 
+  const { niche: nicheId, nicheName } = extractNicheFromApiRow(
+    row as unknown as Record<string, unknown>
+  );
+
   const influencer: Influencer = {
     id: uid,
     name: (u.name || "").trim() || "—",
@@ -106,7 +113,8 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
       row.engagement != null && !Number.isNaN(Number(row.engagement))
         ? Number(row.engagement)
         : 0,
-    niche: row.niche != null ? String(row.niche) : "",
+    niche: nicheId,
+    nicheName,
     status: rowStatus,
     campaign_user_id:
       row.campaign_user_id != null && row.campaign_user_id !== ""
@@ -134,7 +142,18 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
 }
 
 function mapRowToInfluencer(row: unknown): Influencer {
-  return transformDashboardInfluencer(row as DashboardInfluencer);
+  const base = transformDashboardInfluencer(row as DashboardInfluencer);
+  if (row && typeof row === "object") {
+    const { niche: extractedNiche, nicheName } = extractNicheFromApiRow(
+      row as Record<string, unknown>
+    );
+    return {
+      ...base,
+      ...(extractedNiche ? { niche: extractedNiche } : {}),
+      ...(nicheName ? { nicheName } : {}),
+    };
+  }
+  return base;
 }
 
 async function fetchTabInfluencers<T>(url: string): Promise<T> {

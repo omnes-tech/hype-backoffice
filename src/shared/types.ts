@@ -172,6 +172,8 @@ export interface Influencer {
   followers: number;
   engagement: number;
   niche: string;
+  /** Nome legível quando a API envia além do id (ex.: niche_name). */
+  nicheName?: string;
   status?:
     | "applications"
     | "pre_selection"

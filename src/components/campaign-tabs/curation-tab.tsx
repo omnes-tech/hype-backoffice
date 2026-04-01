@@ -15,6 +15,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { getUploadUrl } from "@/lib/utils/api";
+import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
 
 function Skeleton({ className }: { className?: string }) {
@@ -98,6 +99,7 @@ interface ApplicationWithProfile {
   influencerFollowers: number;
   influencerEngagement: number;
   influencerNiche: string;
+  influencerNicheName?: string;
   profileId: string;
   profileType: string;
   profileTypeLabel: string;
@@ -171,6 +173,7 @@ function expandCurationProfiles(
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
+          influencerNicheName: inf.nicheName,
           profileId: "",
           profileType: "",
           profileTypeLabel: "Geral",
@@ -190,6 +193,7 @@ function expandCurationProfiles(
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
+          influencerNicheName: inf.nicheName,
           profileId: "",
           profileType: "",
           profileTypeLabel: "Geral",
@@ -209,6 +213,7 @@ function expandCurationProfiles(
           influencerFollowers: inf.followers,
           influencerEngagement: inf.engagement,
           influencerNiche: inf.niche || "",
+          influencerNicheName: inf.nicheName,
           profileId: "",
           profileType: "",
           profileTypeLabel: "Geral",
@@ -238,6 +243,7 @@ function expandCurationProfiles(
         influencerFollowers: members,
         influencerEngagement: inf.engagement,
         influencerNiche: inf.niche || "",
+        influencerNicheName: inf.nicheName,
         profileId: String(profile.id),
         profileType: profile.type,
         profileTypeLabel:
@@ -652,11 +658,8 @@ export function CurationTab({
     }
   };
 
-  const getNicheName = (nicheId: string) => {
-    if (!nicheId) return null;
-    const n = niches.find((x) => x.id.toString() === nicheId.toString());
-    return n?.name ?? nicheId;
-  };
+  const nicheLabelForCard = (app: ApplicationWithProfile) =>
+    resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName);
 
   if (tabLoading) {
     return <CurationTabSkeleton />;
@@ -856,7 +859,7 @@ export function CurationTab({
                   !Number.isNaN(Number(app.influencerEngagement))
                     ? `${Number(app.influencerEngagement)}%`
                     : "—";
-                const nicheName = getNicheName(app.influencerNiche);
+                const nicheName = nicheLabelForCard(app);
                 const isPending = app.profileStatus === "curation";
 
                 return (
@@ -1195,12 +1198,13 @@ export function CurationTab({
               <div className="col-span-2">
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <Badge
-                  text={(() => {
-                    const nicheId = selectedProfileInfluencer.niche;
-                    if (!nicheId) return "-";
-                    const niche = niches.find((n) => n.id.toString() === nicheId.toString());
-                    return niche?.name || nicheId;
-                  })()}
+                  text={
+                    resolveNicheDisplayName(
+                      selectedProfileInfluencer.niche,
+                      niches,
+                      selectedProfileInfluencer.nicheName,
+                    ) ?? "-"
+                  }
                   backgroundColor="bg-tertiary-50"
                   textColor="text-tertiary-900"
                 />
