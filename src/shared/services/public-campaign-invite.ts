@@ -7,6 +7,21 @@ import { getApiUrl } from "@/lib/utils/api";
  * Esperado no servidor: `GET /public/campaigns/:publicId/invite` sem auth.
  * Resposta: `{ "data": { ... } }` (mesmo padrão das demais rotas).
  */
+/** Formato de entrega por rede em uma fase (convite público). */
+export interface PublicInvitePhaseFormat {
+  network: string;
+  content_type?: string;
+  quantity?: number;
+}
+
+export interface PublicInvitePhase {
+  order: number;
+  objective: string;
+  post_date?: string;
+  publish_time?: string;
+  formats: PublicInvitePhaseFormat[];
+}
+
 export interface PublicCampaignInviteData {
   title: string;
   description: string;
@@ -27,6 +42,10 @@ export interface PublicCampaignInviteData {
   rules_does?: string[];
   rules_does_not?: string[];
   image_rights_period?: number;
+  /** Redes em que a campanha aceita participação (ex.: instagram, tiktok). */
+  allowed_social_networks?: string[];
+  /** Fases com objetivos, datas e formatos por rede. */
+  phases?: PublicInvitePhase[];
 }
 
 const NESTED_TEXT_KEYS = [
@@ -112,9 +131,102 @@ function asStringArray(v: unknown): string[] | undefined {
   return undefined;
 }
 
+function normalizePhaseFormats(formatsRaw: unknown): PublicInvitePhaseFormat[] {
+  if (!Array.isArray(formatsRaw)) return [];
+  const out: PublicInvitePhaseFormat[] = [];
+  for (const item of formatsRaw) {
+    if (!item || typeof item !== "object") continue;
+    const f = item as Record<string, unknown>;
+    const network = coerceDisplayText(
+      f.type ?? f.social_network ?? f.socialNetwork ?? f.network,
+      "",
+    ).toLowerCase();
+    const options = f.options;
+    if (network && Array.isArray(options)) {
+      for (const opt of options) {
+        if (!opt || typeof opt !== "object") continue;
+        const o = opt as Record<string, unknown>;
+        const qty = o.quantity != null ? Number(o.quantity) : undefined;
+        out.push({
+          network,
+          content_type: coerceDisplayText(o.type, "") || undefined,
+          quantity: Number.isFinite(qty) ? qty : undefined,
+        });
+      }
+      continue;
+    }
+    const sn = coerceDisplayText(f.socialNetwork ?? f.social_network, "").toLowerCase();
+    const ct = coerceDisplayText(f.contentType ?? f.content_type, "") || undefined;
+    const qRaw = f.quantity;
+    const q = qRaw != null ? Number(qRaw) : undefined;
+    const net = sn || network;
+    if (net || ct) {
+      out.push({
+        network: net || "—",
+        content_type: ct,
+        quantity: Number.isFinite(q) ? q : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+function normalizePhasesList(raw: unknown): PublicInvitePhase[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const phases: PublicInvitePhase[] = [];
+  raw.forEach((p, i) => {
+    if (!p || typeof p !== "object") return;
+    const o = p as Record<string, unknown>;
+    const objective = coerceDisplayText(o.objective, "");
+    const formats = normalizePhaseFormats(o.formats);
+    if (!objective && formats.length === 0) return;
+    phases.push({
+      order: o.order != null ? Number(o.order) : i + 1,
+      objective: objective || `Fase ${i + 1}`,
+      post_date: coerceDisplayText(o.post_date ?? o.postDate, "") || undefined,
+      publish_time:
+        coerceDisplayText(o.publish_time ?? o.post_time ?? o.postTime, "") || undefined,
+      formats,
+    });
+  });
+  return phases.length ? phases : undefined;
+}
+
+function normalizeAllowedSocialNetworks(
+  raw: Record<string, unknown>,
+  phases?: PublicInvitePhase[],
+): string[] | undefined {
+  const direct = raw.allowed_social_networks ?? raw.social_networks;
+  if (Array.isArray(direct) && direct.length > 0) {
+    const list = direct
+      .map((x) => coerceDisplayText(x, "").toLowerCase())
+      .filter(Boolean);
+    if (list.length) return [...new Set(list)];
+  }
+  const segments = raw.segments as Record<string, unknown> | undefined;
+  const sn = segments?.social_network ?? segments?.social_networks;
+  if (Array.isArray(sn) && sn.length > 0) {
+    const list = sn
+      .map((x) => coerceDisplayText(x, "").toLowerCase())
+      .filter(Boolean);
+    if (list.length) return [...new Set(list)];
+  }
+  if (phases?.length) {
+    const set = new Set<string>();
+    for (const ph of phases) {
+      for (const fo of ph.formats) {
+        if (fo.network && fo.network !== "—") set.add(fo.network.toLowerCase());
+      }
+    }
+    if (set.size) return [...set];
+  }
+  return undefined;
+}
+
 function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInviteData {
   const primary = raw.primary_niche as Record<string, unknown> | undefined;
   const paymentDetails = raw.payment_method_details as Record<string, unknown> | undefined;
+  const phases = normalizePhasesList(raw.phases);
 
   return {
     title: coerceDisplayText(raw.title ?? raw.name, "Campanha"),
@@ -166,6 +278,8 @@ function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInvi
       raw.image_rights_period != null
         ? Number(raw.image_rights_period)
         : undefined,
+    phases,
+    allowed_social_networks: normalizeAllowedSocialNetworks(raw, phases),
   };
 }
 
@@ -210,17 +324,24 @@ export async function getPublicCampaignInvite(
   return normalizePublicInvite(raw);
 }
 
+export interface PublicInviteSocialProfile {
+  network: string;
+  profile_url: string;
+}
+
 export interface PublicInvitePreRegisterPayload {
   name: string;
   email: string;
   /** Apenas dígitos; opcional conforme contrato da API */
   phone?: string;
+  /** Links dos perfis nas redes aceitas pela campanha */
+  social_profiles?: PublicInviteSocialProfile[];
 }
 
 /**
  * Pré-cadastro pelo link público: vincula o influenciador à campanha na **curadoria da pré-seleção**.
  * Esperado no servidor: `POST /public/campaigns/:publicId/invite/pre-register` (JSON, sem auth).
- * Corpo sugerido: `{ name, email, phone?, target_stage: "pre_selection_curation" }`.
+ * Corpo: `{ name, email, phone?, target_stage, social_profiles? }`.
  */
 export async function postPublicCampaignInvitePreRegister(
   campaignPublicId: string,
@@ -233,6 +354,12 @@ export async function postPublicCampaignInvitePreRegister(
     target_stage: "pre_selection_curation",
   };
   if (phoneDigits.length >= 10) body.phone = phoneDigits;
+  if (payload.social_profiles?.length) {
+    body.social_profiles = payload.social_profiles.map((p) => ({
+      network: p.network.trim().toLowerCase(),
+      profile_url: p.profile_url.trim(),
+    }));
+  }
 
   const request = await fetch(
     getApiUrl(`/public/campaigns/${campaignPublicId}/invite/pre-register`),

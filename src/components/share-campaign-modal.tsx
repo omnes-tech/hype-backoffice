@@ -20,8 +20,7 @@ export function ShareCampaignModal({
   campaignTitle,
 }: ShareCampaignModalProps) {
   const [copied, setCopied] = useState(false);
-  
-  // Link de convite: abre a tela focada em compartilhar e acessar inscrições
+
   const campaignUrl = `${window.location.origin}/campaigns/${campaignId}/invite`;
   const shareText = `Convite para a campanha: ${campaignTitle}`;
 
@@ -31,7 +30,7 @@ export function ShareCampaignModal({
       setCopied(true);
       toast.success("Link copiado para a área de transferência!");
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error("Erro ao copiar link");
     }
   };
@@ -62,107 +61,116 @@ export function ShareCampaignModal({
   };
 
   const shareViaEmail = () => {
-    const subject = encodeURIComponent(`Compartilhar campanha: ${campaignTitle}`);
+    const subject = encodeURIComponent(`Convite — ${campaignTitle}`);
     const body = encodeURIComponent(`${shareText}\n\n${campaignUrl}`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
+  const shareChannels = [
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      icon: "MessageCircle" as const,
+      color: "#25D366",
+      onClick: shareOnWhatsApp,
+    },
+    {
+      key: "facebook",
+      label: "Facebook",
+      icon: "Share2" as const,
+      color: "#1877F2",
+      onClick: shareOnFacebook,
+    },
+    {
+      key: "twitter",
+      label: "X / Twitter",
+      icon: "Share2" as const,
+      color: "#1DA1F2",
+      onClick: shareOnTwitter,
+    },
+    {
+      key: "linkedin",
+      label: "LinkedIn",
+      icon: "Share2" as const,
+      color: "#0077B5",
+      onClick: shareOnLinkedIn,
+    },
+    {
+      key: "telegram",
+      label: "Telegram",
+      icon: "Send" as const,
+      color: "#0088CC",
+      onClick: shareOnTelegram,
+    },
+    {
+      key: "email",
+      label: "E-mail",
+      icon: "Mail" as const,
+      color: "#404040",
+      onClick: shareViaEmail,
+    },
+  ];
+
   if (!isOpen) return null;
 
   return (
-    <Modal onClose={onClose} title="Compartilhar campanha">
+    <Modal
+      onClose={onClose}
+      title="Compartilhar convite da campanha"
+      panelClassName="max-w-3xl"
+    >
       <div className="flex flex-col gap-6">
-        {/* Link da campanha */}
+        <div className="min-w-0 flex flex-col gap-2 text-sm text-neutral-700 leading-relaxed">
+          <p>
+            Envie esse link para convidar influenciadores externos. Eles poderão visualizar os detalhes da campanha e confirmar a participação diretamente pelo link.
+          </p>
+        </div>
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-neutral-950">
-            Link da campanha
-          </label>
-          <div className="flex items-center justify-between gap-2 w-full">
-            <Input
-              value={campaignUrl}
-              readOnly
-              style={{ width: "100%" }}
-            />
+          <label className="text-sm font-medium text-neutral-950">Link do convite</label>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+            <div className="flex-1 min-w-0">
+              <Input value={campaignUrl} readOnly />
+            </div>
             <Button
+              type="button"
               variant="outline"
               onClick={handleCopyLink}
-              style={{ width: "fit-content" }}
+              className="shrink-0 w-full sm:w-auto"
             >
-              <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center gap-2">
                 <Icon
                   name={copied ? "Check" : "Copy"}
                   size={16}
                   color={copied ? "#10B981" : "#404040"}
                 />
-                <span>{copied ? "Copiado!" : "Copiar"}</span>
-              </div>
+                {copied ? "Copiado!" : "Copiar"}
+              </span>
             </Button>
           </div>
         </div>
 
-        {/* Botões de compartilhamento */}
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-medium text-neutral-950">
-            Compartilhar em
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              onClick={shareOnWhatsApp}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="MessageCircle" size={20} color="#25D366" />
-              <span className="font-medium">WhatsApp</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={shareOnFacebook}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="Share2" size={20} color="#1877F2" />
-              <span className="font-medium">Facebook</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={shareOnTwitter}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="Share2" size={20} color="#1DA1F2" />
-              <span className="font-medium">Twitter</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={shareOnLinkedIn}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="Share2" size={20} color="#0077B5" />
-              <span className="font-medium">LinkedIn</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={shareOnTelegram}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="Send" size={20} color="#0088CC" />
-              <span className="font-medium">Telegram</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={shareViaEmail}
-              className="flex items-center justify-center gap-2 h-12"
-            >
-              <Icon name="Mail" size={20} color="#404040" />
-              <span className="font-medium">E-mail</span>
-            </Button>
+          <div>
+            <label className="text-sm font-medium text-neutral-950">Compartilhar em</label>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {shareChannels.map((ch) => (
+              <Button
+                key={ch.key}
+                type="button"
+                variant="outline"
+                onClick={ch.onClick}
+                className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 h-auto min-h-12 py-2.5 px-2 sm:px-3 w-full min-w-full"
+              >
+                <Icon name={ch.icon} size={20} color={ch.color} className="shrink-0" />
+                <span className="font-medium text-xs sm:text-sm text-center leading-tight">
+                  {ch.label}
+                </span>
+              </Button>
+            ))}
           </div>
         </div>
       </div>
     </Modal>
   );
 }
-

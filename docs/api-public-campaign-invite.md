@@ -42,10 +42,38 @@ Corpo esperado pelo front (após `response.data ?? response`):
     "benefits": ["string"],
     "rules_does": ["string"],
     "rules_does_not": ["string"],
-    "image_rights_period": 12
+    "image_rights_period": 12,
+    "allowed_social_networks": ["instagram", "tiktok"],
+    "social_networks": ["instagram"],
+    "phases": [
+      {
+        "order": 1,
+        "objective": "string",
+        "post_date": "2026-05-01",
+        "postDate": "2026-05-01",
+        "publish_time": "18:00:00",
+        "formats": [
+          {
+            "type": "instagram",
+            "options": [{ "type": "reels", "quantity": 2 }]
+          }
+        ]
+      }
+    ]
   }
 }
 ```
+
+#### Campos adicionais (UI do convite)
+
+| Campo | Descrição |
+|--------|-----------|
+| `allowed_social_networks` | Lista de redes aceitas (ex.: `instagram`, `tiktok`, `youtube`, `ugc`). Alternativa: `social_networks`. |
+| `segments.social_network` / `segments.social_networks` | Se não houver lista explícita, o front pode inferir redes a partir daqui. |
+| `phases` | Fases da campanha. Cada item: `objective`, `post_date` ou `postDate`, `publish_time` ou `post_time`, `formats`. |
+| `formats` (por fase) | **Formato API (criação de campanha):** `{ "type": "instagram", "options": [{ "type": "reels", "quantity": 2 }] }`. **Formato alternativo (dashboard):** `{ "socialNetwork": "instagram", "contentType": "reels", "quantity": "2" }`. |
+
+Se `allowed_social_networks` / `social_networks` / `segments` não vierem preenchidos, o front **deduz** as redes a partir dos `formats` de todas as fases.
 
 Campos omitidos são tratados como ausentes na UI. O front é tolerante a `title`/`name`, `banner`/`banner_url`, textos aninhados e arrays.
 
@@ -73,6 +101,14 @@ Campos omitidos são tratados como ausentes na UI. O front é tolerante a `title
 | `email` | string | sim | trim |
 | `phone` | string (só dígitos) | condicional | Só é enviado se, após remover não-dígitos, tiver **≥ 10** caracteres |
 | `target_stage` | string | sim (enviado pelo front) | Valor fixo: **`pre_selection_curation`** |
+| `social_profiles` | array | condicional | Quando a campanha define redes aceitas no GET: um item por rede, com `network` e `profile_url` (URL validada no front por rede). |
+
+Cada elemento de `social_profiles`:
+
+| Campo | Tipo | Descrição |
+|--------|------|-----------|
+| `network` | string | Identificador da rede (`instagram`, `tiktok`, etc.), em minúsculas. |
+| `profile_url` | string | URL pública do perfil (ex.: `https://instagram.com/usuario`). |
 
 Exemplo:
 
@@ -81,15 +117,20 @@ Exemplo:
   "name": "Maria Silva",
   "email": "maria@email.com",
   "phone": "11987654321",
-  "target_stage": "pre_selection_curation"
+  "target_stage": "pre_selection_curation",
+  "social_profiles": [
+    { "network": "instagram", "profile_url": "https://www.instagram.com/maria" },
+    { "network": "tiktok", "profile_url": "https://www.tiktok.com/@maria" }
+  ]
 }
 ```
 
 ### Comportamento esperado no backend
 
 1. Registrar o pré-cadastro do influenciador (ou lead) com os dados enviados.
-2. **Vincular** essa pessoa à campanha identificada por `:campaignPublicId` na etapa de **curadoria da pré-seleção** (equivalente ao estágio usado no backoffice para “curadoria pré-seleção” / `pre_selection_curation`).
-3. Responder **`200`** ou **`201`** com corpo opcional (o front não depende de um payload específico em sucesso).
+2. Persistir os **links dos perfis** (`social_profiles`) associados à campanha / candidatura, quando enviados.
+3. **Vincular** essa pessoa à campanha identificada por `:campaignPublicId` na etapa de **curadoria da pré-seleção** (equivalente ao estágio usado no backoffice para “curadoria pré-seleção” / `pre_selection_curation`).
+4. Responder **`200`** ou **`201`** com corpo opcional (o front não depende de um payload específico em sucesso).
 
 ### Erros
 

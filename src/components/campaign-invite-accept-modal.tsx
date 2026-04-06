@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -8,7 +8,15 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { postPublicCampaignInvitePreRegister } from "@/shared/services/public-campaign-invite";
+import {
+  postPublicCampaignInvitePreRegister,
+  type PublicCampaignInviteData,
+} from "@/shared/services/public-campaign-invite";
+import {
+  isValidProfileUrlForNetwork,
+  SOCIAL_NETWORK_LABELS,
+} from "@/shared/utils/social-profile-url";
+import { buildInfluencerPreselectionCurationUrl } from "@/shared/utils/influencer-invite-redirect";
 
 const HYPEAPP_PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
@@ -20,22 +28,48 @@ function hrefOpenHypeappApp(): string {
   return /Android/i.test(navigator.userAgent) ? HYPEAPP_ANDROID_OPEN_INTENT : HYPEAPP_PLAY_STORE_URL;
 }
 
-const preRegisterSchema = z.object({
-  name: z.string().min(2, "Informe seu nome"),
-  email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
-  phone: z
+function createAcceptSchema(networks: string[]) {
+  const phoneSchema = z
     .string()
     .min(1, "Celular é obrigatório")
-    .refine((v) => v.replace(/\D/g, "").length >= 10, "Informe o celular com DDD"),
-});
+    .refine((v) => v.replace(/\D/g, "").length >= 10, "Informe o celular com DDD");
 
-type PreRegisterForm = z.infer<typeof preRegisterSchema>;
+  return z
+    .object({
+      name: z.string().min(2, "Informe seu nome"),
+      email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
+      phone: phoneSchema,
+      profile: z.record(z.string(), z.string()),
+    })
+    .superRefine((data, ctx) => {
+      for (const net of networks) {
+        const v = String(data.profile[net] ?? "").trim();
+        const label = SOCIAL_NETWORK_LABELS[net] ?? net;
+        if (!v) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Informe o link do seu perfil no ${label}`,
+            path: ["profile", net],
+          });
+        } else if (!isValidProfileUrlForNetwork(v, net)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `O link não parece ser um perfil válido de ${label}`,
+            path: ["profile", net],
+          });
+        }
+      }
+    });
+}
+
+type AcceptFormValues = z.infer<ReturnType<typeof createAcceptSchema>>;
 
 interface CampaignInviteAcceptModalProps {
   isOpen: boolean;
   onClose: () => void;
   campaignPublicId: string;
   campaignTitle: string;
+  inviteData: PublicCampaignInviteData;
 }
 
 export function CampaignInviteAcceptModal({
@@ -43,33 +77,65 @@ export function CampaignInviteAcceptModal({
   onClose,
   campaignPublicId,
   campaignTitle,
+  inviteData,
 }: CampaignInviteAcceptModalProps) {
   const [preRegisterSuccess, setPreRegisterSuccess] = useState(false);
+
+  const allowedNetworks = useMemo(
+    () => inviteData.allowed_social_networks ?? [],
+    [inviteData.allowed_social_networks],
+  );
+
+  const schema = useMemo(() => createAcceptSchema(allowedNetworks), [allowedNetworks]);
+
+  const defaultProfile = useMemo(
+    () => Object.fromEntries(allowedNetworks.map((n) => [n, ""])),
+    [allowedNetworks],
+  );
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<PreRegisterForm>({
-    resolver: zodResolver(preRegisterSchema),
-    defaultValues: { name: "", email: "", phone: "" },
+  } = useForm<AcceptFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      profile: defaultProfile,
+    },
   });
 
   useEffect(() => {
     if (isOpen) {
-      reset();
+      reset({
+        name: "",
+        email: "",
+        phone: "",
+        profile: { ...defaultProfile },
+      });
       setPreRegisterSuccess(false);
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, defaultProfile]);
 
   const preRegisterMutation = useMutation({
-    mutationFn: (data: PreRegisterForm) =>
-      postPublicCampaignInvitePreRegister(campaignPublicId, {
+    mutationFn: (data: AcceptFormValues) => {
+      const social_profiles =
+        allowedNetworks.length > 0
+          ? allowedNetworks.map((net) => ({
+            network: net,
+            profile_url: String(data.profile[net] ?? "").trim(),
+          }))
+          : undefined;
+      return postPublicCampaignInvitePreRegister(campaignPublicId, {
         name: data.name,
         email: data.email,
         phone: data.phone,
-      }),
+        social_profiles,
+      });
+    },
     onSuccess: () => {
       setPreRegisterSuccess(true);
       toast.success("Pré-cadastro concluído! Você já está na curadoria da pré-seleção.");
@@ -79,19 +145,21 @@ export function CampaignInviteAcceptModal({
     },
   });
 
+  const goPreselectionCuration = () => {
+    window.location.assign(buildInfluencerPreselectionCurationUrl(campaignPublicId));
+  };
+
+  const profileErrors = errors.profile as Record<string, { message?: string }> | undefined;
+
   if (!isOpen) return null;
 
   return (
     <Modal
-      title={
-        preRegisterSuccess
-          ? "Continue no app"
-          : "Pré-cadastro no convite"
-      }
+      title={preRegisterSuccess ? "Continue no app" : "Pré-cadastro no convite"}
       onClose={onClose}
       panelClassName="max-w-lg"
     >
-      {preRegisterSuccess ? (
+      {!preRegisterSuccess ? (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-neutral-600 leading-relaxed">
             Seus dados foram registrados e você foi vinculado à campanha{" "}
@@ -102,19 +170,19 @@ export function CampaignInviteAcceptModal({
           <a
             href={hrefOpenHypeappApp()}
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center min-h-11 px-6 rounded-2xl font-medium text-sm bg-primary-600 hover:bg-primary-700 text-white transition-colors w-full text-center"
+            className="inline-flex items-center justify-center min-h-11 px-6 rounded-2xl font-medium text-sm bg-primary-600 hover:bg-primary-700 text-white transition-colors w-full min-w-full text-center"
           >
             Abrir no app Hypeapp
           </a>
-          <Button type="button" variant="outline" className="w-full" onClick={onClose}>
+          <Button type="button" variant="outline" className="w-full min-w-full" onClick={onClose}>
             Fechar
           </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-neutral-600 leading-relaxed">
-            Preencha os dados abaixo para aceitar o convite e entrar na campanha já na{" "}
-            <strong>curadoria da pré-seleção</strong>.
+            Preencha os dados e os links dos seus perfis nas redes desta campanha.
+            Os links são validados por rede.
           </p>
           <form
             className="flex flex-col gap-4"
@@ -141,6 +209,27 @@ export function CampaignInviteAcceptModal({
               error={errors.phone?.message}
               {...register("phone")}
             />
+
+            {allowedNetworks.length > 0 ? (
+              <div className="flex flex-col gap-3 pt-1 border-t border-neutral-100">
+                <p className="text-sm font-medium text-neutral-950">Links dos perfis</p>
+                <p className="text-xs text-neutral-500 -mt-2">
+                  Cole a URL completa do seu perfil em cada rede participante da campanha.
+                </p>
+                {allowedNetworks.map((net) => (
+                  <Input
+                    key={net}
+                    label={`${SOCIAL_NETWORK_LABELS[net] ?? net}`}
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://..."
+                    error={profileErrors?.[net]?.message}
+                    {...register(`profile.${net}`)}
+                  />
+                ))}
+              </div>
+            ) : null}
+
             <Button
               type="submit"
               className="w-full min-w-full mt-1"
@@ -150,11 +239,8 @@ export function CampaignInviteAcceptModal({
             </Button>
           </form>
           <div className="border-t border-neutral-100 pt-4 flex flex-col gap-3">
-            <p className="text-xs text-neutral-500">
-              Já tem conta no Hypeapp como influenciador?
-            </p>
             <p className="text-xs text-neutral-500 text-center">
-              Prefere instalar antes?{" "}
+              Já tem conta no Hypeapp como influenciador ou prefere instalar antes?{" "}
               <a
                 href={hrefOpenHypeappApp()}
                 rel="noopener noreferrer"
