@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { postPublicCampaignInvitePreRegister } from "@/shared/services/public-campaign-invite";
-import { buildInfluencerPreselectionCurationUrl } from "@/shared/utils/influencer-invite-redirect";
 
 const HYPEAPP_PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
@@ -79,10 +78,6 @@ export function CampaignInviteAcceptModal({
       toast.error(err.message || "Erro ao enviar pré-cadastro.");
     },
   });
-
-  const goPreselectionCuration = () => {
-    window.location.assign(buildInfluencerPreselectionCurationUrl(campaignPublicId));
-  };
 
   if (!isOpen) return null;
 
