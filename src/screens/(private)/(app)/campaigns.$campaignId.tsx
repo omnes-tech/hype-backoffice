@@ -37,27 +37,51 @@ import {
   mapApiPhasesToCampaignPhases,
 } from "@/shared/services/dashboard";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
+import { getNicheParentId } from "@/shared/utils/niche-tree";
 import { formatReais } from "@/shared/utils/masks";
 import {
   getCampaignStatusDisplayLabel,
   getCampaignStatusValue,
 } from "@/shared/utils/campaign-status";
+import { useWorkspacePermissions } from "@/contexts/workspace-context";
+import type { WorkspacePermissions } from "@/shared/types";
 
 export const Route = createFileRoute("/(private)/(app)/campaigns/$campaignId")({
   component: RouteComponent,
 });
 
-const tabs = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "selection", label: "Seleção de influenciadores" },
-  { id: "applications", label: "Inscrições" },
-  { id: "curation", label: "Curadoria" },
-  { id: "management", label: "Gerenciamento" },
-  { id: "contracts", label: "Contratos" },
-  { id: "script-approval", label: "Aprovações de roteiro" },
-  { id: "approval", label: "Aprovações de conteúdo" },
-  { id: "metrics", label: "Métricas e conteúdos" },
-];
+/** Abas da campanha filtradas por `permissions` do workspace (@see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md). */
+const CAMPAIGN_TAB_DEFS: Array<{
+  id: string;
+  label: string;
+  visible: (p: WorkspacePermissions) => boolean;
+}> = [
+    { id: "dashboard", label: "Dashboard", visible: (p) => p.campaigns_read },
+    {
+      id: "selection",
+      label: "Seleção de influenciadores",
+      visible: (p) => p.catalog_read,
+    },
+    { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
+    { id: "curation", label: "Curadoria", visible: (p) => p.campaigns_read },
+    { id: "management", label: "Gerenciamento", visible: (p) => p.campaigns_read },
+    { id: "contracts", label: "Contratos", visible: (p) => p.campaigns_read },
+    {
+      id: "script-approval",
+      label: "Aprovações de roteiro",
+      visible: (p) => p.campaigns_read,
+    },
+    {
+      id: "approval",
+      label: "Aprovações de conteúdo",
+      visible: (p) => p.campaigns_read,
+    },
+    {
+      id: "metrics",
+      label: "Métricas e conteúdos",
+      visible: (p) => p.campaigns_read,
+    },
+  ];
 
 function RouteComponent() {
   const navigate = useNavigate();
@@ -86,6 +110,23 @@ function RouteComponent() {
     []
   );
 
+  const permissions = useWorkspacePermissions();
+
+  const visibleTabs = useMemo(
+    () =>
+      CAMPAIGN_TAB_DEFS.filter((t) => t.visible(permissions)).map(
+        ({ id, label }) => ({ id, label }),
+      ),
+    [permissions],
+  );
+
+  useEffect(() => {
+    if (visibleTabs.length === 0) return;
+    if (!visibleTabs.some((t) => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabs, activeTab]);
+
   // Ler search params da URL para navegação de notificações
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
@@ -94,14 +135,19 @@ function RouteComponent() {
     const focusCampaignUser = sp.get("focusCampaignUser");
     const contentId = sp.get("contentId");
 
-    const validTabIds = new Set(tabs.map((t) => t.id));
+    const validTabIds = new Set(visibleTabs.map((t) => t.id));
     let targetTab: string | null =
       tabParam && validTabIds.has(tabParam) ? tabParam : null;
 
     if (!targetTab) {
-      if (openChat) targetTab = "management";
-      else if (contentId) targetTab = "approval";
-      else if (focusCampaignUser) targetTab = "curation";
+      if (openChat && validTabIds.has("management")) targetTab = "management";
+      else if (contentId && validTabIds.has("approval")) targetTab = "approval";
+      else if (focusCampaignUser && validTabIds.has("curation"))
+        targetTab = "curation";
+    }
+
+    if (targetTab && !validTabIds.has(targetTab)) {
+      targetTab = visibleTabs[0]?.id ?? null;
     }
 
     if (
@@ -130,7 +176,7 @@ function RouteComponent() {
       search: Object.keys(rest).length > 0 ? rest : undefined,
       replace: true,
     });
-  }, [location.search, location.pathname, navigate]);
+  }, [location.search, location.pathname, navigate, visibleTabs]);
 
   // Query principal da campanha (dados básicos)
   const queryClient = useQueryClient();
@@ -256,10 +302,15 @@ function RouteComponent() {
     if (campaign.primary_niche?.id != null) {
       mainNicheId = String(campaign.primary_niche.id);
     } else if (subnicheIds.length > 0 && niches.length > 0) {
-      const firstSubnicheId = parseInt(subnicheIds[0], 10);
-      const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
-      if (firstSubniche?.parent_id) {
-        mainNicheId = firstSubniche.parent_id.toString();
+      const rawFirst = subnicheIds[0];
+      const firstSubniche = niches.find(
+        (n) => String(n.id) === String(rawFirst),
+      );
+      const parentKey = firstSubniche
+        ? getNicheParentId(firstSubniche)
+        : null;
+      if (parentKey) {
+        mainNicheId = parentKey;
       }
     }
 
@@ -447,7 +498,7 @@ function RouteComponent() {
                 </div>
               </div>
             </div>
-            <Tabs tabs={tabs} activeTab="dashboard" onTabChange={() => { }} />
+            <Tabs tabs={visibleTabs} activeTab={visibleTabs[0]?.id ?? "dashboard"} onTabChange={() => { }} />
           </div>
           <div className="mt-6">
             <DashboardTabSkeleton />
@@ -456,6 +507,25 @@ function RouteComponent() {
       </div>
     );
   }
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="flex flex-col h-full max-w-7xl mx-auto items-center justify-center px-4 py-16">
+        <p className="text-lg font-semibold text-neutral-950 text-center mb-2">
+          Sem permissão neste workspace
+        </p>
+        <p className="text-sm text-neutral-600 text-center max-w-md mb-6">
+          Você não tem permissão para visualizar as abas desta campanha com o workspace
+          atual. Troque de workspace no topo da página ou fale com um administrador.
+        </p>
+        <Button onClick={() => navigate({ to: "/campaigns" })}>
+          Voltar para campanhas
+        </Button>
+      </div>
+    );
+  }
+
+  const canWriteCampaigns = permissions.campaigns_write;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -561,8 +631,8 @@ function RouteComponent() {
                 <Icon name="ChevronRight" size={16} color="#7c7c7c" />
                 <span className="text-neutral-950">Detalhes da campanha</span>
               </button>
-              <div className="flex items-center gap-3">
-                {
+              <div className="flex items-center gap-3 flex-wrap">
+                {canWriteCampaigns &&
                   getCampaignStatusValue(campaign?.status) === "draft" && (
                     <Button
                       type="button"
@@ -575,40 +645,50 @@ function RouteComponent() {
                           : undefined
                       }
                       onClick={() => setShowMuralDateModal(true)}
-                      className="bg-primary-500 hover:bg-primary-600 text-white border-0 disabled:hover:bg-primary-500"
+                      className="bg-primary-500 hover:bg-primary-600 text-white border-0 disabled:hover:bg-primary-500 w-min"
                     >
                       <div className="flex items-center gap-2">
                         <Icon name="Send" color="#fff" size={16} />
                         <span>Publicar</span>
                       </div>
                     </Button>
-                  )
-                }
+                  )}
+                {canWriteCampaigns && (
+                  <Button
+                    variant="outline"
+                    disabled={checkPublicationTrackingMutation.isPending}
+                    onClick={() => checkPublicationTrackingMutation.mutate()}
+                    className="flex-1 w-max"
+                  >
+                    <div className="flex items-center gap-2 w-max">
+                      <span>
+                        {checkPublicationTrackingMutation.isPending
+                          ? "Verificando..."
+                          : "Verificar publicações"}
+                      </span>
+                    </div>
+                  </Button>
+                )}
+                {canWriteCampaigns && (
+                  <Button
+                    variant="outline"
+                    className="flex-1 w-max"
+                    onClick={() =>
+                      navigate({
+                        to: "/campaigns/$campaignId/edit",
+                        params: { campaignId },
+                      })
+                    }
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon name="Pencil" color="#404040" size={16} />
+                      <span>Editar</span>
+                    </div>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
-                  disabled={checkPublicationTrackingMutation.isPending}
-                  onClick={() => checkPublicationTrackingMutation.mutate()}
-                  className="flex-1"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {checkPublicationTrackingMutation.isPending
-                        ? "Verificando..."
-                        : "Verificar publicações"}
-                    </span>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId } })}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="Pencil" color="#404040" size={16} />
-                    <span>Editar</span>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
+                  className="flex-1 w-max"
                   onClick={() => setIsShareModalOpen(true)}
                 >
                   <div className="flex items-center gap-2">
@@ -631,16 +711,24 @@ function RouteComponent() {
                   {progressPercentage}% Concluído
                 </span>
                 {getCampaignStatusValue(campaign?.status) === "published" ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowUnpublishModal(true)}
-                    title="Despublicar campanha"
-                    className="px-3 py-2 rounded-xl bg-green-100 text-left transition-colors hover:bg-green-200/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 cursor-pointer"
-                  >
-                    <span className="text-sm font-normal text-success-800">
-                      {getCampaignStatusDisplayLabel(campaign?.status)}
-                    </span>
-                  </button>
+                  canWriteCampaigns ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowUnpublishModal(true)}
+                      title="Despublicar campanha"
+                      className="px-3 py-2 rounded-xl bg-green-100 text-left transition-colors hover:bg-green-200/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 cursor-pointer"
+                    >
+                      <span className="text-sm font-normal text-success-800">
+                        {getCampaignStatusDisplayLabel(campaign?.status)}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="px-3 py-2 rounded-xl bg-green-100">
+                      <span className="text-sm font-normal text-success-800">
+                        {getCampaignStatusDisplayLabel(campaign?.status)}
+                      </span>
+                    </div>
+                  )
                 ) : (
                   <div className="px-3 py-2 rounded-xl bg-neutral-200">
                     <span className="text-sm font-normal text-neutral-950">
@@ -653,7 +741,7 @@ function RouteComponent() {
           </div>
 
           {/* Tabs (estilo Figma: borda inferior roxa na ativa) */}
-          <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          <Tabs tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
 
         {/* Conteúdo das tabs */}

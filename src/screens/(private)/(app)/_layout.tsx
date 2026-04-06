@@ -24,6 +24,10 @@ function RouteComponent() {
     title = "Editar campanha";
   } else if (pathname.startsWith("/campaigns/")) {
     title = "Detalhes da campanha";
+  } else if (pathname === "/settings") {
+    title = "Configurações";
+  } else if (pathname === "/workspace/settings") {
+    title = "Gerenciar workspace";
   }
 
   return (

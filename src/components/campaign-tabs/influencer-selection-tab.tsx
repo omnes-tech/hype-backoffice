@@ -30,8 +30,15 @@ import {
   type InfluencerProfile,
 } from "@/shared/services/influencer";
 import { useNiches } from "@/hooks/use-niches";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 import { getUploadUrl } from "@/lib/utils/api";
-import { resolveNicheDisplayNameFromIds } from "@/shared/utils/niche-display";
+import {
+  resolveNicheDisplayNameFromIds,
+  type NicheForDisplay,
+} from "@/shared/utils/niche-display";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -344,7 +351,7 @@ function InfluencerCard({
   formatFollowers: fmt,
 }: {
   influencer: ExtendedInfluencer;
-  niches: Array<{ id: number; name: string }>;
+  niches: NicheForDisplay[];
   isInCuration: boolean;
   isInvited?: boolean;
   onInvite: () => void;
@@ -484,6 +491,7 @@ export function InfluencerSelectionTab({
   const navigate = useNavigate();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
   const queryClient = useQueryClient();
+  const workspaceId = useWorkspaceQueryKey();
   const { data: niches = [] } = useNiches();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
@@ -510,27 +518,34 @@ export function InfluencerSelectionTab({
   // Só busca lista quando o card não traz perfil (fallback)
   const { data: invitableProfilesData = [], isLoading: isLoadingInvitableProfiles } =
     useQuery({
-      queryKey: [
-        "campaigns",
-        campaignId,
-        "influencers",
-        selectedInfluencer?.id,
-        "invite-profiles",
-      ],
+      queryKey: withWorkspaceKey(
+        [
+          "campaigns",
+          campaignId,
+          "influencers",
+          selectedInfluencer?.id,
+          "invite-profiles",
+        ],
+        workspaceId,
+      ),
       queryFn: () =>
         getCampaignInfluencerInvitableProfiles(
           campaignId!,
           selectedInfluencer!.id
         ),
-      enabled: !!campaignId && needsInviteProfilePicker,
+      enabled: !!campaignId && !!workspaceId && needsInviteProfilePicker,
     });
 
   // Curadoria: todos os perfis do influenciador (filtro por redes da campanha só aqui)
   const { data: allProfilesData = [], isLoading: isLoadingAllProfiles } =
     useQuery({
-      queryKey: ["influencer", selectedInfluencer?.id, "profiles"],
+      queryKey: withWorkspaceKey(
+        ["influencer", selectedInfluencer?.id, "profiles"],
+        workspaceId,
+      ),
       queryFn: () => getInfluencerProfiles(selectedInfluencer!.id),
-      enabled: !!selectedInfluencer && modalType === "curation",
+      enabled:
+        !!selectedInfluencer && !!workspaceId && modalType === "curation",
     });
 
   const invitableProfilesList = Array.isArray(invitableProfilesData)

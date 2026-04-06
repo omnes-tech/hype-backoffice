@@ -6,19 +6,59 @@ export interface User {
   email_verified_at?: string;
   created_at: string;
   updated_at: string;
+  /** Foto de perfil (path relativo ou URL) — `avatar`, `photo` na API. */
+  avatar?: string | null;
+}
+
+/** Papéis em `GET /backoffice/me/workspaces` — @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md */
+export type WorkspaceRole = "owner" | "admin" | "member";
+
+/** Permissões calculadas no servidor por workspace (UX; mutações ainda validam 403). */
+export interface WorkspacePermissions {
+  workspace_read: boolean;
+  workspace_settings_write: boolean;
+  workspace_delete: boolean;
+  workspace_photo_write: boolean;
+  members_list: boolean;
+  members_invite: boolean;
+  members_remove: boolean;
+  members_remove_only_member_role: boolean;
+  members_role_write: boolean;
+  campaigns_read: boolean;
+  campaigns_write: boolean;
+  catalog_read: boolean;
+  catalog_write: boolean;
+  billing_read: boolean;
+  billing_write: boolean;
 }
 
 export interface Workspace {
   id: string; // public_id (UUID)
   name: string;
   photo?: string;
+  description?: string | null;
+  niche_id?: number | null;
   created_at?: string;
   updated_at?: string;
+  role?: WorkspaceRole;
+  membership_id?: number;
+  joined_at?: string;
+  permissions?: WorkspacePermissions;
+}
+
+/** Membro do workspace — `GET /backoffice/workspaces/:id/members`. */
+export interface WorkspaceMember {
+  user_id: number;
+  name: string;
+  email: string;
+  role: WorkspaceRole;
+  created_at: string;
 }
 
 export interface Niche {
-  id: number;
-  parent_id: number | null;
+  /** Inteiro ou string (ex.: UUID), conforme a API. */
+  id: number | string;
+  parent_id: number | string | null;
   name: string;
 }
 export interface Campaign {

@@ -3,6 +3,7 @@ import { getNiches } from "@/shared/services/niche";
 
 /**
  * Hook para buscar todos os nichos disponíveis
+ * (GET /niches não usa Workspace-Id; cache global é suficiente.)
  */
 export function useNiches() {
   return useQuery({

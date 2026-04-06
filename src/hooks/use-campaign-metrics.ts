@@ -8,6 +8,10 @@ import {
   getCampaignTopCities,
   getCampaignAudienceByAge,
 } from "@/shared/services/metrics";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 function resolveQueryEnabled(
   enabledOrOptions?: boolean | { enabled?: boolean }
@@ -20,19 +24,24 @@ function resolveQueryEnabled(
 }
 
 export function useCampaignMetrics(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics"],
+    queryKey: withWorkspaceKey(["campaigns", campaignId, "metrics"], workspaceId),
     queryFn: () => getCampaignMetrics(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 
 /** Mapa em lote: GET .../metrics/contents */
 export function useCampaignContentsMetricsMap(campaignId: string, enabled = true) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics", "contents-map"],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "metrics", "contents-map"],
+      workspaceId,
+    ),
     queryFn: () => getCampaignContentsMetricsMap(campaignId),
-    enabled: !!campaignId && enabled,
+    enabled: !!campaignId && !!workspaceId && enabled,
     staleTime: 30_000,
   });
 }
@@ -44,10 +53,14 @@ export function useCampaignTopCities(
   enabledOrOptions?: boolean | { enabled?: boolean }
 ) {
   const enabled = resolveQueryEnabled(enabledOrOptions);
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics", "top-cities", limit],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "metrics", "top-cities", limit],
+      workspaceId,
+    ),
     queryFn: () => getCampaignTopCities(campaignId, limit),
-    enabled: !!campaignId && enabled,
+    enabled: !!campaignId && !!workspaceId && enabled,
     staleTime: 30_000,
   });
 }
@@ -58,19 +71,27 @@ export function useCampaignAudienceByAge(
   enabledOrOptions?: boolean | { enabled?: boolean }
 ) {
   const enabled = resolveQueryEnabled(enabledOrOptions);
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics", "audience-by-age"],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "metrics", "audience-by-age"],
+      workspaceId,
+    ),
     queryFn: () => getCampaignAudienceByAge(campaignId),
-    enabled: !!campaignId && enabled,
+    enabled: !!campaignId && !!workspaceId && enabled,
     staleTime: 30_000,
   });
 }
 
 export function useInfluencerMetrics(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics", "influencers"],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "metrics", "influencers"],
+      workspaceId,
+    ),
     queryFn: () => getInfluencerMetrics(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 
@@ -79,11 +100,15 @@ export function useContentMetrics(
   contentId: string,
   options?: { enabled?: boolean }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "metrics", "contents", contentId],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "metrics", "contents", contentId],
+      workspaceId,
+    ),
     queryFn: () => getContentMetrics(campaignId, contentId),
     enabled:
-      (options?.enabled ?? true) && !!campaignId && !!contentId,
+      (options?.enabled ?? true) && !!campaignId && !!contentId && !!workspaceId,
   });
 }
 
@@ -99,10 +124,14 @@ export function useIdentifiedPosts(
   campaignId: string,
   filters?: { phase_id?: string }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "identified-posts", filters],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "identified-posts", filters],
+      workspaceId,
+    ),
     queryFn: () => getIdentifiedPosts(campaignId, filters),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 

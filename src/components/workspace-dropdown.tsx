@@ -3,11 +3,17 @@ import { useState, useRef, useEffect, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { clsx } from "clsx";
 
-import type { Workspace } from "@/shared/types";
+import type { Workspace, WorkspaceRole } from "@/shared/types";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { getUploadUrl } from "@/lib/utils/api";
 
 import { Avatar } from "@/components/ui/avatar";
+
+const ROLE_LABEL: Record<WorkspaceRole, string> = {
+  owner: "Proprietário",
+  admin: "Administrador",
+  member: "Membro",
+};
 
 interface WorkspaceDropdownProps
   extends Omit<ComponentProps<"div">, "onChange"> {
@@ -90,7 +96,7 @@ export function WorkspaceDropdown({
       {isOpen && options.length > 0 && (
         <div
           className={clsx(
-            "absolute top-full w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-white rounded-b-2xl z-10 shadow-md"
+            "absolute top-full z-50 w-full border-b border-r border-l border-neutral-200 overflow-hidden bg-white rounded-b-2xl shadow-md"
           )}
         >
           <div className="w-full border border-dashed border-neutral-200" />
@@ -101,16 +107,21 @@ export function WorkspaceDropdown({
               type="button"
               onClick={() => handleSelect(option)}
               className={clsx(
-                "w-full px-4 py-2 hover:bg-neutral-100 transition-colors duration-150",
+                "w-full px-4 py-2 hover:bg-neutral-100 transition-colors duration-150 text-left",
                 selectedWorkspace?.id === option.id && "bg-neutral-100"
               )}
             >
               <div className="flex items-center gap-2">
                 <Avatar size="xs" src={getUploadUrl(option.photo)} alt={option.name} />
 
-                <span className="whitespace-nowrap text-neutral-950">
-                  {option.name}
-                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-neutral-950">{option.name}</span>
+                  {option.role ? (
+                    <span className="text-xs text-neutral-500">
+                      {ROLE_LABEL[option.role] ?? option.role}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </button>
           ))}

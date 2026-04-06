@@ -7,32 +7,46 @@ import {
   resendContract,
   type SendContractTemplateData,
 } from "@/shared/services/contract";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignContracts(
   campaignId: string,
   filters?: { status?: string; influencer_id?: string }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "contracts", filters],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "contracts", filters],
+      workspaceId,
+    ),
     queryFn: () => getCampaignContracts(campaignId, filters),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
     refetchInterval: 10000, // Refetch a cada 10 segundos para acompanhamento em tempo real
   });
 }
 
 export function useContractTemplates() {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["contract-templates"],
+    queryKey: withWorkspaceKey(["contract-templates"], workspaceId),
     queryFn: () => getContractTemplates(),
+    enabled: !!workspaceId,
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
 }
 
 export function useContractStatus(campaignId: string, contractId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "contracts", contractId],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "contracts", contractId],
+      workspaceId,
+    ),
     queryFn: () => getContractStatus(campaignId, contractId),
-    enabled: !!campaignId && !!contractId,
+    enabled: !!campaignId && !!contractId && !!workspaceId,
     refetchInterval: 5000, // Refetch a cada 5 segundos para acompanhamento em tempo real
   });
 }

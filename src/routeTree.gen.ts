@@ -22,8 +22,10 @@ import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/i
 import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private)/onboarding/welcome'
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
+import { Route as privateappSettingsRouteImport } from './screens/(private)/(app)/settings'
 import { Route as privateappCampaignsRouteImport } from './screens/(private)/(app)/campaigns'
 import { Route as publicCampaignsCampaignIdInviteRouteImport } from './screens/(public)/campaigns.$campaignId.invite'
+import { Route as privateappWorkspaceSettingsRouteImport } from './screens/(private)/(app)/workspace.settings'
 import { Route as privateappInfluencerInfluencerIdRouteImport } from './screens/(private)/(app)/influencer.$influencerId'
 import { Route as privateappCampaignsNewRouteImport } from './screens/(private)/(app)/campaigns.new'
 import { Route as privateappCampaignsCampaignIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId'
@@ -95,6 +97,11 @@ const privateOnboardingCreateWorkspaceRoute =
     path: '/create-workspace',
     getParentRoute: () => privateOnboardingLayoutRoute,
   } as any)
+const privateappSettingsRoute = privateappSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => privateappLayoutRoute,
+} as any)
 const privateappCampaignsRoute = privateappCampaignsRouteImport.update({
   id: '/campaigns',
   path: '/campaigns',
@@ -105,6 +112,12 @@ const publicCampaignsCampaignIdInviteRoute =
     id: '/campaigns/$campaignId/invite',
     path: '/campaigns/$campaignId/invite',
     getParentRoute: () => publicLayoutRoute,
+  } as any)
+const privateappWorkspaceSettingsRoute =
+  privateappWorkspaceSettingsRouteImport.update({
+    id: '/workspace/settings',
+    path: '/workspace/settings',
+    getParentRoute: () => privateappLayoutRoute,
   } as any)
 const privateappInfluencerInfluencerIdRoute =
   privateappInfluencerInfluencerIdRouteImport.update({
@@ -143,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
   '/campaigns': typeof privateappCampaignsRouteWithChildren
+  '/settings': typeof privateappSettingsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -151,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
@@ -161,6 +176,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof publicSignInRoute
   '/sign-up': typeof publicSignUpRoute
   '/campaigns': typeof privateappCampaignsRouteWithChildren
+  '/settings': typeof privateappSettingsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -169,6 +185,7 @@ export interface FileRoutesByTo {
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
@@ -184,6 +201,7 @@ export interface FileRoutesById {
   '/(public)/sign-in': typeof publicSignInRoute
   '/(public)/sign-up': typeof publicSignUpRoute
   '/(private)/(app)/campaigns': typeof privateappCampaignsRouteWithChildren
+  '/(private)/(app)/settings': typeof privateappSettingsRoute
   '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
@@ -192,6 +210,7 @@ export interface FileRoutesById {
   '/(private)/(app)/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/(private)/(app)/campaigns/new': typeof privateappCampaignsNewRoute
   '/(private)/(app)/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/(private)/(app)/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/(public)/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/(private)/(app)/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
   '/(private)/(app)/campaigns/$campaignId/influencer/$influencerId': typeof privateappCampaignsCampaignIdInfluencerInfluencerIdRoute
@@ -205,6 +224,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/campaigns'
+    | '/settings'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
@@ -213,6 +233,7 @@ export interface FileRouteTypes {
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
+    | '/workspace/settings'
     | '/campaigns/$campaignId/invite'
     | '/campaigns/$campaignId/edit'
     | '/campaigns/$campaignId/influencer/$influencerId'
@@ -223,6 +244,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/campaigns'
+    | '/settings'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
@@ -231,6 +253,7 @@ export interface FileRouteTypes {
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
+    | '/workspace/settings'
     | '/campaigns/$campaignId/invite'
     | '/campaigns/$campaignId/edit'
     | '/campaigns/$campaignId/influencer/$influencerId'
@@ -245,6 +268,7 @@ export interface FileRouteTypes {
     | '/(public)/sign-in'
     | '/(public)/sign-up'
     | '/(private)/(app)/campaigns'
+    | '/(private)/(app)/settings'
     | '/(private)/onboarding/create-workspace'
     | '/(private)/onboarding/verify-phone'
     | '/(private)/onboarding/welcome'
@@ -253,6 +277,7 @@ export interface FileRouteTypes {
     | '/(private)/(app)/campaigns/$campaignId'
     | '/(private)/(app)/campaigns/new'
     | '/(private)/(app)/influencer/$influencerId'
+    | '/(private)/(app)/workspace/settings'
     | '/(public)/campaigns/$campaignId/invite'
     | '/(private)/(app)/campaigns/$campaignId/edit'
     | '/(private)/(app)/campaigns/$campaignId/influencer/$influencerId'
@@ -356,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateOnboardingCreateWorkspaceRouteImport
       parentRoute: typeof privateOnboardingLayoutRoute
     }
+    '/(private)/(app)/settings': {
+      id: '/(private)/(app)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof privateappSettingsRouteImport
+      parentRoute: typeof privateappLayoutRoute
+    }
     '/(private)/(app)/campaigns': {
       id: '/(private)/(app)/campaigns'
       path: '/campaigns'
@@ -369,6 +401,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/campaigns/$campaignId/invite'
       preLoaderRoute: typeof publicCampaignsCampaignIdInviteRouteImport
       parentRoute: typeof publicLayoutRoute
+    }
+    '/(private)/(app)/workspace/settings': {
+      id: '/(private)/(app)/workspace/settings'
+      path: '/workspace/settings'
+      fullPath: '/workspace/settings'
+      preLoaderRoute: typeof privateappWorkspaceSettingsRouteImport
+      parentRoute: typeof privateappLayoutRoute
     }
     '/(private)/(app)/influencer/$influencerId': {
       id: '/(private)/(app)/influencer/$influencerId'
@@ -442,14 +481,18 @@ const privateappCampaignsRouteWithChildren =
 
 interface privateappLayoutRouteChildren {
   privateappCampaignsRoute: typeof privateappCampaignsRouteWithChildren
+  privateappSettingsRoute: typeof privateappSettingsRoute
   privateappIndexRoute: typeof privateappIndexRoute
   privateappInfluencerInfluencerIdRoute: typeof privateappInfluencerInfluencerIdRoute
+  privateappWorkspaceSettingsRoute: typeof privateappWorkspaceSettingsRoute
 }
 
 const privateappLayoutRouteChildren: privateappLayoutRouteChildren = {
   privateappCampaignsRoute: privateappCampaignsRouteWithChildren,
+  privateappSettingsRoute: privateappSettingsRoute,
   privateappIndexRoute: privateappIndexRoute,
   privateappInfluencerInfluencerIdRoute: privateappInfluencerInfluencerIdRoute,
+  privateappWorkspaceSettingsRoute: privateappWorkspaceSettingsRoute,
 }
 
 const privateappLayoutRouteWithChildren =

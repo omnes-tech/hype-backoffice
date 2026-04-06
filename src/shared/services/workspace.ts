@@ -1,8 +1,58 @@
 import { getApiUrl, getAuthToken } from "@/lib/utils/api";
-import type { Workspace } from "../types";
+import type {
+  Workspace,
+  WorkspaceMember,
+  WorkspacePermissions,
+  WorkspaceRole,
+} from "../types";
 
-export async function getWorkspaces(): Promise<Workspace[]> {
-  const request = await fetch(getApiUrl("/workspaces"), {
+function normalizeWorkspaceRow(row: unknown): Workspace | null {
+  if (!row || typeof row !== "object") return null;
+  const o = row as Record<string, unknown>;
+  const id = o.id != null ? String(o.id) : "";
+  if (!id) return null;
+  const perms = o.permissions;
+  let permissions: WorkspacePermissions | undefined;
+  if (perms && typeof perms === "object" && !Array.isArray(perms)) {
+    permissions = perms as WorkspacePermissions;
+  }
+  const roleRaw = o.role != null ? String(o.role).toLowerCase() : "";
+  const role: WorkspaceRole | undefined =
+    roleRaw === "owner" || roleRaw === "admin" || roleRaw === "member"
+      ? roleRaw
+      : undefined;
+  return {
+    id,
+    name: String(o.name ?? ""),
+    photo: o.photo != null && o.photo !== "" ? String(o.photo) : undefined,
+    description: o.description != null ? String(o.description) : undefined,
+    niche_id:
+      o.niche_id != null && !Number.isNaN(Number(o.niche_id))
+        ? Number(o.niche_id)
+        : undefined,
+    created_at: o.created_at != null ? String(o.created_at) : undefined,
+    updated_at: o.updated_at != null ? String(o.updated_at) : undefined,
+    role,
+    membership_id:
+      o.membership_id != null && !Number.isNaN(Number(o.membership_id))
+        ? Number(o.membership_id)
+        : undefined,
+    joined_at: o.joined_at != null ? String(o.joined_at) : undefined,
+    permissions,
+  };
+}
+
+function normalizeWorkspaceList(data: unknown): Workspace[] {
+  if (!Array.isArray(data)) return [];
+  return data.map(normalizeWorkspaceRow).filter((w): w is Workspace => w != null);
+}
+
+/**
+ * Workspaces do usuário com `role`, `membership_id`, `permissions`.
+ * @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md — GET /backoffice/me/workspaces
+ */
+export async function getMyWorkspaces(): Promise<Workspace[]> {
+  const request = await fetch(getApiUrl("/me/workspaces"), {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -19,11 +69,46 @@ export async function getWorkspaces(): Promise<Workspace[]> {
       errorData = { message: "Failed to get workspaces" };
     }
     throw errorData || "Failed to get workspaces";
-    }
+  }
 
   const response = await request.json();
+  return normalizeWorkspaceList(response.data);
+}
 
-  return response.data;
+/** @deprecated Prefira `getMyWorkspaces`; mantido para chamadas legadas à listagem paginada. */
+export async function getWorkspacesPaginated(
+  page = 1,
+  perPage = 50,
+): Promise<Workspace[]> {
+  const qs = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  const request = await fetch(getApiUrl(`/workspaces?${qs}`), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Client-Type": "backoffice",
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get workspaces" };
+    }
+    throw errorData || "Failed to get workspaces";
+  }
+
+  const response = await request.json();
+  return normalizeWorkspaceList(response.data);
+}
+
+export async function getWorkspaces(): Promise<Workspace[]> {
+  return getMyWorkspaces();
 }
 
 export interface CreateWorkspaceData {
@@ -62,10 +147,20 @@ export async function createWorkspace(data: CreateWorkspaceData): Promise<Worksp
   return response.data;
 }
 
+export interface UpdateWorkspaceInput {
+  name: string;
+  description?: string | null;
+  niche_id?: number | null;
+}
+
 export async function updateWorkspace(
   workspaceId: string,
-  data: { name: string }
+  data: UpdateWorkspaceInput,
 ): Promise<Workspace> {
+  const body: Record<string, unknown> = { name: data.name };
+  if (data.description !== undefined) body.description = data.description;
+  if (data.niche_id !== undefined) body.niche_id = data.niche_id;
+
   const request = await fetch(getApiUrl(`/workspaces/${workspaceId}`), {
     method: "PUT",
     headers: {
@@ -74,7 +169,7 @@ export async function updateWorkspace(
       "Client-Type": "backoffice",
       Authorization: `Bearer ${getAuthToken()}`,
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
 
   if (!request.ok) {
@@ -90,6 +185,223 @@ export async function updateWorkspace(
   const response = await request.json();
 
   return response.data;
+}
+
+function normalizeWorkspaceMember(row: unknown): WorkspaceMember | null {
+  if (!row || typeof row !== "object") return null;
+  const o = row as Record<string, unknown>;
+  const uidRaw = o.user_id ?? o.userId;
+  const userId =
+    typeof uidRaw === "number"
+      ? uidRaw
+      : typeof uidRaw === "string" && !Number.isNaN(Number(uidRaw))
+        ? Number(uidRaw)
+        : NaN;
+  if (Number.isNaN(userId)) return null;
+  const roleRaw = o.role != null ? String(o.role).toLowerCase() : "";
+  const role: WorkspaceRole =
+    roleRaw === "owner" || roleRaw === "admin" || roleRaw === "member"
+      ? roleRaw
+      : "member";
+  return {
+    user_id: userId,
+    name: String(o.name ?? ""),
+    email: String(o.email ?? ""),
+    role,
+    created_at: o.created_at != null ? String(o.created_at) : "",
+  };
+}
+
+/**
+ * Lista membros do workspace.
+ * @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md — GET /workspaces/:id/members
+ */
+export async function listWorkspaceMembers(
+  workspaceId: string,
+): Promise<WorkspaceMember[]> {
+  const request = await fetch(getApiUrl(`/workspaces/${workspaceId}/members`), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Client-Type": "backoffice",
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Falha ao listar membros" };
+    }
+    throw errorData || "Falha ao listar membros";
+  }
+
+  const response = await request.json();
+  const list = Array.isArray(response.data) ? response.data : [];
+  return list
+    .map(normalizeWorkspaceMember)
+    .filter((m: WorkspaceMember | null): m is WorkspaceMember => m != null);
+}
+
+export interface InviteWorkspaceMemberInput {
+  email: string;
+  role: "admin" | "member";
+  /**
+   * Obrigatório na API se o e-mail ainda não tiver cadastro no backoffice.
+   * @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md seção 4.8
+   */
+  name?: string;
+}
+
+/** Resposta `201` de `POST .../workspaces/:id/members`. */
+export interface InviteWorkspaceMemberResult {
+  user_id: number;
+  name: string;
+  email: string;
+  role: string;
+  created_account: boolean;
+}
+
+function parseMembersInviteErrorMessage(errorData: unknown): string {
+  if (!errorData || typeof errorData !== "object") {
+    return "Falha ao convidar membro";
+  }
+  const o = errorData as Record<string, unknown>;
+  const m = o.message;
+  if (typeof m === "string" && m.trim()) return m.trim();
+  if (Array.isArray(m) && m.length > 0) {
+    return m.map(String).filter(Boolean).join(". ");
+  }
+  return "Falha ao convidar membro";
+}
+
+function normalizeInviteMemberResult(
+  row: unknown,
+): InviteWorkspaceMemberResult | null {
+  if (!row || typeof row !== "object") return null;
+  const o = row as Record<string, unknown>;
+  const uidRaw = o.user_id;
+  const userId =
+    typeof uidRaw === "number"
+      ? uidRaw
+      : typeof uidRaw === "string" && !Number.isNaN(Number(uidRaw))
+        ? Number(uidRaw)
+        : NaN;
+  if (Number.isNaN(userId)) return null;
+  return {
+    user_id: userId,
+    name: String(o.name ?? ""),
+    email: String(o.email ?? ""),
+    role: String(o.role ?? "member"),
+    created_account: o.created_account === true,
+  };
+}
+
+export async function inviteWorkspaceMember(
+  workspaceId: string,
+  data: InviteWorkspaceMemberInput,
+): Promise<InviteWorkspaceMemberResult> {
+  const body: Record<string, unknown> = {
+    email: data.email.trim(),
+    role: data.role,
+  };
+  const trimmedName = data.name?.trim();
+  if (trimmedName) body.name = trimmedName;
+
+  const request = await fetch(getApiUrl(`/workspaces/${workspaceId}/members`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "Client-Type": "backoffice",
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const responseJson = await request.json().catch(() => ({}));
+
+  if (!request.ok) {
+    const msg = parseMembersInviteErrorMessage(responseJson);
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
+
+  const normalized = normalizeInviteMemberResult(
+    (responseJson as { data?: unknown }).data,
+  );
+  if (!normalized) {
+    throw new Error("Resposta inválida ao convidar membro");
+  }
+  return normalized;
+}
+
+export async function updateWorkspaceMemberRole(
+  workspaceId: string,
+  userId: number,
+  role: WorkspaceRole,
+): Promise<void> {
+  const request = await fetch(
+    getApiUrl(`/workspaces/${workspaceId}/members/${userId}`),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+      body: JSON.stringify({ role }),
+    },
+  );
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Falha ao alterar papel" };
+    }
+    const err = new Error(
+      (errorData as { message?: string })?.message || "Falha ao alterar papel",
+    ) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
+}
+
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  userId: number,
+): Promise<void> {
+  const request = await fetch(
+    getApiUrl(`/workspaces/${workspaceId}/members/${userId}`),
+    {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    },
+  );
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Falha ao remover membro" };
+    }
+    const err = new Error(
+      (errorData as { message?: string })?.message || "Falha ao remover membro",
+    ) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
 }
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
@@ -110,7 +422,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
       errorData = { message: "Failed to delete workspace" };
     }
     throw errorData || "Failed to delete workspace";
-    }
+  }
 }
 
 /**

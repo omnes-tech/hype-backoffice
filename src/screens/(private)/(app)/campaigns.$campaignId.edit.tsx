@@ -31,6 +31,7 @@ import {
 } from "@/shared/utils/campaign-edit-request";
 import { activateMural } from "@/shared/services/mural";
 import { getSubnicheValueByLabel } from "@/shared/data/subniches";
+import { getNicheParentId } from "@/shared/utils/niche-tree";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
 import { useNiches } from "@/hooks/use-niches";
@@ -140,15 +141,19 @@ function RouteComponent() {
           ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
           : [];
       
-      // Determinar o nicho principal a partir do primeiro subnicho selecionado
       let mainNicheId = "";
-      if (subnicheIds.length > 0) {
-        const firstSubnicheId = parseInt(subnicheIds[0], 10);
-        if (!isNaN(firstSubnicheId)) {
-          const firstSubniche = niches.find((n) => n.id === firstSubnicheId);
-          if (firstSubniche?.parent_id) {
-            mainNicheId = firstSubniche.parent_id.toString();
-          }
+      if (campaign.primary_niche?.id != null) {
+        mainNicheId = String(campaign.primary_niche.id);
+      } else if (subnicheIds.length > 0 && niches.length > 0) {
+        const rawFirst = subnicheIds[0];
+        const firstSubniche = niches.find(
+          (n) => String(n.id) === String(rawFirst),
+        );
+        const parentKey = firstSubniche
+          ? getNicheParentId(firstSubniche)
+          : null;
+        if (parentKey) {
+          mainNicheId = parentKey;
         }
       }
       

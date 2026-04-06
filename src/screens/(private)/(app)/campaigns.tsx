@@ -252,7 +252,7 @@ function RouteComponent() {
             />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 z-10">
             <div className="w-auto">
               <Dropdown
                 options={[

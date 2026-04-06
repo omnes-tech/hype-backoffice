@@ -4,21 +4,29 @@ import {
   sendMessage,
   type SendMessageData,
 } from "@/shared/services/chat";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useInfluencerMessages(
   campaignId: string,
   influencerId: string
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: [
-      "campaigns",
-      campaignId,
-      "influencers",
-      influencerId,
-      "messages",
-    ],
+    queryKey: withWorkspaceKey(
+      [
+        "campaigns",
+        campaignId,
+        "influencers",
+        influencerId,
+        "messages",
+      ],
+      workspaceId,
+    ),
     queryFn: () => getInfluencerMessages(campaignId, influencerId),
-    enabled: !!campaignId && !!influencerId,
+    enabled: !!campaignId && !!influencerId && !!workspaceId,
     staleTime: 5000, // 5 segundos
     refetchInterval: 10000, // Refetch a cada 10 segundos para chat em tempo real
   });

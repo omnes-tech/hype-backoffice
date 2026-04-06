@@ -1,5 +1,7 @@
 import { getApiUrl } from "@/lib/utils/api";
 
+/** Contrato HTTP completo: `docs/api-public-campaign-invite.md`. */
+
 /**
  * Resumo público da campanha (convite compartilhável).
  * Esperado no servidor: `GET /public/campaigns/:publicId/invite` sem auth.
@@ -206,4 +208,104 @@ export async function getPublicCampaignInvite(
     throw new Error("Resposta inválida do servidor.");
   }
   return normalizePublicInvite(raw);
+}
+
+export interface PublicInvitePreRegisterPayload {
+  name: string;
+  email: string;
+  /** Apenas dígitos; opcional conforme contrato da API */
+  phone?: string;
+}
+
+/**
+ * Pré-cadastro pelo link público: vincula o influenciador à campanha na **curadoria da pré-seleção**.
+ * Esperado no servidor: `POST /public/campaigns/:publicId/invite/pre-register` (JSON, sem auth).
+ * Corpo sugerido: `{ name, email, phone?, target_stage: "pre_selection_curation" }`.
+ */
+export async function postPublicCampaignInvitePreRegister(
+  campaignPublicId: string,
+  payload: PublicInvitePreRegisterPayload,
+): Promise<void> {
+  const phoneDigits = payload.phone?.replace(/\D/g, "") ?? "";
+  const body: Record<string, unknown> = {
+    name: payload.name.trim(),
+    email: payload.email.trim(),
+    target_stage: "pre_selection_curation",
+  };
+  if (phoneDigits.length >= 10) body.phone = phoneDigits;
+
+  const request = await fetch(
+    getApiUrl(`/public/campaigns/${campaignPublicId}/invite/pre-register`),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!request.ok) {
+    let message = "Não foi possível concluir o pré-cadastro.";
+    try {
+      const j = (await request.json()) as { message?: string; error?: string };
+      message = String(j?.message ?? j?.error ?? message);
+    } catch {
+      /* ignore */
+    }
+    const err = new Error(message) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
+}
+
+export interface PublicInviteDeclinePayload {
+  name: string;
+  email: string;
+  phone?: string;
+  /** Motivo aberto informado pelo influenciador */
+  decline_reason: string;
+}
+
+/**
+ * Recusa o convite com pré-cadastro (identificação) e motivo da recusa.
+ * `POST /public/campaigns/:publicId/invite/decline` — JSON, sem auth.
+ */
+export async function postPublicCampaignInviteDecline(
+  campaignPublicId: string,
+  payload: PublicInviteDeclinePayload,
+): Promise<void> {
+  const phoneDigits = payload.phone?.replace(/\D/g, "") ?? "";
+  const body: Record<string, unknown> = {
+    name: payload.name.trim(),
+    email: payload.email.trim(),
+    decline_reason: payload.decline_reason.trim(),
+  };
+  if (phoneDigits.length >= 10) body.phone = phoneDigits;
+
+  const request = await fetch(
+    getApiUrl(`/public/campaigns/${campaignPublicId}/invite/decline`),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!request.ok) {
+    let message = "Não foi possível registrar sua resposta.";
+    try {
+      const j = (await request.json()) as { message?: string; error?: string };
+      message = String(j?.message ?? j?.error ?? message);
+    } catch {
+      /* ignore */
+    }
+    const err = new Error(message) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
 }

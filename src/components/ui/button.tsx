@@ -22,7 +22,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        "w-full h-11 rounded-2xl flex items-center justify-center gap-2 px-6 font-medium text-sm transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2",
+        "h-11 rounded-2xl w-min flex items-center justify-center gap-2 px-6 font-medium text-sm transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2",
         "disabled:opacity-70 disabled:cursor-not-allowed",
         variantStyles[variant],
         className

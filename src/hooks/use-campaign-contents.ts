@@ -6,15 +6,23 @@ import {
   type ApproveContentData,
   type RejectContentData,
 } from "@/shared/services/content";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignContents(
   campaignId: string,
   filters?: { status?: string; phase_id?: string }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "contents", filters],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "contents", filters],
+      workspaceId,
+    ),
     queryFn: () => getCampaignContents(campaignId, filters),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 

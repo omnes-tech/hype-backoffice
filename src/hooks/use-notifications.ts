@@ -5,14 +5,20 @@ import {
   markAllNotificationsAsRead,
   type Notification,
 } from "@/shared/services/notifications";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 /**
  * Hook para buscar notificações do usuário
  */
 export function useNotifications() {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["notifications"],
+    queryKey: withWorkspaceKey(["notifications"], workspaceId),
     queryFn: getNotifications,
+    enabled: !!workspaceId,
     staleTime: 30000, // 30 segundos
     refetchInterval: 60000, // Refetch a cada minuto
   });

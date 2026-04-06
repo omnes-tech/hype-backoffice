@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { getWorkspaces } from "@/shared/services/workspace";
+import { getMyWorkspaces } from "@/shared/services/workspace";
 
 /**
- * Hook para buscar todos os workspaces do usuário
+ * Workspaces do usuário (`GET /me/workspaces`) com permissões por papel.
  */
 export function useWorkspaces() {
   return useQuery({
-    queryKey: ["get-workspaces"],
-    queryFn: getWorkspaces,
+    queryKey: ["me-workspaces"],
+    queryFn: getMyWorkspaces,
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
 }

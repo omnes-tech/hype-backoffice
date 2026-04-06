@@ -1,6 +1,10 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { clsx } from "clsx";
+import { useState } from "react";
 
+import { CampaignInviteAcceptModal } from "@/components/campaign-invite-accept-modal";
+import { CampaignInviteDeclineModal } from "@/components/campaign-invite-decline-modal";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { usePublicCampaignInvite } from "@/hooks/use-public-campaign-invite";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -14,20 +18,6 @@ import {
 export const Route = createFileRoute("/(public)/campaigns/$campaignId/invite")({
   component: PublicCampaignInviteScreen,
 });
-
-const HYPEAPP_PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
-
-/** Android: abre o app se instalado; senão `S.browser_fallback_url` leva à Play Store (Chrome). */
-const HYPEAPP_ANDROID_OPEN_INTENT = `intent://#Intent;package=br.com.hypeapp.v2;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${encodeURIComponent(HYPEAPP_PLAY_STORE_URL)};end`;
-
-function hrefOpenHypeappApp(): string {
-  if (typeof navigator === "undefined") return HYPEAPP_PLAY_STORE_URL;
-  return /Android/i.test(navigator.userAgent) ? HYPEAPP_ANDROID_OPEN_INTENT : HYPEAPP_PLAY_STORE_URL;
-}
-
-const linkPrimaryClass =
-  "inline-flex items-center justify-center min-h-11 px-8 rounded-full font-semibold text-sm bg-primary-600 hover:bg-primary-700 text-white border-0 transition-colors w-full sm:w-auto text-center";
 
 const linkOutlineClass =
   "inline-flex items-center justify-center min-h-11 px-8 rounded-full font-semibold text-sm bg-white border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 text-neutral-700 transition-colors w-full sm:w-auto text-center";
@@ -58,6 +48,18 @@ function PublicCampaignInviteScreen() {
   });
 
   const { data, isLoading, isError, error } = usePublicCampaignInvite(campaignId);
+
+  const [inviteDeclined, setInviteDeclined] = useState(false);
+  const [acceptModalOpen, setAcceptModalOpen] = useState(false);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+
+  const handleAccept = () => {
+    setAcceptModalOpen(true);
+  };
+
+  const handleDeclineClick = () => {
+    setDeclineModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -90,7 +92,6 @@ function PublicCampaignInviteScreen() {
   const bannerSrc = data.banner ? getUploadUrl(data.banner) ?? undefined : undefined;
   const statusValue = getCampaignStatusValue(data.status);
   const payLabel = paymentHint(data);
-
   return (
     <div className="w-full max-w-2xl mx-auto px-4 py-8 sm:py-10 pb-16 flex flex-col gap-8">
       <header className="flex items-center justify-between gap-4">
@@ -264,26 +265,49 @@ function PublicCampaignInviteScreen() {
             </section>
           ) : null}
 
-          <div className="rounded-xl bg-primary-50 border border-primary-100 p-5 flex flex-col gap-3">
-            <p className="text-sm font-medium text-primary-900">Para influenciadores</p>
-            <p className="text-sm text-primary-800 leading-relaxed">
-              Inscrições e acompanhamento desta campanha para criadores ocorrem pelo{" "}
-              <strong>aplicativo Hypeapp</strong>, com sua conta de influenciador. Esta página
-              mostra apenas um resumo público divulgado pela marca.
-            </p>
-          </div>
+          <CampaignInviteAcceptModal
+            isOpen={acceptModalOpen}
+            onClose={() => setAcceptModalOpen(false)}
+            campaignPublicId={campaignId}
+            campaignTitle={data.title}
+          />
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-neutral-100">
-            <a
-              href={hrefOpenHypeappApp()}
-              rel="noopener noreferrer"
-              className={linkPrimaryClass}
-            >
-              Abrir no app Hypeapp
-            </a>
+          <CampaignInviteDeclineModal
+            isOpen={declineModalOpen}
+            onClose={() => setDeclineModalOpen(false)}
+            campaignPublicId={campaignId}
+            onDeclineRecorded={() => setInviteDeclined(true)}
+          />
+
+          <div className="flex flex-col gap-4 pt-2 border-t border-neutral-100">
+            {inviteDeclined ? (
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-5 py-4 text-sm text-neutral-700">
+                Registramos que você não vai participar desta campanha. Se mudar de ideia, peça um
+                novo convite à marca.
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  type="button"
+                  variant="default"
+                  className="w-full sm:flex-1 min-w-0"
+                  onClick={handleAccept}
+                >
+                  Aceitar convite
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:flex-1 min-w-0"
+                  onClick={handleDeclineClick}
+                >
+                  Recusar
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-    </div>
+      </div>
     </div>
   );
 }

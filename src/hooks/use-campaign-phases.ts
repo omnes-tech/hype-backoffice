@@ -7,12 +7,17 @@ import {
   type CreatePhaseData,
   type UpdatePhaseData,
 } from "@/shared/services/phase";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignPhases(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "phases"],
+    queryKey: withWorkspaceKey(["campaigns", campaignId, "phases"], workspaceId),
     queryFn: () => getCampaignPhases(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
     staleTime: 30000, // 30 segundos
   });
 }

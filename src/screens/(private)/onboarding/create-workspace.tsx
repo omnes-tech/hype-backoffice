@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,8 +10,11 @@ import { createWorkspace, uploadWorkspacePhoto } from "@/shared/services/workspa
 import { saveWorkspaceId } from "@/lib/utils/api";
 import type { Workspace } from "@/shared/types";
 import { useNiches } from "@/hooks/use-niches";
+import { isNicheRoot } from "@/shared/utils/niche-tree";
+import { useWorkspaces } from "@/hooks/use-workspaces";
 
 import { ImageUpload } from "@/components/image-upload";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/text-area";
@@ -58,6 +61,15 @@ function RouteComponent() {
 
   const [preview, setPreview] = useState<string | null>(null);
   const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
+  const { data: workspaces = [], isLoading: isLoadingWorkspaces } =
+    useWorkspaces();
+
+  useEffect(() => {
+    if (isLoadingWorkspaces) return;
+    if (workspaces.length > 0) {
+      navigate({ to: "/", replace: true });
+    }
+  }, [isLoadingWorkspaces, workspaces.length, navigate]);
 
   const {
     control,
@@ -85,7 +97,7 @@ function RouteComponent() {
         });
       },
       onSuccess: async (workspace: Workspace, variables: CreateWorkspaceData) => {
-        queryClient.invalidateQueries({ queryKey: ["get-workspaces"] });
+        queryClient.invalidateQueries({ queryKey: ["me-workspaces"] });
         saveWorkspaceId(workspace.id); // workspace.id já é string (UUID)
         
         // Fazer upload da foto se houver
@@ -105,6 +117,11 @@ function RouteComponent() {
         toast.error(errorMessage);
       },
     });
+
+  if (isLoadingWorkspaces || workspaces.length > 0) {
+    return <LoadingSpinner message="Carregando..." />;
+  }
+
   return (
     <form
       className="max-w-md w-full flex flex-col gap-6"
@@ -155,7 +172,7 @@ function RouteComponent() {
               value={field.value}
               onChange={field.onChange}
               options={niches
-                .filter((niche) => niche.parent_id === null) // Apenas nichos principais (sem parent_id)
+                .filter(isNicheRoot)
                 .map((niche) => ({
                   label: niche.name,
                   value: niche.id.toString(),

@@ -12,6 +12,11 @@ import {
 import { handleNumberInput } from "@/shared/utils/masks";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useNiches } from "@/hooks/use-niches";
+import {
+  getNicheIdKey,
+  isNicheChildOf,
+  isNicheRoot,
+} from "@/shared/utils/niche-tree";
 
 interface CreateCampaignStepTwoProps {
   formData: CampaignFormData;
@@ -153,21 +158,18 @@ export function CreateCampaignStepTwo({
   const mainNicheOptions = useMemo(
     () =>
       niches
-        .filter((n) => n.parent_id == null)
-        .map((n) => ({ value: n.id.toString(), label: n.name })),
-    [niches]
+        .filter(isNicheRoot)
+        .map((n) => ({ value: getNicheIdKey(n), label: n.name })),
+    [niches],
   );
 
   const subnicheOptions = useMemo(() => {
     if (!formData.mainNiche) return [];
-    const parentId = parseInt(formData.mainNiche, 10);
-    if (Number.isNaN(parentId)) return [];
+    const mainKey = String(formData.mainNiche).trim();
+    if (!mainKey) return [];
     const rows = niches
-      .filter(
-        (n) =>
-          n.parent_id != null && Number(n.parent_id) === parentId
-      )
-      .map((n) => ({ value: n.id.toString(), label: n.name }));
+      .filter((n) => isNicheChildOf(mainKey, n))
+      .map((n) => ({ value: getNicheIdKey(n), label: n.name }));
     const isOutrosLabel = (label: string) => {
       const t = label.trim().toLowerCase();
       return t === "outros" || t === "outro";

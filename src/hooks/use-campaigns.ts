@@ -8,20 +8,26 @@ import {
   type CreateCampaignData,
   type UpdateCampaignData,
 } from "@/shared/services/campaign";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaigns(options?: { enabled?: boolean }) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns"],
+    queryKey: withWorkspaceKey(["campaigns"], workspaceId),
     queryFn: getCampaigns,
-    enabled: options?.enabled !== false,
+    enabled: (options?.enabled !== false) && !!workspaceId,
   });
 }
 
 export function useCampaign(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId],
+    queryKey: withWorkspaceKey(["campaigns", campaignId], workspaceId),
     queryFn: () => getCampaign(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 

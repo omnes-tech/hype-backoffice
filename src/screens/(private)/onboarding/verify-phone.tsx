@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useAuth } from "@/contexts/auth-context";
 import { formatPhoneNumber } from "@/lib/utils/format";
 import { updatePhone, verifyPhone } from "@/shared/services/me";
+import { getMyWorkspaces } from "@/shared/services/workspace";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,9 +47,17 @@ function RouteComponent() {
   const { mutate: verifyPhoneMutation, isPending: isVerifyingPhone } =
     useMutation({
       mutationFn: verifyPhone,
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["get-current-user"] });
-        navigate({ to: "/onboarding/create-workspace" });
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["get-current-user"] });
+        const workspaces = await queryClient.fetchQuery({
+          queryKey: ["me-workspaces"],
+          queryFn: getMyWorkspaces,
+        });
+        if (workspaces.length > 0) {
+          navigate({ to: "/", replace: true });
+        } else {
+          navigate({ to: "/onboarding/create-workspace" });
+        }
       },
       onError: (error) => {
         toast.error(error.message);

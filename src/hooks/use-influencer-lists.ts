@@ -6,19 +6,26 @@ import {
   type BulkAddInfluencersRequest,
 } from "@/shared/services/influencer-lists";
 import { toast } from "sonner";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useInfluencerLists() {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["influencer-lists"],
+    queryKey: withWorkspaceKey(["influencer-lists"], workspaceId),
     queryFn: getInfluencerLists,
+    enabled: !!workspaceId,
   });
 }
 
 export function useInfluencerList(listId: string | null) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["influencer-list", listId],
+    queryKey: withWorkspaceKey(["influencer-list", listId], workspaceId),
     queryFn: () => getInfluencerList(listId!),
-    enabled: !!listId,
+    enabled: !!listId && !!workspaceId,
   });
 }
 

@@ -5,17 +5,27 @@ import {
   type InscriptionsSegment,
   type CurationColumn,
 } from "@/shared/services/campaign-tab-influencers";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignInscriptions(
   campaignId: string | undefined,
   segment: InscriptionsSegment,
   options?: { enabled?: boolean }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   const enabled =
-    !!campaignId && (options?.enabled !== undefined ? options.enabled : true);
+    !!campaignId &&
+    !!workspaceId &&
+    (options?.enabled !== undefined ? options.enabled : true);
 
   return useQuery({
-    queryKey: ["campaigns", campaignId, "inscriptions", segment],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "inscriptions", segment],
+      workspaceId,
+    ),
     queryFn: () => getCampaignInscriptions(campaignId!, segment),
     enabled,
     staleTime: 30_000,
@@ -27,11 +37,17 @@ export function useCampaignCuration(
   column: CurationColumn,
   options?: { enabled?: boolean }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   const enabled =
-    !!campaignId && (options?.enabled !== undefined ? options.enabled : true);
+    !!campaignId &&
+    !!workspaceId &&
+    (options?.enabled !== undefined ? options.enabled : true);
 
   return useQuery({
-    queryKey: ["campaigns", campaignId, "curation", column],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "curation", column],
+      workspaceId,
+    ),
     queryFn: () => getCampaignCuration(campaignId!, column),
     enabled,
     staleTime: 30_000,
@@ -42,11 +58,15 @@ const CURATION_COLUMNS = ["pending", "approved", "rejected"] as const;
 
 /** Três queries em paralelo para contagens nas pills e listas por coluna. */
 export function useCampaignCurationColumns(campaignId: string | undefined) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQueries({
     queries: CURATION_COLUMNS.map((column) => ({
-      queryKey: ["campaigns", campaignId, "curation", column] as const,
+      queryKey: withWorkspaceKey(
+        ["campaigns", campaignId, "curation", column],
+        workspaceId,
+      ),
       queryFn: () => getCampaignCuration(campaignId!, column),
-      enabled: !!campaignId,
+      enabled: !!campaignId && !!workspaceId,
       staleTime: 30_000,
     })),
   });

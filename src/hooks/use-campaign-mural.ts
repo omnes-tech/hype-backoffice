@@ -5,12 +5,20 @@ import {
   deactivateMural,
   type ActivateMuralData,
 } from "@/shared/services/mural";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useMuralStatus(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "mural", "status"],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "mural", "status"],
+      workspaceId,
+    ),
     queryFn: () => getMuralStatus(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
     staleTime: 10000, // 10 segundos
     refetchInterval: 30000, // Refetch a cada 30 segundos
   });

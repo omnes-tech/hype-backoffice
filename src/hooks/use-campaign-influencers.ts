@@ -9,12 +9,20 @@ import {
   type InfluencerInviteData,
   type MoveToPreSelectionCurationData,
 } from "@/shared/services/influencer";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignInfluencers(campaignId: string) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "influencers"],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "influencers"],
+      workspaceId,
+    ),
     queryFn: () => getCampaignInfluencers(campaignId),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 

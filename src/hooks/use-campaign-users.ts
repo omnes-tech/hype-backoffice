@@ -4,16 +4,23 @@ import {
   updateCampaignUserStatus,
   type UpdateUserStatusData,
 } from "@/shared/services/campaign-users";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignUsers(
   campaignId: string,
   options?: { enabled?: boolean }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   const enabled =
-    !!campaignId && (options?.enabled !== undefined ? options.enabled : true);
+    !!campaignId &&
+    !!workspaceId &&
+    (options?.enabled !== undefined ? options.enabled : true);
 
   return useQuery({
-    queryKey: ["campaigns", campaignId, "users"],
+    queryKey: withWorkspaceKey(["campaigns", campaignId, "users"], workspaceId),
     queryFn: () => getCampaignUsers(campaignId),
     enabled,
   });

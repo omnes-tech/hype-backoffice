@@ -6,15 +6,23 @@ import {
   type ApproveScriptData,
   type RejectScriptData,
 } from "@/shared/services/script";
+import {
+  useWorkspaceQueryKey,
+  withWorkspaceKey,
+} from "@/hooks/use-workspace-query-key";
 
 export function useCampaignScripts(
   campaignId: string,
   filters?: { status?: string; phase_id?: string }
 ) {
+  const workspaceId = useWorkspaceQueryKey();
   return useQuery({
-    queryKey: ["campaigns", campaignId, "scripts", filters],
+    queryKey: withWorkspaceKey(
+      ["campaigns", campaignId, "scripts", filters],
+      workspaceId,
+    ),
     queryFn: () => getCampaignScripts(campaignId, filters),
-    enabled: !!campaignId,
+    enabled: !!campaignId && !!workspaceId,
   });
 }
 
