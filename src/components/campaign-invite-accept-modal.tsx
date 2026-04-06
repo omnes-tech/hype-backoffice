@@ -16,7 +16,6 @@ import {
   isValidProfileUrlForNetwork,
   SOCIAL_NETWORK_LABELS,
 } from "@/shared/utils/social-profile-url";
-import { buildInfluencerPreselectionCurationUrl } from "@/shared/utils/influencer-invite-redirect";
 
 const HYPEAPP_PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
@@ -144,10 +143,6 @@ export function CampaignInviteAcceptModal({
       toast.error(err.message || "Erro ao enviar pré-cadastro.");
     },
   });
-
-  const goPreselectionCuration = () => {
-    window.location.assign(buildInfluencerPreselectionCurationUrl(campaignPublicId));
-  };
 
   const profileErrors = errors.profile as Record<string, { message?: string }> | undefined;
 
