@@ -339,7 +339,7 @@ export interface PublicInvitePreRegisterPayload {
 }
 
 /**
- * Pré-cadastro pelo link público: vincula o influenciador à campanha na **curadoria da pré-seleção**.
+ * Pré-cadastro pelo link público: vincula o influenciador à campanha em **inscrições** (`applications`).
  * Esperado no servidor: `POST /public/campaigns/:publicId/invite/pre-register` (JSON, sem auth).
  * Corpo: `{ name, email, phone?, target_stage, social_profiles? }`.
  */
@@ -351,7 +351,7 @@ export async function postPublicCampaignInvitePreRegister(
   const body: Record<string, unknown> = {
     name: payload.name.trim(),
     email: payload.email.trim(),
-    target_stage: "pre_selection_curation",
+    target_stage: "applications",
   };
   if (phoneDigits.length >= 10) body.phone = phoneDigits;
   if (payload.social_profiles?.length) {

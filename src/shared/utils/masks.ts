@@ -154,3 +154,19 @@ export const handleCurrencyInput = (
   callback(formatted);
 };
 
+/**
+ * Máscara de telefone/celular BR: (XX) XXXX-XXXX (10 dígitos) ou (XX) XXXXX-XXXX (11).
+ */
+export const formatBrazilianPhoneInput = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (!digits) return "";
+  const ddd = digits.slice(0, 2);
+  if (digits.length <= 2) return `(${ddd}`;
+  const rest = digits.slice(2);
+  if (digits.length <= 6) return `(${ddd}) ${rest}`;
+  if (digits.length <= 10) {
+    return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+  }
+  return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+};
+

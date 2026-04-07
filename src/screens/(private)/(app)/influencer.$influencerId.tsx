@@ -193,7 +193,7 @@ function InfluencerProfileScreen() {
           </h1>
           <Button
             variant="outline"
-            className="h-11 rounded-full font-semibold border-neutral-200 w-max"
+            className="h-11 rounded-full font-semibold border-neutral-200 min-w-max"
             onClick={() => { }}
           >
             Salvar influenciador
@@ -204,11 +204,19 @@ function InfluencerProfileScreen() {
       <div className="bg-white rounded-xl px-4 py-5 flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <img
-              src={getUploadUrl(influencer.avatar) ?? undefined}
-              alt={influencer.name}
-              className="size-[130px] rounded-full object-cover bg-neutral-200"
-            />
+            {influencer.avatar ? (
+              <img
+                src={getUploadUrl(influencer.avatar) ?? undefined}
+                alt={influencer.name ?? "Avatar do influenciador"}
+                className="size-[130px] rounded-full object-cover bg-neutral-200"
+              />
+            ) : (
+              <div className="size-[130px] rounded-full bg-neutral-200 flex items-center justify-center">
+                <span className="text-neutral-950 text-2xl font-medium">
+                  {influencer.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
             <div className="absolute -bottom-1 -right-1 size-8 rounded-full bg-primary-600 flex items-center justify-center">
               <Icon name="Check" size={16} color="#fff" />
             </div>
@@ -536,13 +544,13 @@ function InfluencerProfileScreen() {
       </div>
 
       <div className="bg-white border-t border-neutral-200 px-4 py-4 flex items-center justify-center rounded-full gap-4 z-10">
-        <Button variant="outline" className="rounded-full font-semibold" onClick={() => { }}>
+        <Button variant="outline" className="rounded-full font-semibold min-w-max" onClick={() => { }}>
           Copiar link do perfil
         </Button>
-        <Button variant="outline" className="rounded-full font-semibold" onClick={() => { }}>
+        <Button variant="outline" className="rounded-full font-semibold min-w-max" onClick={() => { }}>
           Convidar para pré-seleção
         </Button>
-        <Button className="rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0">
+        <Button className="rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0 min-w-max">
           Enviar convite
         </Button>
       </div>

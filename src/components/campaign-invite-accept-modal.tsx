@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -16,6 +16,7 @@ import {
   isValidProfileUrlForNetwork,
   SOCIAL_NETWORK_LABELS,
 } from "@/shared/utils/social-profile-url";
+import { formatBrazilianPhoneInput } from "@/shared/utils/masks";
 
 const HYPEAPP_PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
@@ -94,6 +95,7 @@ export function CampaignInviteAcceptModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -137,7 +139,7 @@ export function CampaignInviteAcceptModal({
     },
     onSuccess: () => {
       setPreRegisterSuccess(true);
-      toast.success("Pré-cadastro concluído! Você já está na curadoria da pré-seleção.");
+      toast.success("Pré-cadastro concluído! Você entrou nas inscrições desta campanha.");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erro ao enviar pré-cadastro.");
@@ -154,13 +156,13 @@ export function CampaignInviteAcceptModal({
       onClose={onClose}
       panelClassName="max-w-lg"
     >
-      {!preRegisterSuccess ? (
+      {preRegisterSuccess ? (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-neutral-600 leading-relaxed">
             Seus dados foram registrados e você foi vinculado à campanha{" "}
-            <span className="font-medium text-neutral-950">{campaignTitle}</span> na fase de{" "}
-            <strong>curadoria da pré-seleção</strong>. Baixe ou abra o app Hypeapp para acompanhar
-            e concluir as próximas etapas.
+            <span className="font-medium text-neutral-950">{campaignTitle}</span> em{" "}
+            <strong>inscrições</strong>. Baixe ou abra o app Hypeapp para acompanhar e concluir as
+            próximas etapas.
           </p>
           <a
             href={hrefOpenHypeappApp()}
@@ -176,8 +178,9 @@ export function CampaignInviteAcceptModal({
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-neutral-600 leading-relaxed">
-            Preencha os dados e os links dos seus perfis nas redes desta campanha.
-            Os links são validados por rede.
+            Preencha os dados e os links dos seus perfis nas redes desta campanha. Os links são
+            validados por rede. Ao confirmar, você entra nas <strong>inscrições</strong> desta
+            campanha.
           </p>
           <form
             className="flex flex-col gap-4"
@@ -196,13 +199,24 @@ export function CampaignInviteAcceptModal({
               error={errors.email?.message}
               {...register("email")}
             />
-            <Input
-              label="Celular (com DDD)"
-              type="tel"
-              autoComplete="tel"
-              placeholder="(11) 99999-9999"
-              error={errors.phone?.message}
-              {...register("phone")}
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  label="Celular (com DDD)"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="(11) 99999-9999"
+                  error={errors.phone?.message}
+                  value={field.value}
+                  onChange={(e) => field.onChange(formatBrazilianPhoneInput(e.target.value))}
+                  onBlur={field.onBlur}
+                />
+              )}
             />
 
             {allowedNetworks.length > 0 ? (
@@ -235,7 +249,7 @@ export function CampaignInviteAcceptModal({
           </form>
           <div className="border-t border-neutral-100 pt-4 flex flex-col gap-3">
             <p className="text-xs text-neutral-500 text-center">
-              Já tem conta no Hypeapp como influenciador ou prefere instalar antes?{" "}
+              Já tem conta no Hypeapp como influenciador ou prefere instalar antes?{" "} <br />
               <a
                 href={hrefOpenHypeappApp()}
                 rel="noopener noreferrer"

@@ -2,13 +2,13 @@
  * Rotas relativas na **mesma origem** do site (sem variável de ambiente).
  * Ajuste o caminho se o app influenciador usar outro prefixo.
  *
- * Curadoria da pré-seleção: `/influencer/campaigns/:id/preselection-curation`
+ * Inscrições na campanha: `/influencer/campaigns/:id/applications`
  */
-export function preselectionCurationPath(campaignPublicId: string): string {
-  return `/influencer/campaigns/${encodeURIComponent(campaignPublicId)}/preselection-curation`;
+export function campaignApplicationsPath(campaignPublicId: string): string {
+  return `/influencer/campaigns/${encodeURIComponent(campaignPublicId)}/applications`;
 }
 
-/** Usuário já cadastrado: abre direto a curadoria da pré-seleção (login no app, se precisar). */
-export function buildInfluencerPreselectionCurationUrl(campaignPublicId: string): string {
-  return preselectionCurationPath(campaignPublicId);
+/** Usuário já cadastrado: abre as inscrições da campanha no app (login se precisar). */
+export function buildInfluencerCampaignApplicationsUrl(campaignPublicId: string): string {
+  return campaignApplicationsPath(campaignPublicId);
 }

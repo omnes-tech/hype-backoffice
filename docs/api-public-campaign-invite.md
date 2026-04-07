@@ -84,7 +84,7 @@ Campos omitidos são tratados como ausentes na UI. O front é tolerante a `title
 
 ---
 
-## 2. Aceitar convite — pré-cadastro e vínculo na curadoria da pré-seleção
+## 2. Aceitar convite — pré-cadastro e vínculo em inscrições
 
 **`POST /public/campaigns/:campaignPublicId/invite/pre-register`**
 
@@ -100,7 +100,7 @@ Campos omitidos são tratados como ausentes na UI. O front é tolerante a `title
 | `name` | string | sim | trim |
 | `email` | string | sim | trim |
 | `phone` | string (só dígitos) | condicional | Só é enviado se, após remover não-dígitos, tiver **≥ 10** caracteres |
-| `target_stage` | string | sim (enviado pelo front) | Valor fixo: **`pre_selection_curation`** |
+| `target_stage` | string | sim (enviado pelo front) | Valor fixo: **`applications`** (inscrições na campanha) |
 | `social_profiles` | array | condicional | Quando a campanha define redes aceitas no GET: um item por rede, com `network` e `profile_url` (URL validada no front por rede). |
 
 Cada elemento de `social_profiles`:
@@ -117,7 +117,7 @@ Exemplo:
   "name": "Maria Silva",
   "email": "maria@email.com",
   "phone": "11987654321",
-  "target_stage": "pre_selection_curation",
+  "target_stage": "applications",
   "social_profiles": [
     { "network": "instagram", "profile_url": "https://www.instagram.com/maria" },
     { "network": "tiktok", "profile_url": "https://www.tiktok.com/@maria" }
@@ -129,7 +129,7 @@ Exemplo:
 
 1. Registrar o pré-cadastro do influenciador (ou lead) com os dados enviados.
 2. Persistir os **links dos perfis** (`social_profiles`) associados à campanha / candidatura, quando enviados.
-3. **Vincular** essa pessoa à campanha identificada por `:campaignPublicId` na etapa de **curadoria da pré-seleção** (equivalente ao estágio usado no backoffice para “curadoria pré-seleção” / `pre_selection_curation`).
+3. **Vincular** essa pessoa à campanha identificada por `:campaignPublicId` na etapa de **inscrições** (equivalente ao estágio `applications` no backoffice — aba/lista de inscrições da campanha).
 4. Responder **`200`** ou **`201`** com corpo opcional (o front não depende de um payload específico em sucesso).
 
 ### Erros
@@ -173,7 +173,7 @@ Exemplo:
 
 1. Persistir a **recusa** associada à campanha `:campaignPublicId`.
 2. Guardar **identificação** (`name`, `email`, `phone` se houver) e **`decline_reason`** para análise da marca (CRM, relatório, etc.).
-3. **Não** colocar o usuário no fluxo de curadoria da pré-seleção como participante ativo (a menos que o produto peça o contrário).
+3. **Não** colocar o usuário em **inscrições** como participante ativo (a menos que o produto peça o contrário).
 4. Responder **`200`** ou **`201`** em sucesso.
 
 ### Erros
@@ -189,7 +189,7 @@ Exemplo:
 | Método | Caminho | Uso |
 |--------|---------|-----|
 | `GET` | `/public/campaigns/:campaignPublicId/invite` | Carregar página pública do convite |
-| `POST` | `/public/campaigns/:campaignPublicId/invite/pre-register` | Aceite: pré-cadastro + entrada na **curadoria da pré-seleção** |
+| `POST` | `/public/campaigns/:campaignPublicId/invite/pre-register` | Aceite: pré-cadastro + entrada em **inscrições** (`applications`) |
 | `POST` | `/public/campaigns/:campaignPublicId/invite/decline` | Recusa: identificação + **motivo aberto** |
 
 ---
