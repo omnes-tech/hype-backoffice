@@ -35,7 +35,7 @@ function VirtualizedMenuList({ children, maxHeight }: MenuListProps<MultiSelectO
       itemSize={ITEM_HEIGHT}
       width="100%"
     >
-      {({ index, style }) => (
+      {({ index, style }: { index: number; style: React.CSSProperties }) => (
         <div style={style}>{items[index]}</div>
       )}
     </FixedSizeList>
@@ -98,8 +98,8 @@ const customStyles: StylesConfig<MultiSelectOption, true> = {
     backgroundColor: state.isSelected
       ? "#e5e5e5"
       : state.isFocused
-      ? "#e5e5e5"
-      : "transparent",
+        ? "#e5e5e5"
+        : "transparent",
     color: "#0a0a0a",
     borderRadius: "16px",
     margin: "2px",
