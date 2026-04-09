@@ -14,7 +14,6 @@ import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useNiches } from "@/hooks/use-niches";
 import {
   getNicheIdKey,
-  isNicheChildOf,
   isNicheRoot,
 } from "@/shared/utils/niche-tree";
 
@@ -163,13 +162,26 @@ export function CreateCampaignStepTwo({
     [niches],
   );
 
+  const selectedMainNiches = useMemo(
+    () => (formData.mainNiche ? formData.mainNiche.split(",").filter(Boolean) : []),
+    [formData.mainNiche],
+  );
+
+  const selectedSubniches = useMemo(
+    () => (formData.subniches ? formData.subniches.split(",").filter(Boolean) : []),
+    [formData.subniches],
+  );
+
   const subnicheOptions = useMemo(() => {
-    if (!formData.mainNiche) return [];
-    const mainKey = String(formData.mainNiche).trim();
-    if (!mainKey) return [];
-    const rows = niches
-      .filter((n) => isNicheChildOf(mainKey, n))
-      .map((n) => ({ value: getNicheIdKey(n), label: n.name }));
+    const seen = new Set<string>();
+    const rows: Array<{ value: string; label: string }> = [];
+    niches.forEach((n) => {
+      if (isNicheRoot(n)) return;
+      const key = getNicheIdKey(n);
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push({ value: key, label: n.name });
+    });
     const isOutrosLabel = (label: string) => {
       const t = label.trim().toLowerCase();
       return t === "outros" || t === "outro";
@@ -181,7 +193,7 @@ export function CreateCampaignStepTwo({
       return a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" });
     });
     return sorted;
-  }, [niches, formData.mainNiche]);
+  }, [niches]);
 
   const handleStateChange = (values: string[]) => {
     setSelectedStates(values);
@@ -365,33 +377,27 @@ export function CreateCampaignStepTwo({
         </div>
         <div className="flex gap-3 flex-wrap">
           <div className="flex-1 min-w-[200px]">
-            <Select
+            <MultiSelect
               label="Nicho"
-              placeholder="Selecione um nicho"
+              placeholder="Selecione um ou mais nichos"
               options={mainNicheOptions}
-              value={formData.mainNiche}
-              onChange={(value) => {
-                updateFormData("mainNiche", value);
-                updateFormData("subniches", "");
+              value={selectedMainNiches}
+              onChange={(values) => {
+                updateFormData("mainNiche", values.join(","));
               }}
-              openUp
               isSearchable
+              menuPlacement="top"
             />
           </div>
           <div className="flex-1 min-w-[200px]">
-            <Select
+            <MultiSelect
               label="Subnicho (opcional)"
-              placeholder="Opcional — selecione um subnicho"
+              placeholder="Opcional — selecione um ou mais subnichos"
               options={subnicheOptions}
-              value={
-                formData.subniches
-                  ? formData.subniches.split(",").filter(Boolean)[0] ?? ""
-                  : ""
-              }
-              onChange={(value) => updateFormData("subniches", value)}
-              disabled={!formData.mainNiche}
-              openUp
+              value={selectedSubniches}
+              onChange={(values) => updateFormData("subniches", values.join(","))}
               isSearchable
+              menuPlacement="top"
             />
           </div>
         </div>

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('packageManager','none'\\)\\)\")",
+      "Bash(pnpm add:*)",
+      "Bash(node -e \"const rw = require\\('react-window'\\); console.log\\(Object.keys\\(rw\\)\\)\")"
+    ]
+  }
+}
