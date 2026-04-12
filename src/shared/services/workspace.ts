@@ -5,6 +5,7 @@ import type {
   WorkspacePermissions,
   WorkspaceRole,
 } from "../types";
+import { mergeWorkspacePermissions } from "../utils/workspace-permissions";
 
 function normalizeWorkspaceRow(row: unknown): Workspace | null {
   if (!row || typeof row !== "object") return null;
@@ -13,7 +14,10 @@ function normalizeWorkspaceRow(row: unknown): Workspace | null {
   if (!id) return null;
   const perms = o.permissions;
   let permissions: WorkspacePermissions | undefined;
-  if (perms && typeof perms === "object" && !Array.isArray(perms)) {
+  if (Array.isArray(perms)) {
+    // Nova API: array de strings ["workspace_read", "campaigns_read", ...]
+    permissions = mergeWorkspacePermissions(perms as string[]);
+  } else if (perms && typeof perms === "object") {
     permissions = perms as WorkspacePermissions;
   }
   const roleRaw = o.role != null ? String(o.role).toLowerCase() : "";
@@ -253,6 +257,8 @@ export interface InviteWorkspaceMemberInput {
    * @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md seção 4.8
    */
   name?: string;
+  /** Permissões customizadas — array de strings como retornado pela API. */
+  permissions?: string[];
 }
 
 /** Resposta `201` de `POST .../workspaces/:id/members`. */
@@ -309,6 +315,7 @@ export async function inviteWorkspaceMember(
   };
   const trimmedName = data.name?.trim();
   if (trimmedName) body.name = trimmedName;
+  if (data.permissions && data.permissions.length > 0) body.permissions = data.permissions;
 
   const request = await fetch(getApiUrl(`/workspaces/${workspaceId}/members`), {
     method: "POST",
@@ -343,7 +350,10 @@ export async function updateWorkspaceMemberRole(
   workspaceId: string,
   userId: number,
   role: WorkspaceRole,
+  permissions?: string[],
 ): Promise<void> {
+  const body: Record<string, unknown> = { role };
+  if (permissions !== undefined) body.permissions = permissions;
   const request = await fetch(
     getApiUrl(`/workspaces/${workspaceId}/members/${userId}`),
     {
@@ -354,7 +364,7 @@ export async function updateWorkspaceMemberRole(
         "Client-Type": "backoffice",
         Authorization: `Bearer ${getAuthToken()}`,
       },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(body),
     },
   );
 

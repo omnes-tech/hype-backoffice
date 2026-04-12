@@ -31,6 +31,11 @@ export interface PublicCampaignInviteData {
   banner?: string | null;
   max_influencers?: number;
   segment_min_followers?: number;
+  /** Nomes dos nichos raízes (parent_id: null), prontos para exibição. */
+  niches?: string[];
+  /** Nomes dos subnichos (parent_id != null), prontos para exibição. */
+  secondary_niche_names?: string[];
+  /** @deprecated use niches */
   primary_niche?: { name?: string };
   payment_method?: string;
   payment_method_details?: {
@@ -223,6 +228,36 @@ function normalizeAllowedSocialNetworks(
   return undefined;
 }
 
+function extractNamesFromArray(arr: unknown): string[] {
+  const names: string[] = [];
+  if (!Array.isArray(arr)) return names;
+  for (const item of arr) {
+    if (item && typeof item === "object") {
+      const name = coerceDisplayText((item as Record<string, unknown>).name, "");
+      if (name) names.push(name);
+    } else if (typeof item === "string" && item.trim()) {
+      names.push(item.trim());
+    }
+  }
+  return names;
+}
+
+function extractNicheNames(raw: Record<string, unknown>): string[] | undefined {
+  const rootNames = extractNamesFromArray(raw.niches);
+  // Fallback para primary_niche legado
+  if (rootNames.length === 0 && raw.primary_niche) {
+    const pn = raw.primary_niche as Record<string, unknown>;
+    const name = coerceDisplayText(pn.name, "");
+    if (name) rootNames.push(name);
+  }
+  return rootNames.length ? rootNames : undefined;
+}
+
+function extractSecondaryNicheNames(raw: Record<string, unknown>): string[] | undefined {
+  const names = extractNamesFromArray(raw.secondary_niches);
+  return names.length ? names : undefined;
+}
+
 function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInviteData {
   const primary = raw.primary_niche as Record<string, unknown> | undefined;
   const paymentDetails = raw.payment_method_details as Record<string, unknown> | undefined;
@@ -246,6 +281,8 @@ function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInvi
       raw.segment_min_followers != null
         ? Number(raw.segment_min_followers)
         : undefined,
+    niches: extractNicheNames(raw),
+    secondary_niche_names: extractSecondaryNicheNames(raw),
     primary_niche: (() => {
       if (!primary || typeof primary !== "object") return undefined;
       const name = coerceDisplayText(primary.name, "");
@@ -257,19 +294,19 @@ function normalizePublicInvite(raw: Record<string, unknown>): PublicCampaignInvi
     })(),
     payment_method_details: paymentDetails
       ? {
-          amount:
-            paymentDetails.amount != null
-              ? Number(paymentDetails.amount)
-              : undefined,
-          currency:
-            paymentDetails.currency != null
-              ? String(paymentDetails.currency)
-              : undefined,
-          description: (() => {
-            const d = coerceDisplayText(paymentDetails.description, "");
-            return d || undefined;
-          })(),
-        }
+        amount:
+          paymentDetails.amount != null
+            ? Number(paymentDetails.amount)
+            : undefined,
+        currency:
+          paymentDetails.currency != null
+            ? String(paymentDetails.currency)
+            : undefined,
+        description: (() => {
+          const d = coerceDisplayText(paymentDetails.description, "");
+          return d || undefined;
+        })(),
+      }
       : undefined,
     benefits: asStringArray(raw.benefits),
     rules_does: asStringArray(raw.rules_does),

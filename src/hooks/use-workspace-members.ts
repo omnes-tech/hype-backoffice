@@ -35,10 +35,12 @@ export function useUpdateWorkspaceMemberRole(workspaceId: string) {
     mutationFn: ({
       userId,
       role,
+      permissions,
     }: {
       userId: number;
       role: WorkspaceRole;
-    }) => updateWorkspaceMemberRole(workspaceId, userId, role),
+      permissions?: string[];
+    }) => updateWorkspaceMemberRole(workspaceId, userId, role, permissions),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ["workspace-members", workspaceId],

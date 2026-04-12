@@ -39,6 +39,9 @@ import {
   resolveNicheDisplayNameFromIds,
   type NicheForDisplay,
 } from "@/shared/utils/niche-display";
+import { getNetworkLabel } from "@/shared/constants/network-labels";
+import { Skeleton } from "@/components/ui/skeleton";
+import { InfluencerProfileCard, type InfluencerCardData } from "@/components/campaign-tabs/shared/influencer-profile-card";
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -62,10 +65,6 @@ interface InfluencerSelectionTabProps {
   maxInfluencers?: number;
   phasesWithFormats?: Array<{ formats?: Array<{ socialNetwork: string }> }>;
   onOpenMuralModal?: () => void;
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
 }
 
 /** Skeleton — mesma hierarquia do Figma (título → recomendados → filtros → todos + loading) */
@@ -168,46 +167,6 @@ function formatEngagementPercent(value: number | null | undefined): string {
   return `${s.replace(/\.?0+$/, "")}%`;
 }
 
-/** Lucide não inclui marca TikTok — usamos SVG próprio em `TikTokGlyph`. */
-function getSocialNetworkIconName(
-  network?: string
-): keyof typeof import("lucide-react").icons {
-  const icons: Record<string, keyof typeof import("lucide-react").icons> = {
-    instagram: "Instagram",
-    youtube: "Youtube",
-    tiktok: "Music",
-    facebook: "Facebook",
-    twitter: "Twitter",
-  };
-  return icons[(network || "").toLowerCase()] || "Share2";
-}
-
-/** Silhueta do logo TikTok (Lucide não oferece ícone da marca). */
-function TikTokGlyph({ size = 22, color = "#404040" }: { size?: number; color?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={color}
-      aria-hidden
-      className="shrink-0"
-    >
-      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-    </svg>
-  );
-}
-
-function getSocialNetworkLabel(network?: string): string {
-  const labels: Record<string, string> = {
-    instagram: "Instagram",
-    youtube: "YouTube",
-    tiktok: "TikTok",
-    facebook: "Facebook",
-    twitter: "Twitter",
-  };
-  return labels[(network || "").toLowerCase()] || "Rede social";
-}
 
 function selectionItemMatchesFilters(
   item: InfluencerSelectionProfileItem,
@@ -339,146 +298,32 @@ function SelectionRecommendedCarousel({
   );
 }
 
-/** Card alinhado ao Figma (node 2380:12243) — fundo #f5f5f5, métricas #e4e4e4, nicho #f2e2ff */
-function InfluencerCard({
-  influencer,
-  niches,
-  isInCuration,
-  isInvited,
-  onInvite,
-  onPreSelection,
-  onViewProfile,
-  formatFollowers: fmt,
-}: {
-  influencer: ExtendedInfluencer;
-  niches: NicheForDisplay[];
-  isInCuration: boolean;
-  isInvited?: boolean;
-  onInvite: () => void;
-  onPreSelection: () => void;
-  onViewProfile?: () => void;
-  formatFollowers: (n: number) => string;
-}) {
+function buildSelectionCardData(
+  influencer: ExtendedInfluencer,
+  niches: NicheForDisplay[],
+): { data: InfluencerCardData; nicheName: string | null } {
   const nicheIds =
-    influencer.selectionNicheIds?.length ?
-      influencer.selectionNicheIds
-    : influencer.niche ?
-      [Number(influencer.niche)].filter((n) => Number.isFinite(n))
-    : [];
-  const nicheLabel = resolveNicheDisplayNameFromIds(
-    nicheIds,
-    niches,
-    influencer.nicheName,
-  );
-  const avatarSrc = influencer.avatar ? getUploadUrl(influencer.avatar) : undefined;
-  const bookmarkYellow = !isInvited;
-
-  const networkIcon = getSocialNetworkIconName(influencer.socialNetwork);
-  const networkLabel = getSocialNetworkLabel(influencer.socialNetwork);
-  const networkKey = (influencer.socialNetwork || "").toLowerCase();
-
-  return (
-    <div className="flex min-h-[320px] w-full min-w-0 flex-col gap-5 rounded-xl bg-neutral-100 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="size-[60px] shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
-          {avatarSrc ? (
-            <img src={avatarSrc} alt={influencer.name} className="size-full object-cover" />
-          ) : (
-            <div className="flex size-full items-center justify-center text-lg font-medium text-neutral-500">
-              {influencer.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <div
-            className="flex size-10 items-center justify-center rounded-lg border border-neutral-200/90 bg-white shadow-sm"
-            title={networkLabel}
-            aria-label={`Rede: ${networkLabel}`}
-          >
-            {networkKey === "tiktok" ? (
-              <TikTokGlyph size={22} color="#404040" />
-            ) : (
-              <Icon name={networkIcon} size={22} color="#404040" />
-            )}
-          </div>
-          <button
-            type="button"
-            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-              bookmarkYellow ? "bg-[#ffdf2a] text-warning-700" : "bg-neutral-200 text-neutral-500"
-            }`}
-            aria-label="Salvar"
-          >
-            <Icon name="Bookmark" size={24} color="currentColor" />
-          </button>
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-col">
-        <p className="truncate text-xl font-medium leading-6 text-neutral-950">{influencer.name}</p>
-        <p className="truncate text-sm leading-6 text-neutral-600">@{influencer.username}</p>
-      </div>
-      <div className="flex gap-2">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-lg bg-neutral-200 p-3">
-          <p className="text-left text-sm text-neutral-600">Seguidores</p>
-          <p className="text-left text-xl font-medium text-neutral-950">{fmt(influencer.followers)}</p>
-        </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-lg bg-neutral-200 p-3">
-          <p className="text-left text-sm text-neutral-600">Engajamento</p>
-          <p className="text-left text-xl font-medium text-neutral-950">
-            {formatEngagementPercent(
-              influencer.engagement != null && influencer.engagement > 0
-                ? influencer.engagement
-                : undefined
-            )}
-          </p>
-        </div>
-      </div>
-      {nicheLabel ? (
-        <div className="rounded-xl bg-[#f2e2ff] px-3 py-1">
-          <span className="text-sm leading-6 text-primary-600">{nicheLabel}</span>
-        </div>
-      ) : null}
-      {influencer.recommendationReason?.trim() ? (
-        <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs leading-relaxed text-primary-800">
-          {influencer.recommendationReason}
-        </p>
-      ) : null}
-      <div className="mt-auto flex flex-col gap-3">
-        <div className="flex gap-1">
-          {!isInCuration ? (
-            isInvited ? (
-              <div className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-neutral-200 bg-transparent px-4 opacity-90">
-                <span className="text-center text-base font-semibold text-neutral-800">Convidado</span>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                className="h-11 px-1 min-w-0 flex-1 rounded-full border border-neutral-200 bg-primary-600 font-semibold text-base text-neutral-50 hover:bg-primary-700"
-                onClick={onInvite}
-              >
-                Convidar
-              </Button>
-            )
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className={`h-11 px-1 min-w-0 rounded-full border-neutral-200 font-semibold text-base ${isInCuration ? "w-full flex-1" : "flex-1"}`}
-            onClick={onPreSelection}
-          >
-            Pré-seleção
-          </Button>
-        </div>
-        <button
-          type="button"
-          onClick={() => onViewProfile?.()}
-          className="mx-auto flex cursor-pointer items-center gap-1 text-center text-base font-medium text-neutral-600 underline decoration-solid hover:text-neutral-800"
-        >
-          <Icon name="ExternalLink" size={20} color="#4d4d4d" />
-          Ver perfil
-        </button>
-      </div>
-    </div>
-  );
+    influencer.selectionNicheIds?.length
+      ? influencer.selectionNicheIds
+      : influencer.niche
+        ? [Number(influencer.niche)].filter((n) => Number.isFinite(n))
+        : [];
+  const nicheName = resolveNicheDisplayNameFromIds(nicheIds, niches, influencer.nicheName);
+  return {
+    data: {
+      profileKey: String(influencer.socialNetworkId ?? influencer.id),
+      influencerName: influencer.name,
+      influencerAvatar: influencer.avatar || "",
+      profileType: influencer.socialNetwork || "",
+      profileTypeLabel: getNetworkLabel(influencer.socialNetwork, "Rede social"),
+      profileUsername: influencer.username || "",
+      influencerFollowers: influencer.followers ?? 0,
+      profileFollowers: 0,
+      influencerEngagement: influencer.engagement ?? 0,
+      recommendationReason: influencer.recommendationReason,
+    },
+    nicheName: nicheName || null,
+  };
 }
 
 export function InfluencerSelectionTab({
@@ -753,24 +598,11 @@ export function InfluencerSelectionTab({
           setShowMuralDateModal(false);
           setTempMuralEndDate("");
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao ativar mural");
         },
       }
     );
-  };
-
-  const getSocialNetworkLabel = (network?: string) => {
-    const labels: { [key: string]: string } = {
-      instagram: "Instagram",
-      instagram_facebook: "Instagram / Facebook",
-      youtube: "YouTube",
-      tiktok: "TikTok",
-      ugc: "UGC",
-      facebook: "Facebook",
-      twitter: "Twitter",
-    };
-    return labels[network || ""] || network || "N/A";
   };
 
   const handleAction = (influencer: Influencer, action: "discover" | "invite" | "curation" | "preselection") => {
@@ -854,7 +686,7 @@ export function InfluencerSelectionTab({
             toast.success("Influenciador movido para pré-seleção!");
             handleCloseModal();
           },
-          onError: (error: any) => {
+          onError: (error: Error) => {
             toast.error(error?.message || "Erro ao mover para pré-seleção");
           },
         }
@@ -909,7 +741,7 @@ export function InfluencerSelectionTab({
             toast.success("Influenciador convidado com sucesso!");
             handleCloseModal();
           },
-          onError: (error: any) => {
+          onError: (error: Error) => {
             toast.error(error?.message || "Erro ao convidar influenciador");
           },
         }
@@ -945,7 +777,7 @@ export function InfluencerSelectionTab({
             toast.success("Influenciador adicionado para curadoria!");
             handleCloseModal();
           },
-          onError: (error: any) => {
+          onError: (error: Error) => {
             // Se o erro for que o influenciador não está na campanha, adiciona primeiro
             const errorMessage = error?.message || "";
             if (
@@ -1092,23 +924,25 @@ export function InfluencerSelectionTab({
                 ) : (
                   <SelectionRecommendedCarousel
                     items={flattenedRecommended}
-                    renderCard={(influencer) => (
-                      <InfluencerCard
-                        influencer={influencer}
-                        niches={niches}
-                        isInCuration={isInfluencerInCuration(influencer.id)}
-                        isInvited={isInfluencerInvited(influencer.id)}
-                        onInvite={() => handleAction(influencer, "invite")}
-                        onPreSelection={() => handleAction(influencer, "preselection")}
-                        onViewProfile={() =>
-                          navigate({
-                            to: "/influencer/$influencerId",
-                            params: { influencerId: influencer.id },
-                          })
-                        }
-                        formatFollowers={formatFollowers}
-                      />
-                    )}
+                    renderCard={(influencer) => {
+                      const { data, nicheName } = buildSelectionCardData(influencer, niches);
+                      const inCuration = isInfluencerInCuration(influencer.id);
+                      return (
+                        <InfluencerProfileCard
+                          data={data}
+                          nicheName={nicheName}
+                          statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
+                          onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
+                          onPreSelection={() => handleAction(influencer, "preselection")}
+                          onViewProfile={() =>
+                            navigate({
+                              to: "/influencer/$influencerId",
+                              params: { influencerId: influencer.id },
+                            })
+                          }
+                        />
+                      );
+                    }}
                   />
                 )}
               </section>
@@ -1190,7 +1024,7 @@ export function InfluencerSelectionTab({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold w-max"
+                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold min-w-max"
                       onClick={() =>
                         toast.info("Em breve: convite em massa para vários perfis selecionados.")
                       }
@@ -1200,7 +1034,7 @@ export function InfluencerSelectionTab({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold w-max"
+                      className="h-11 rounded-full border-neutral-200 px-4 font-semibold min-w-max"
                       onClick={() =>
                         toast.info("Em breve: pré-seleção em massa para vários perfis.")
                       }
@@ -1216,24 +1050,26 @@ export function InfluencerSelectionTab({
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {flattenedCatalog.map((influencer) => (
-                      <InfluencerCard
-                        key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
-                        influencer={influencer}
-                        niches={niches}
-                        isInCuration={isInfluencerInCuration(influencer.id)}
-                        isInvited={isInfluencerInvited(influencer.id)}
-                        onInvite={() => handleAction(influencer, "invite")}
-                        onPreSelection={() => handleAction(influencer, "preselection")}
-                        onViewProfile={() =>
-                          navigate({
-                            to: "/influencer/$influencerId",
-                            params: { influencerId: influencer.id },
-                          })
-                        }
-                        formatFollowers={formatFollowers}
-                      />
-                    ))}
+                    {flattenedCatalog.map((influencer) => {
+                      const { data, nicheName } = buildSelectionCardData(influencer, niches);
+                      const inCuration = isInfluencerInCuration(influencer.id);
+                      return (
+                        <InfluencerProfileCard
+                          key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
+                          data={data}
+                          nicheName={nicheName}
+                          statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
+                          onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
+                          onPreSelection={() => handleAction(influencer, "preselection")}
+                          onViewProfile={() =>
+                            navigate({
+                              to: "/influencer/$influencerId",
+                              params: { influencerId: influencer.id },
+                            })
+                          }
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1299,7 +1135,7 @@ export function InfluencerSelectionTab({
                         {influencerProfiles.map((profile) => {
                           const isSelected = selectedProfileIds.includes(profile.id);
                           const networkLabel =
-                            profile.type_label || getSocialNetworkLabel(profile.type);
+                            profile.type_label || getNetworkLabel(profile.type, profile.type || "N/A");
                           const handle = profile.username?.replace(/^@/, "").trim() || "—";
                           const avatarSrc = profile.avatar
                             ? getUploadUrl(profile.avatar) ?? undefined
@@ -1415,7 +1251,7 @@ export function InfluencerSelectionTab({
                       </p>
                       {selectedInfluencer.socialNetwork ? (
                         <p className="mt-1 text-xs font-medium text-neutral-600">
-                          {getSocialNetworkLabel(selectedInfluencer.socialNetwork)}
+                          {getNetworkLabel(selectedInfluencer.socialNetwork, selectedInfluencer.socialNetwork || "N/A")}
                         </p>
                       ) : null}
                     </div>

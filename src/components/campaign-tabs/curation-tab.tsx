@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,21 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { Influencer } from "@/shared/types";
-import { useCampaignCurationColumns } from "@/hooks/use-campaign-tab-influencers";
+import { useCampaignCuration } from "@/hooks/use-campaign-tab-influencers";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import { getUploadUrl } from "@/lib/utils/api";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
-import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
-}
+import { getNetworkLabel } from "@/shared/constants/network-labels";
+import { SocialNetworkIcon } from "@/components/social-network-icon";
+import { InfluencerProfileCard } from "./shared/influencer-profile-card";
+import { RejectionModal } from "./shared/rejection-modal";
+import { BulkActionModal } from "./shared/bulk-action-modal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /** Skeleton da aba Curadoria — espelha o layout real */
 export function CurationTabSkeleton() {
@@ -86,12 +88,11 @@ export function CurationTabSkeleton() {
   );
 }
 
-// Status do perfil na curadoria (Pendentes / Aprovados / Reprovados)
 type CurationProfileStatus = "curation" | "approved" | "rejected";
+type CurationColumnKey = "pending" | "approved" | "rejected";
 
 interface ApplicationWithProfile {
   influencerId: string;
-  /** campaign_users.id da linha da API */
   campaignUserId: string;
   influencerName: string;
   influencerUsername: string;
@@ -106,35 +107,30 @@ interface ApplicationWithProfile {
   profileUsername: string;
   profileFollowers: number;
   profileKey: string;
-  profileStatus: CurationProfileStatus; // curation = Pendentes, approved = Aprovados, rejected = Reprovados
+  profileStatus: CurationProfileStatus;
 }
-
-type CurationColumnKey = "pending" | "approved" | "rejected";
 
 function profileMatchesCurationColumn(
   profileStatus: string | undefined,
   column: CurationColumnKey
 ): boolean {
   const s = profileStatus?.toLowerCase()?.trim() ?? "";
-  if (column === "pending") {
-    return s === "curation" || s === "pre_selection_curation";
-  }
+  if (column === "pending") return s === "curation" || s === "pre_selection_curation";
   if (column === "approved") return s === "approved";
   if (column === "rejected") return s === "rejected";
   return false;
 }
 
-/** Expande cards por perfil a partir da lista já filtrada pelo endpoint da coluna. */
 function expandCurationProfiles(
   influencers: Influencer[],
   column: CurationColumnKey
 ): ApplicationWithProfile[] {
   const applications: ApplicationWithProfile[] = [];
-  const networkLabels: { [key: string]: string } = {
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    youtube: "YouTube",
-    ugc: "UGC",
+  const statusMap: Record<string, CurationProfileStatus> = {
+    curation: "curation",
+    pre_selection_curation: "curation",
+    approved: "approved",
+    rejected: "rejected",
   };
 
   const cardAvatar = (profilePhoto: string | null | undefined, inf: Influencer) => {
@@ -143,12 +139,6 @@ function expandCurationProfiles(
         ? profilePhoto.trim()
         : "";
     return fromPhoto || inf.avatar || "";
-  };
-  const statusMap: Record<string, CurationProfileStatus> = {
-    curation: "curation",
-    pre_selection_curation: "curation",
-    approved: "approved",
-    rejected: "rejected",
   };
 
   influencers.forEach((inf) => {
@@ -159,77 +149,37 @@ function expandCurationProfiles(
 
     if (relevantProfiles.length === 0) {
       const infStatus = inf.status?.toLowerCase()?.trim();
-      if (
-        column === "pending" &&
-        (infStatus === "curation" || infStatus === "pre_selection_curation") &&
-        profiles.length === 0
-      ) {
-        applications.push({
-          influencerId: inf.id,
-          campaignUserId: inf.campaign_user_id ?? "",
-          influencerName: inf.name,
-          influencerUsername: inf.username,
-          influencerAvatar: inf.avatar,
-          influencerFollowers: inf.followers,
-          influencerEngagement: inf.engagement,
-          influencerNiche: inf.niche || "",
-          influencerNicheName: inf.nicheName,
-          profileId: "",
-          profileType: "",
-          profileTypeLabel: "Geral",
-          profileUsername: inf.username,
-          profileFollowers: inf.followers,
-          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
-          profileStatus: "curation",
-        });
-      }
-      if (column === "approved" && infStatus === "approved" && profiles.length === 0) {
-        applications.push({
-          influencerId: inf.id,
-          campaignUserId: inf.campaign_user_id ?? "",
-          influencerName: inf.name,
-          influencerUsername: inf.username,
-          influencerAvatar: inf.avatar,
-          influencerFollowers: inf.followers,
-          influencerEngagement: inf.engagement,
-          influencerNiche: inf.niche || "",
-          influencerNicheName: inf.nicheName,
-          profileId: "",
-          profileType: "",
-          profileTypeLabel: "Geral",
-          profileUsername: inf.username,
-          profileFollowers: inf.followers,
-          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
-          profileStatus: "approved",
-        });
-      }
-      if (column === "rejected" && infStatus === "rejected" && profiles.length === 0) {
-        applications.push({
-          influencerId: inf.id,
-          campaignUserId: inf.campaign_user_id ?? "",
-          influencerName: inf.name,
-          influencerUsername: inf.username,
-          influencerAvatar: inf.avatar,
-          influencerFollowers: inf.followers,
-          influencerEngagement: inf.engagement,
-          influencerNiche: inf.niche || "",
-          influencerNicheName: inf.nicheName,
-          profileId: "",
-          profileType: "",
-          profileTypeLabel: "Geral",
-          profileUsername: inf.username,
-          profileFollowers: inf.followers,
-          profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
-          profileStatus: "rejected",
-        });
+      const baseCard = {
+        influencerId: inf.id,
+        campaignUserId: inf.campaign_user_id ?? "",
+        influencerName: inf.name,
+        influencerUsername: inf.username,
+        influencerAvatar: inf.avatar,
+        influencerFollowers: inf.followers,
+        influencerEngagement: inf.engagement,
+        influencerNiche: inf.niche || "",
+        influencerNicheName: inf.nicheName,
+        profileId: "",
+        profileType: "",
+        profileTypeLabel: "Geral",
+        profileUsername: inf.username,
+        profileFollowers: inf.followers,
+        profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
+      };
+
+      if (column === "pending" && (infStatus === "curation" || infStatus === "pre_selection_curation") && profiles.length === 0) {
+        applications.push({ ...baseCard, profileStatus: "curation" });
+      } else if (column === "approved" && infStatus === "approved" && profiles.length === 0) {
+        applications.push({ ...baseCard, profileStatus: "approved" });
+      } else if (column === "rejected" && infStatus === "rejected" && profiles.length === 0) {
+        applications.push({ ...baseCard, profileStatus: "rejected" });
       }
       return;
     }
 
     relevantProfiles.forEach((profile) => {
       const s = profile.status?.toLowerCase()?.trim();
-      const profileStatus: CurationProfileStatus =
-        statusMap[s ?? ""] ?? "curation";
+      const profileStatus: CurationProfileStatus = statusMap[s ?? ""] ?? "curation";
       const members =
         profile.members != null && !Number.isNaN(Number(profile.members))
           ? Number(profile.members)
@@ -246,10 +196,7 @@ function expandCurationProfiles(
         influencerNicheName: inf.nicheName,
         profileId: String(profile.id),
         profileType: profile.type,
-        profileTypeLabel:
-          networkLabels[profile.type?.toLowerCase() ?? ""] ||
-          profile.name ||
-          profile.type,
+        profileTypeLabel: getNetworkLabel(profile.type, profile.name || profile.type),
         profileUsername: (profile.username ?? "").trim() || inf.username,
         profileFollowers: members,
         profileKey: `${inf.campaign_user_id ?? inf.id}-${profile.id}`,
@@ -262,7 +209,6 @@ function expandCurationProfiles(
 }
 
 interface CurationTabProps {
-  /** Abre o modal de perfil do usuário da campanha (id da linha campaign_users / lista). */
   focusCampaignUserId?: string | null;
   onFocusUserConsumed?: () => void;
 }
@@ -276,31 +222,45 @@ export function CurationTab({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
   const { data: niches = [] } = useNiches();
-  const [selectedInfluencer, setSelectedInfluencer] =
-    useState<Influencer | null>(null);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectionFeedback, setRejectionFeedback] = useState("");
+
+  // Modal de reprovação individual
+  const [rejectTarget, setRejectTarget] = useState<Influencer | null>(null);
+
+  // Modal de perfil (redes sociais)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedProfileInfluencer, setSelectedProfileInfluencer] = useState<Influencer | null>(null);
-  const [selectedInfluencers, setSelectedInfluencers] = useState<Set<string>>(
-    new Set()
-  );
-  const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<
-    "approve" | "reject" | null
-  >(null);
+
+  // Modal de ação em massa
+  const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
-  // Filtro de status: Pendentes | Aprovados | Reprovados (Figma)
-  const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected">("pending");
+  // Filtro de status: Pendentes | Aprovados | Reprovados
+  const [statusFilter, setStatusFilter] = useState<CurationColumnKey>("pending");
+  // Colunas já visitadas — queries só são habilitadas na primeira visita
+  const [seenColumns, setSeenColumns] = useState<Set<CurationColumnKey>>(
+    () => new Set<CurationColumnKey>(["pending"]),
+  );
 
-  // Estados de filtros (Figma: Buscar, Nicho, Localização, Idade)
+  const markColumnSeen = useCallback(
+    (col: CurationColumnKey) => {
+      setStatusFilter(col);
+      setSeenColumns((prev) => {
+        if (prev.has(col)) return prev;
+        const next = new Set(prev);
+        next.add(col);
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Filtros de busca
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
   const [filterNiche, setFilterNiche] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [filterAge, setFilterAge] = useState("");
 
-  // Hooks para bulk operations
   const {
     approve: bulkApprove,
     reject: bulkReject,
@@ -309,34 +269,26 @@ export function CurationTab({
   } = useBulkInfluencerActions({ campaignId });
   const { mutate: updateStatus } = useUpdateInfluencerStatus(campaignId);
 
-  const curationQueries = useCampaignCurationColumns(campaignId);
-  const [qPending, qApproved, qRejected] = curationQueries;
+  // Quando há um focusCampaignUserId precisamos buscar todas as colunas para encontrar o usuário
+  const enableAll = !!focusCampaignUserId;
+  const qPending = useCampaignCuration(campaignId, "pending", { enabled: enableAll || seenColumns.has("pending") });
+  const qApproved = useCampaignCuration(campaignId, "approved", { enabled: enableAll || seenColumns.has("approved") });
+  const qRejected = useCampaignCuration(campaignId, "rejected", { enabled: enableAll || seenColumns.has("rejected") });
 
   const pendingInfluencers = qPending.data ?? [];
   const approvedInfluencers = qApproved.data ?? [];
   const rejectedInfluencers = qRejected.data ?? [];
 
-  const pendingCards = useMemo(
-    () => expandCurationProfiles(pendingInfluencers, "pending"),
-    [pendingInfluencers]
-  );
-  const approvedCards = useMemo(
-    () => expandCurationProfiles(approvedInfluencers, "approved"),
-    [approvedInfluencers]
-  );
-  const rejectedCards = useMemo(
-    () => expandCurationProfiles(rejectedInfluencers, "rejected"),
-    [rejectedInfluencers]
-  );
+  const pendingCards = useMemo(() => expandCurationProfiles(pendingInfluencers, "pending"), [pendingInfluencers]);
+  const approvedCards = useMemo(() => expandCurationProfiles(approvedInfluencers, "approved"), [approvedInfluencers]);
+  const rejectedCards = useMemo(() => expandCurationProfiles(rejectedInfluencers, "rejected"), [rejectedInfluencers]);
 
-  const tabLoading =
-    qPending.isLoading || qApproved.isLoading || qRejected.isLoading;
-  const tabError =
-    qPending.isError || qApproved.isError || qRejected.isError;
+  // Loading/error relativos à coluna ativa (outras colunas carregam em background)
+  const activeQuery = statusFilter === "pending" ? qPending : statusFilter === "approved" ? qApproved : qRejected;
+  const tabLoading = activeQuery.isLoading;
+  const tabError = activeQuery.isError;
   const tabErrorMessage =
-    (qPending.error as Error)?.message ||
-    (qApproved.error as Error)?.message ||
-    (qRejected.error as Error)?.message ||
+    (activeQuery.error as Error)?.message ||
     "Não foi possível carregar a curadoria.";
 
   const allCurationCards = useMemo(
@@ -344,6 +296,51 @@ export function CurationTab({
     [pendingCards, approvedCards, rejectedCards]
   );
 
+  const filteredApplications = useMemo(() => {
+    const base =
+      statusFilter === "pending" ? pendingCards : statusFilter === "approved" ? approvedCards : rejectedCards;
+    return base.filter((app) => {
+      if (debouncedSearch) {
+        const lower = debouncedSearch.toLowerCase();
+        const matches =
+          app.influencerName.toLowerCase().includes(lower) ||
+          app.influencerUsername.toLowerCase().includes(lower) ||
+          app.profileUsername.toLowerCase().includes(lower);
+        if (!matches) return false;
+      }
+      if (filterNiche && app.influencerNiche !== filterNiche) return false;
+      return true;
+    });
+  }, [statusFilter, pendingCards, approvedCards, rejectedCards, debouncedSearch, filterNiche]);
+
+  const filteredKeys = useMemo(
+    () => filteredApplications.map((app) => app.profileKey),
+    [filteredApplications]
+  );
+
+  const { selected: selectedInfluencers, toggle: handleSelectApplication, toggleAll: handleSelectAll, clear: clearSelection, isAllSelected } =
+    useBulkSelection(filteredKeys);
+
+  // Limpa seleção ao trocar o filtro de status
+  useEffect(() => {
+    clearSelection();
+  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nicheOptions = useMemo(() => {
+    const uniqueNiches = new Set<string>();
+    allCurationCards.forEach((app) => {
+      if (app.influencerNiche) {
+        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
+        if (niche) uniqueNiches.add(niche.id.toString());
+      }
+    });
+    return Array.from(uniqueNiches).map((id) => {
+      const niche = niches.find((n) => n.id.toString() === id);
+      return { value: id, label: niche?.name || id };
+    });
+  }, [allCurationCards, niches]);
+
+  // Focus handling (abre modal de perfil automaticamente via prop)
   const focusHandledRef = useRef<string | null>(null);
   useEffect(() => {
     focusHandledRef.current = null;
@@ -356,13 +353,8 @@ export function CurationTab({
 
     const id = String(focusCampaignUserId);
     const matchesFocus = (inf: Influencer) =>
-      String(inf.id) === id ||
-      (inf.campaign_user_id != null && String(inf.campaign_user_id) === id);
-    const fullInf = [
-      ...pendingInfluencers,
-      ...approvedInfluencers,
-      ...rejectedInfluencers,
-    ].find(matchesFocus);
+      String(inf.id) === id || (inf.campaign_user_id != null && String(inf.campaign_user_id) === id);
+    const fullInf = [...pendingInfluencers, ...approvedInfluencers, ...rejectedInfluencers].find(matchesFocus);
 
     if (!fullInf) {
       if (!qPending.isFetching && !qApproved.isFetching && !qRejected.isFetching) {
@@ -374,13 +366,9 @@ export function CurationTab({
 
     const cardMatchesFocus = (a: ApplicationWithProfile) =>
       String(a.campaignUserId) === id || String(a.influencerId) === id;
-    if (pendingCards.some(cardMatchesFocus)) {
-      setStatusFilter("pending");
-    } else if (approvedCards.some(cardMatchesFocus)) {
-      setStatusFilter("approved");
-    } else if (rejectedCards.some(cardMatchesFocus)) {
-      setStatusFilter("rejected");
-    }
+    if (pendingCards.some(cardMatchesFocus)) markColumnSeen("pending");
+    else if (approvedCards.some(cardMatchesFocus)) markColumnSeen("approved");
+    else if (rejectedCards.some(cardMatchesFocus)) markColumnSeen("rejected");
 
     setSelectedProfileInfluencer(fullInf);
     setIsProfileModalOpen(true);
@@ -401,202 +389,7 @@ export function CurationTab({
     onFocusUserConsumed,
   ]);
 
-  const filteredApplications = useMemo(() => {
-    const base =
-      statusFilter === "pending"
-        ? pendingCards
-        : statusFilter === "approved"
-          ? approvedCards
-          : rejectedCards;
-    return base.filter((app) => {
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-          app.influencerName.toLowerCase().includes(searchLower) ||
-          app.influencerUsername.toLowerCase().includes(searchLower) ||
-          app.profileUsername.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
-      }
-      if (filterNiche && app.influencerNiche !== filterNiche) return false;
-      return true;
-    });
-  }, [
-    statusFilter,
-    pendingCards,
-    approvedCards,
-    rejectedCards,
-    searchTerm,
-    filterNiche,
-  ]);
-
-  const nicheOptions = useMemo(() => {
-    const uniqueNiches = new Set<string>();
-    allCurationCards.forEach((app) => {
-      if (app.influencerNiche) {
-        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
-        if (niche) uniqueNiches.add(niche.id.toString());
-      }
-    });
-    return Array.from(uniqueNiches).map((id) => {
-      const niche = niches.find((n) => n.id.toString() === id);
-      return { value: id, label: niche?.name || id };
-    });
-  }, [allCurationCards, niches]);
-
-  const pendingCount = pendingCards.length;
-  const approvedCount = approvedCards.length;
-  const rejectedCount = rejectedCards.length;
-
-  const handleSelectApplication = (profileKey: string) => {
-    setSelectedInfluencers((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(profileKey)) {
-        newSet.delete(profileKey);
-      } else {
-        newSet.add(profileKey);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedInfluencers.size === filteredApplications.length) {
-      setSelectedInfluencers(new Set());
-    } else {
-      setSelectedInfluencers(new Set(filteredApplications.map((app) => app.profileKey)));
-    }
-  };
-
-  const handleBulkApprove = () => {
-    const selectedApps = filteredApplications.filter((app) =>
-      selectedInfluencers.has(app.profileKey)
-    );
-
-    // Agrupar por network_id para fazer bulk actions eficientes
-    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
-    selectedApps.forEach((app) => {
-      const networkId = app.profileId || "general";
-      if (!appsByNetworkId.has(networkId)) {
-        appsByNetworkId.set(networkId, []);
-      }
-      appsByNetworkId.get(networkId)!.push(app);
-    });
-
-    // Se todos têm o mesmo network_id, fazer uma única chamada bulk
-    if (appsByNetworkId.size === 1) {
-      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
-      const influencerIds = apps.map((app) => app.influencerId);
-
-      bulkApprove(
-        {
-          influencerIds,
-          network_id: networkId !== "general" ? Number(networkId) : undefined
-        },
-        {
-          onSuccess: () => {
-            setSelectedInfluencers(new Set());
-            setIsBulkActionModalOpen(false);
-            setBulkActionType(null);
-          },
-        }
-      );
-    } else {
-      // Se têm network_ids diferentes, fazer chamadas individuais
-      const promises = selectedApps.map((app) =>
-        updateStatus(
-          {
-            influencer_id: app.influencerId,
-            status: "approved",
-            feedback: "Aprovado pelo usuário",
-            network_id: app.profileId ? Number(app.profileId) : undefined,
-          },
-          {
-            onSuccess: () => {
-              // Sucesso individual
-            },
-            onError: (error: any) => {
-              toast.error(`Erro ao aprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
-            },
-          }
-        )
-      );
-
-      Promise.all(promises).then(() => {
-        setSelectedInfluencers(new Set());
-        setIsBulkActionModalOpen(false);
-        setBulkActionType(null);
-        toast.success(`${selectedApps.length} perfil(is) aprovado(s)`);
-      });
-    }
-  };
-
-  const handleBulkReject = () => {
-    if (bulkRejectionFeedback.trim()) {
-      const selectedApps = filteredApplications.filter((app) =>
-        selectedInfluencers.has(app.profileKey)
-      );
-
-      // Agrupar por network_id para fazer bulk actions eficientes
-      const appsByNetworkId = new Map<string | number, typeof selectedApps>();
-      selectedApps.forEach((app) => {
-        const networkId = app.profileId || "general";
-        if (!appsByNetworkId.has(networkId)) {
-          appsByNetworkId.set(networkId, []);
-        }
-        appsByNetworkId.get(networkId)!.push(app);
-      });
-
-      // Se todos têm o mesmo network_id, fazer uma única chamada bulk
-      if (appsByNetworkId.size === 1) {
-        const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
-        const influencerIds = apps.map((app) => app.influencerId);
-
-        bulkReject(
-          {
-            influencerIds,
-            feedback: bulkRejectionFeedback,
-            network_id: networkId !== "general" ? Number(networkId) : undefined
-          },
-          {
-            onSuccess: () => {
-              setSelectedInfluencers(new Set());
-              setBulkRejectionFeedback("");
-              setIsBulkActionModalOpen(false);
-              setBulkActionType(null);
-            },
-          }
-        );
-      } else {
-        // Se têm network_ids diferentes, fazer chamadas individuais
-        const promises = selectedApps.map((app) =>
-          updateStatus(
-            {
-              influencer_id: app.influencerId,
-              status: "rejected",
-              feedback: bulkRejectionFeedback,
-              network_id: app.profileId ? Number(app.profileId) : undefined,
-            },
-            {
-              onSuccess: () => {
-                // Sucesso individual
-              },
-              onError: (error: any) => {
-                toast.error(`Erro ao reprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
-              },
-            }
-          )
-        );
-
-        Promise.all(promises).then(() => {
-          setSelectedInfluencers(new Set());
-          setBulkRejectionFeedback("");
-          setIsBulkActionModalOpen(false);
-          setBulkActionType(null);
-          toast.success(`${selectedApps.length} perfil(is) reprovado(s)`);
-        });
-      }
-    }
-  };
+  // ── Handlers de ação ────────────────────────────────────────────────────────
 
   const handleApprove = (app: ApplicationWithProfile) => {
     updateStatus(
@@ -607,87 +400,145 @@ export function CurationTab({
         network_id: app.profileId ? Number(app.profileId) : undefined,
       },
       {
-        onSuccess: () => {
-          toast.success(`${app.profileTypeLabel} aprovado com sucesso!`);
-        },
-        onError: (error: any) => {
-          toast.error(error?.message || "Erro ao aprovar influenciador");
-        },
+        onSuccess: () => toast.success(`${app.profileTypeLabel} aprovado com sucesso!`),
+        onError: (error: Error) => toast.error(error?.message || "Erro ao aprovar influenciador"),
       }
     );
   };
 
   const handleReject = (app: ApplicationWithProfile) => {
-    // Encontrar o influenciador correspondente em qualquer coluna carregada
     const influencer =
       pendingInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
       approvedInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
       rejectedInfluencers.find((inf) => String(inf.id) === String(app.influencerId));
-    if (influencer) {
-      setSelectedInfluencer(influencer);
-      setIsRejectModalOpen(true);
-    }
+    if (influencer) setRejectTarget(influencer);
   };
 
-  const handleConfirmRejection = () => {
-    if (selectedInfluencer && rejectionFeedback.trim()) {
-      // Encontrar o perfil selecionado para obter o network_id
-      const selectedApp = filteredApplications.find(
-        (app) => app.influencerId === selectedInfluencer.id
-      );
-
-      updateStatus(
-        {
-          influencer_id: selectedInfluencer.id,
-          status: "rejected",
-          feedback: rejectionFeedback,
-          network_id: selectedApp?.profileId ? Number(selectedApp.profileId) : undefined,
+  const handleConfirmRejection = (feedback: string) => {
+    if (!rejectTarget) return;
+    const selectedApp = filteredApplications.find((a) => a.influencerId === rejectTarget.id);
+    updateStatus(
+      {
+        influencer_id: rejectTarget.id,
+        status: "rejected",
+        feedback,
+        network_id: selectedApp?.profileId ? Number(selectedApp.profileId) : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Influenciador reprovado");
+          setRejectTarget(null);
         },
+        onError: (error: Error) => toast.error(error?.message || "Erro ao reprovar influenciador"),
+      }
+    );
+  };
+
+  const handleBulkApprove = () => {
+    const selectedApps = filteredApplications.filter((app) => selectedInfluencers.has(app.profileKey));
+    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
+    selectedApps.forEach((app) => {
+      const key = app.profileId || "general";
+      if (!appsByNetworkId.has(key)) appsByNetworkId.set(key, []);
+      appsByNetworkId.get(key)!.push(app);
+    });
+
+    if (appsByNetworkId.size === 1) {
+      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
+      bulkApprove(
+        { influencerIds: apps.map((a) => a.influencerId), network_id: networkId !== "general" ? Number(networkId) : undefined },
         {
           onSuccess: () => {
-            toast.success("Influenciador reprovado");
-            setIsRejectModalOpen(false);
-            setSelectedInfluencer(null);
-            setRejectionFeedback("");
-          },
-          onError: (error: any) => {
-            toast.error(error?.message || "Erro ao reprovar influenciador");
+            clearSelection();
+            setBulkActionType(null);
           },
         }
       );
+    } else {
+      const promises = selectedApps.map((app) =>
+        updateStatus(
+          { influencer_id: app.influencerId, status: "approved", feedback: "Aprovado pelo usuário", network_id: app.profileId ? Number(app.profileId) : undefined },
+          { onError: (error: Error) => toast.error(`Erro ao aprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`) }
+        )
+      );
+      Promise.all(promises).then(() => {
+        clearSelection();
+        setBulkActionType(null);
+        toast.success(`${selectedApps.length} perfil(is) aprovado(s)`);
+      });
     }
   };
+
+  const handleBulkReject = () => {
+    if (!bulkRejectionFeedback.trim()) return;
+    const selectedApps = filteredApplications.filter((app) => selectedInfluencers.has(app.profileKey));
+    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
+    selectedApps.forEach((app) => {
+      const key = app.profileId || "general";
+      if (!appsByNetworkId.has(key)) appsByNetworkId.set(key, []);
+      appsByNetworkId.get(key)!.push(app);
+    });
+
+    if (appsByNetworkId.size === 1) {
+      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
+      bulkReject(
+        { influencerIds: apps.map((a) => a.influencerId), feedback: bulkRejectionFeedback, network_id: networkId !== "general" ? Number(networkId) : undefined },
+        {
+          onSuccess: () => {
+            clearSelection();
+            setBulkRejectionFeedback("");
+            setBulkActionType(null);
+          },
+        }
+      );
+    } else {
+      const promises = selectedApps.map((app) =>
+        updateStatus(
+          { influencer_id: app.influencerId, status: "rejected", feedback: bulkRejectionFeedback, network_id: app.profileId ? Number(app.profileId) : undefined },
+          { onError: (error: Error) => toast.error(`Erro ao reprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`) }
+        )
+      );
+      Promise.all(promises).then(() => {
+        clearSelection();
+        setBulkRejectionFeedback("");
+        setBulkActionType(null);
+        toast.success(`${selectedApps.length} perfil(is) reprovado(s)`);
+      });
+    }
+  };
+
+  const handleBulkConfirm = () => {
+    if (bulkActionType === "approve") handleBulkApprove();
+    else if (bulkActionType === "reject") handleBulkReject();
+  };
+
+  // ── Helpers de exibição ─────────────────────────────────────────────────────
 
   const nicheLabelForCard = (app: ApplicationWithProfile) =>
     resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName);
 
-  if (tabLoading) {
-    return <CurationTabSkeleton />;
-  }
+  const metaLabelForCard = (app: ApplicationWithProfile) => {
+    if (app.profileStatus === "curation") return "Enviado em: —";
+    if (app.profileStatus === "approved") return "Aprovado em: —";
+    return "Reprovado em: —";
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (tabLoading) return <CurationTabSkeleton />;
 
   if (tabError) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-semibold text-neutral-950">
-            Curadoria de perfis e conteúdo
-          </h2>
+          <h2 className="text-2xl font-semibold text-neutral-950">Curadoria de perfis e conteúdo</h2>
           <p className="text-base text-neutral-500 max-w-2xl">
             Centralize a análise: valide perfis, organize aprovações e garanta que tudo esteja alinhado com as regras da campanha.
           </p>
         </div>
         <div className="flex flex-col gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-4 text-danger-900">
           <p className="text-sm">{tabErrorMessage}</p>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-max"
-            onClick={() => {
-              void qPending.refetch();
-              void qApproved.refetch();
-              void qRejected.refetch();
-            }}
-          >
+          <Button type="button" variant="outline" className="w-max" onClick={() => { void qPending.refetch(); void qApproved.refetch(); void qRejected.refetch(); }}>
             Tentar novamente
           </Button>
         </div>
@@ -698,17 +549,15 @@ export function CurationTab({
   return (
     <>
       <div className="flex flex-col gap-6">
-        {/* Título e descrição (Figma) */}
+        {/* Título */}
         <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-semibold text-neutral-950">
-            Curadoria de perfis e conteúdo
-          </h2>
+          <h2 className="text-2xl font-semibold text-neutral-950">Curadoria de perfis e conteúdo</h2>
           <p className="text-base text-neutral-500 max-w-2xl">
             Centralize a análise: valide perfis, organize aprovações e garanta que tudo esteja alinhado com as regras da campanha.
           </p>
         </div>
 
-        {/* Barra de filtros (Figma): Buscar, Nicho, Localização, Idade */}
+        {/* Barra de filtros */}
         <div className="bg-white rounded-xl p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[200px] flex flex-col gap-1">
@@ -755,54 +604,37 @@ export function CurationTab({
           </div>
         </div>
 
-        {/* Aprovações da Curadoria (Figma) */}
+        {/* Aprovações da Curadoria */}
         <div className="bg-white rounded-xl p-5">
+          {/* Status tabs */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <h3 className="text-xl font-semibold text-neutral-950">
-              Aprovações da Curadoria
-            </h3>
+            <h3 className="text-xl font-semibold text-neutral-950">Aprovações da Curadoria</h3>
             <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("pending")}
-                className={`h-11 px-4 rounded-full text-base font-semibold transition-colors ${statusFilter === "pending"
-                    ? "bg-primary-600 text-white"
-                    : "border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
-                  }`}
-              >
-                Pendentes ({pendingCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("approved")}
-                className={`h-11 px-4 rounded-full text-base font-semibold transition-colors ${statusFilter === "approved"
-                    ? "bg-primary-600 text-white"
-                    : "border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
-                  }`}
-              >
-                Aprovados ({approvedCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("rejected")}
-                className={`h-11 px-4 rounded-full text-base font-semibold transition-colors ${statusFilter === "rejected"
-                    ? "bg-primary-600 text-white"
-                    : "border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
-                  }`}
-              >
-                Reprovados ({rejectedCount})
-              </button>
+              {(["pending", "approved", "rejected"] as const).map((status) => {
+                const labels = { pending: `Pendentes (${pendingCards.length})`, approved: `Aprovados (${approvedCards.length})`, rejected: `Reprovados (${rejectedCards.length})` };
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => markColumnSeen(status)}
+                    className={`h-11 px-4 rounded-full text-base font-semibold transition-colors ${
+                      statusFilter === status
+                        ? "bg-primary-600 text-white"
+                        : "border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {labels[status]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Toolbar: Selecionar todos + Múltiplas aprovações/reprovações */}
+          {/* Toolbar de seleção */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={
-                  selectedInfluencers.size === filteredApplications.length &&
-                  filteredApplications.length > 0
-                }
+                checked={isAllSelected}
                 onCheckedChange={handleSelectAll}
               />
               <label className="text-base font-normal text-neutral-950 cursor-pointer">
@@ -813,20 +645,14 @@ export function CurationTab({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setBulkActionType("approve");
-                    setIsBulkActionModalOpen(true);
-                  }}
+                  onClick={() => setBulkActionType("approve")}
                   className="h-11 rounded-full font-semibold"
                 >
                   Múltiplas aprovações
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setBulkActionType("reject");
-                    setIsBulkActionModalOpen(true);
-                  }}
+                  onClick={() => setBulkActionType("reject")}
                   className="h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50"
                 >
                   Múltiplas reprovações
@@ -835,182 +661,32 @@ export function CurationTab({
             )}
           </div>
 
+          {/* Grid de cards */}
           {filteredApplications.length === 0 ? (
             <div className="text-center py-12">
               <Icon name="Users" color="#A3A3A3" size={48} />
               <p className="text-neutral-600 mt-4">
-                {statusFilter === "pending"
-                  ? "Nenhum influenciador pendente"
-                  : statusFilter === "approved"
-                    ? "Nenhum aprovado"
-                    : "Nenhum reprovado"}
+                {statusFilter === "pending" ? "Nenhum influenciador pendente" : statusFilter === "approved" ? "Nenhum aprovado" : "Nenhum reprovado"}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredApplications.map((app) => {
-                const rawFollowers =
-                  app.profileFollowers != null && app.profileFollowers > 0
-                    ? app.profileFollowers
-                    : app.influencerFollowers;
-                const followers = Number(rawFollowers ?? 0);
-                const engagementDisplay =
-                  app.influencerEngagement != null &&
-                  !Number.isNaN(Number(app.influencerEngagement))
-                    ? `${Number(app.influencerEngagement)}%`
-                    : "—";
-                const nicheName = nicheLabelForCard(app);
                 const isPending = app.profileStatus === "curation";
-
                 return (
-                  <div
+                  <InfluencerProfileCard
                     key={app.profileKey}
-                    className={`bg-neutral-100 rounded-xl p-3 flex flex-col gap-5 border transition-colors ${
-                      selectedInfluencers.has(app.profileKey) && isPending
-                        ? "border-primary-500 ring-1 ring-primary-200"
-                        : "border-transparent"
-                    }`}
-                  >
-                    {/* Mesmo layout que ApplicationCard (inscrições) */}
-                    <div className="flex items-center justify-between">
-                      <div className="relative shrink-0">
-                        <img
-                          src={getUploadUrl(app.influencerAvatar) ?? undefined}
-                          alt={app.influencerName}
-                          className="size-[60px] rounded-2xl object-cover bg-neutral-200"
-                        />
-                        <SocialNetworkCornerBadge
-                          networkType={app.profileType}
-                          title={app.profileTypeLabel}
-                        />
-                        {isPending && (
-                          <button
-                            type="button"
-                            onClick={() => handleSelectApplication(app.profileKey)}
-                            className="absolute -left-2 -top-2 flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm"
-                            aria-pressed={selectedInfluencers.has(app.profileKey)}
-                          >
-                            {selectedInfluencers.has(app.profileKey) ? (
-                              <Icon
-                                name="Check"
-                                size={14}
-                                color="var(--color-primary-600)"
-                                className="text-primary-600"
-                              />
-                            ) : (
-                              <div className="size-3 rounded-full border-2 border-neutral-300" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#ffdf2a]"
-                        aria-label="Salvar"
-                      >
-                        <Icon name="Bookmark" size={24} color="#171717" />
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-0.5">
-                      <p className="truncate text-lg font-medium leading-6 text-neutral-950">
-                        {app.influencerName}
-                      </p>
-                      <p className="truncate text-sm leading-5 text-neutral-500">
-                        @{app.profileUsername}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1 rounded-lg bg-neutral-200 p-3">
-                        <p className="text-sm text-neutral-500">Seguidores</p>
-                        <p className="text-xl font-medium text-neutral-950">
-                          {followers.toLocaleString("pt-BR")}
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-1 rounded-lg bg-neutral-200 p-3">
-                        <p className="text-sm text-neutral-500">Engajamento</p>
-                        <p className="text-xl font-medium text-neutral-950">
-                          {engagementDisplay}
-                        </p>
-                      </div>
-                    </div>
-
-                    {nicheName && (
-                      <div className="rounded-xl bg-primary-100 px-3 py-3">
-                        <p className="text-sm font-normal text-primary-600">{nicheName}</p>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-3">
-                      <p className="text-base font-medium text-neutral-500 leading-5">
-                        {app.profileStatus === "curation"
-                          ? "Enviado em: —"
-                          : app.profileStatus === "approved"
-                            ? "Aprovado em: —"
-                            : "Reprovado em: —"}
-                      </p>
-                      {isPending ? (
-                        <>
-                          <div className="flex gap-1">
-                            <Button
-                              onClick={() => handleApprove(app)}
-                              className="h-11 rounded-full border-0 bg-primary-600 text-base font-semibold text-white hover:bg-primary-700"
-                            >
-                              <Icon name="Check" size={24} color="#fafafa" />
-                              Aprovar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleReject(app)}
-                              className="h-11 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
-                            >
-                              <Icon name="X" size={24} color="#525252" />
-                              Reprovar
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigate({
-                                  to: "/influencer/$influencerId",
-                                  params: { influencerId: app.influencerId },
-                                });
-                              }}
-                              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-                            >
-                              <Icon name="Link" size={24} color="#737373" />
-                              Ver perfil
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-base font-medium text-neutral-600">
-                            {app.profileStatus === "approved"
-                              ? "Aprovado para campanha"
-                              : "× Reprovado"}
-                          </p>
-                          <div className="flex flex-wrap items-center justify-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigate({
-                                  to: "/influencer/$influencerId",
-                                  params: { influencerId: app.influencerId },
-                                });
-                              }}
-                              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-                            >
-                              <Icon name="Link" size={24} color="#737373" />
-                              Ver perfil
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                    data={app}
+                    nicheName={nicheLabelForCard(app)}
+                    isSelected={selectedInfluencers.has(app.profileKey)}
+                    selectable={isPending}
+                    onSelect={() => handleSelectApplication(app.profileKey)}
+                    metaLabel={metaLabelForCard(app)}
+                    statusBadge={!isPending ? (app.profileStatus === "approved" ? "approved" : "rejected") : undefined}
+                    onApprove={isPending ? () => handleApprove(app) : undefined}
+                    onReject={isPending ? () => handleReject(app) : undefined}
+                    onViewProfile={() => navigate({ to: "/influencer/$influencerId", params: { influencerId: app.influencerId } })}
+                  />
                 );
               })}
             </div>
@@ -1018,100 +694,27 @@ export function CurationTab({
         </div>
       </div>
 
-      {/* Modal de reprovação */}
-      {selectedInfluencer && isRejectModalOpen && (
-        <Modal
-          title="Reprovar influenciador"
-          onClose={() => {
-            setIsRejectModalOpen(false);
-            setSelectedInfluencer(null);
-            setRejectionFeedback("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <Avatar
-                src={selectedInfluencer.avatar}
-                alt={selectedInfluencer.name}
-                size="lg"
-              />
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedInfluencer.name}
-                </h3>
-                <p className="text-neutral-600">
-                  @{selectedInfluencer.username}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-danger-50 rounded-2xl p-4">
-              <p className="text-sm text-danger-900">
-                O feedback é obrigatório ao reprovar um influenciador. Ele será
-                enviado ao influenciador para que possa entender o motivo da
-                reprovação.
-              </p>
-            </div>
-
-            <Textarea
-              label="Feedback de reprovação"
-              placeholder="Explique o motivo da reprovação..."
-              value={rejectionFeedback}
-              onChange={(e) => setRejectionFeedback(e.target.value)}
-              error={
-                !rejectionFeedback.trim()
-                  ? "Este campo é obrigatório"
-                  : undefined
-              }
-            />
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsRejectModalOpen(false);
-                  setSelectedInfluencer(null);
-                  setRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleConfirmRejection}
-                disabled={!rejectionFeedback.trim()}
-                className="flex-1"
-              >
-                Confirmar reprovação
-              </Button>
-            </div>
-          </div>
-        </Modal>
+      {/* Modal de reprovação individual */}
+      {rejectTarget && (
+        <RejectionModal
+          influencer={rejectTarget}
+          onConfirm={handleConfirmRejection}
+          onClose={() => setRejectTarget(null)}
+        />
       )}
 
       {/* Modal de visualização de redes sociais */}
       {isProfileModalOpen && selectedProfileInfluencer && (
         <Modal
           title={`Redes Sociais - ${selectedProfileInfluencer.name}`}
-          onClose={() => {
-            setIsProfileModalOpen(false);
-            setSelectedProfileInfluencer(null);
-          }}
+          onClose={() => { setIsProfileModalOpen(false); setSelectedProfileInfluencer(null); }}
         >
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
-              <Avatar
-                src={selectedProfileInfluencer.avatar}
-                alt={selectedProfileInfluencer.name}
-                size="lg"
-              />
+              <Avatar src={selectedProfileInfluencer.avatar} alt={selectedProfileInfluencer.name} size="lg" />
               <div>
-                <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.name}
-                </h3>
-                <p className="text-neutral-600">
-                  @{selectedProfileInfluencer.username}
-                </p>
+                <h3 className="text-lg font-semibold text-neutral-950">{selectedProfileInfluencer.name}</h3>
+                <p className="text-neutral-600">@{selectedProfileInfluencer.username}</p>
               </div>
             </div>
 
@@ -1123,46 +726,20 @@ export function CurationTab({
                 <div className="bg-neutral-50 rounded-2xl p-4">
                   <div className="flex flex-col gap-3">
                     {selectedProfileInfluencer.social_networks.map((network) => (
-                      <div
-                        key={network.id}
-                        className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
-                      >
+                      <div key={network.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
                         <div className="flex items-center gap-3">
-                          <SocialNetworkIcon
-                            networkType={network.type}
-                            size={20}
-                            color="#404040"
-                          />
+                          <SocialNetworkIcon networkType={network.type} size={20} color="#404040" />
                           <div>
                             <p className="text-sm font-semibold text-neutral-950">
-                              {(() => {
-                                const networkLabels: { [key: string]: string } = {
-                                  instagram: "Instagram",
-                                  tiktok: "TikTok",
-                                  youtube: "YouTube",
-                                  facebook: "Facebook",
-                                  twitter: "Twitter",
-                                };
-                                return networkLabels[network.type?.toLowerCase() || ""] || network.name || network.type;
-                              })()}
+                              {getNetworkLabel(network.type, network.name || network.type)}
                             </p>
-                            {network.username && (
-                              <p className="text-xs text-neutral-600">
-                                @{network.username}
-                              </p>
-                            )}
-                            {network.name && network.name !== network.username && (
-                              <p className="text-xs text-neutral-600">
-                                {network.name}
-                              </p>
-                            )}
+                            {network.username && <p className="text-xs text-neutral-600">@{network.username}</p>}
+                            {network.name && network.name !== network.username && <p className="text-xs text-neutral-600">{network.name}</p>}
                           </div>
                         </div>
                         {network.members !== undefined && network.members > 0 && (
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-neutral-950">
-                              {network.members.toLocaleString("pt-BR")}
-                            </p>
+                            <p className="text-sm font-semibold text-neutral-950">{network.members.toLocaleString("pt-BR")}</p>
                             <p className="text-xs text-neutral-600">seguidores</p>
                           </div>
                         )}
@@ -1173,9 +750,7 @@ export function CurationTab({
               </div>
             ) : (
               <div className="bg-neutral-50 rounded-2xl p-4 text-center">
-                <p className="text-sm text-neutral-600">
-                  Nenhuma rede social cadastrada
-                </p>
+                <p className="text-sm text-neutral-600">Nenhuma rede social cadastrada</p>
               </div>
             )}
 
@@ -1189,8 +764,7 @@ export function CurationTab({
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
                 <p className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.engagement != null &&
-                  !Number.isNaN(Number(selectedProfileInfluencer.engagement))
+                  {selectedProfileInfluencer.engagement != null && !Number.isNaN(Number(selectedProfileInfluencer.engagement))
                     ? `${Number(selectedProfileInfluencer.engagement)}%`
                     : "—"}
                 </p>
@@ -1198,13 +772,7 @@ export function CurationTab({
               <div className="col-span-2">
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <Badge
-                  text={
-                    resolveNicheDisplayName(
-                      selectedProfileInfluencer.niche,
-                      niches,
-                      selectedProfileInfluencer.nicheName,
-                    ) ?? "-"
-                  }
+                  text={resolveNicheDisplayName(selectedProfileInfluencer.niche, niches, selectedProfileInfluencer.nicheName) ?? "-"}
                   backgroundColor="bg-tertiary-50"
                   textColor="text-tertiary-900"
                 />
@@ -1213,10 +781,7 @@ export function CurationTab({
 
             <Button
               variant="outline"
-              onClick={() => {
-                setIsProfileModalOpen(false);
-                setSelectedProfileInfluencer(null);
-              }}
+              onClick={() => { setIsProfileModalOpen(false); setSelectedProfileInfluencer(null); }}
               className="w-full"
             >
               Fechar
@@ -1226,81 +791,15 @@ export function CurationTab({
       )}
 
       {/* Modal de ação em massa */}
-      {isBulkActionModalOpen && bulkActionType && (
-        <Modal
-          title={
-            bulkActionType === "approve"
-              ? "Aprovar influenciadores selecionados"
-              : "Reprovar influenciadores selecionados"
-          }
-          onClose={() => {
-            setIsBulkActionModalOpen(false);
-            setBulkActionType(null);
-            setBulkRejectionFeedback("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <p className="text-sm text-neutral-600">
-              {bulkActionType === "approve"
-                ? `Você está prestes a aprovar ${selectedInfluencers.size} influenciador(es).`
-                : `Você está prestes a reprovar ${selectedInfluencers.size} influenciador(es).`}
-            </p>
-
-            {bulkActionType === "reject" && (
-              <>
-                <div className="bg-danger-50 rounded-2xl p-4">
-                  <p className="text-sm text-danger-900">
-                    O feedback é obrigatório ao reprovar influenciadores em
-                    massa. Ele será enviado a todos os influenciadores
-                    selecionados.
-                  </p>
-                </div>
-                <Textarea
-                  label="Feedback de reprovação"
-                  placeholder="Explique o motivo da reprovação..."
-                  value={bulkRejectionFeedback}
-                  onChange={(e) => setBulkRejectionFeedback(e.target.value)}
-                  error={
-                    !bulkRejectionFeedback.trim()
-                      ? "Este campo é obrigatório"
-                      : undefined
-                  }
-                />
-              </>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsBulkActionModalOpen(false);
-                  setBulkActionType(null);
-                  setBulkRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={
-                  bulkActionType === "approve"
-                    ? handleBulkApprove
-                    : handleBulkReject
-                }
-                disabled={
-                  (bulkActionType === "reject" &&
-                    !bulkRejectionFeedback.trim()) ||
-                  isApproving ||
-                  isRejecting
-                }
-                className="flex-1"
-              >
-                {isApproving || isRejecting ? "Processando..." : "Confirmar"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <BulkActionModal
+        actionType={bulkActionType}
+        count={selectedInfluencers.size}
+        rejectionFeedback={bulkRejectionFeedback}
+        onRejectionFeedbackChange={setBulkRejectionFeedback}
+        onConfirm={handleBulkConfirm}
+        onClose={() => { setBulkActionType(null); setBulkRejectionFeedback(""); }}
+        isLoading={isApproving || isRejecting}
+      />
     </>
   );
 }

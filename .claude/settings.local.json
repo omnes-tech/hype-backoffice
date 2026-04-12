@@ -4,7 +4,15 @@
       "Bash(npm install:*)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('packageManager','none'\\)\\)\")",
       "Bash(pnpm add:*)",
-      "Bash(node -e \"const rw = require\\('react-window'\\); console.log\\(Object.keys\\(rw\\)\\)\")"
+      "Bash(node -e \"const rw = require\\('react-window'\\); console.log\\(Object.keys\\(rw\\)\\)\")",
+      "Bash(wc:*)",
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Users/muril/Projects/hypeapp/hypeapp-backoffice/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec wc -l {} +)",
+      "Bash(find /c/Users/muril/Projects/hypeapp/hypeapp-backoffice/src -type f -exec grep -l \"React.FC\\\\|React.ReactNode\\\\|React.PropsWithChildren\" {} \\\\;)",
+      "Bash(node -e \"const {execSync} = require\\('child_process'\\); try { execSync\\('npm install vitest --save-dev', {stdio: 'pipe', encoding: 'utf8'}\\); console.log\\('ok'\\); } catch\\(e\\) { console.log\\(e.stderr || e.message\\); }\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data.get\\('lockfileVersion', 'no version'\\)\\)\")",
+      "Bash(pnpm run:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

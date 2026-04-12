@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/text-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import type { Influencer } from "@/shared/types";
@@ -14,13 +13,15 @@ import { useCampaignInscriptions } from "@/hooks/use-campaign-tab-influencers";
 import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import { getUploadUrl } from "@/lib/utils/api";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
-import { SocialNetworkCornerBadge, SocialNetworkIcon } from "@/components/social-network-icon";
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
-}
+import { getNetworkLabel } from "@/shared/constants/network-labels";
+import { SocialNetworkIcon } from "@/components/social-network-icon";
+import { InfluencerProfileCard } from "./shared/influencer-profile-card";
+import { RejectionModal } from "./shared/rejection-modal";
+import { BulkActionModal, type BulkActionType } from "./shared/bulk-action-modal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /** Skeleton da aba Inscrições — espelha o layout real */
 export function ApplicationsTabSkeleton() {
@@ -81,7 +82,6 @@ export function ApplicationsTabSkeleton() {
   );
 }
 
-// Interface para representar uma inscrição com perfil de rede social
 interface ApplicationWithProfile {
   influencerId: string;
   influencerName: string;
@@ -96,19 +96,14 @@ interface ApplicationWithProfile {
   profileTypeLabel: string;
   profileUsername: string;
   profileFollowers: number;
-  profileKey: string; // Chave única: influencerId-profileId
+  profileKey: string;
+  sentAt?: string | null;
 }
 
 function buildInscriptionsProfiles(
   influencers: Influencer[],
   segment: "applications" | "pre_selection"
 ): ApplicationWithProfile[] {
-  const networkLabels: { [key: string]: string } = {
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    youtube: "YouTube",
-    ugc: "UGC",
-  };
   const applications: ApplicationWithProfile[] = [];
   const statusNorm = segment.toLowerCase().trim();
 
@@ -157,10 +152,7 @@ function buildInscriptionsProfiles(
           influencerNicheName: inf.nicheName,
           profileId: String(profile.id),
           profileType: profile.type,
-          profileTypeLabel:
-            networkLabels[profile.type.toLowerCase()] ||
-            profile.name ||
-            profile.type,
+          profileTypeLabel: getNetworkLabel(profile.type, profile.name || profile.type),
           profileUsername: profile.username || inf.username,
           profileFollowers: profile.members || inf.followers,
           profileKey: `${inf.id}-${profile.id}`,
@@ -170,185 +162,6 @@ function buildInscriptionsProfiles(
   });
 
   return applications;
-}
-
-/** Card único para inscrições orgânicas e pré-seleções — layout Figma (node 2392-16329) */
-function ApplicationCard({
-  app,
-  nicheName,
-  isSelected,
-  isUpdatingStatus,
-  sentAt,
-  onSelect,
-  onApprove,
-  onReject,
-  onMoveToCuration,
-  onViewPhases,
-  /** Pré-seleções enviadas: só visualização (sem aprovar/reprovar/curadoria) */
-  hideWorkflowActions,
-}: {
-  app: ApplicationWithProfile;
-  nicheName: string | null;
-  isSelected: boolean;
-  isUpdatingStatus: boolean;
-  sentAt?: string | null;
-  onSelect: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  onMoveToCuration: () => void;
-  onViewPhases: () => void;
-  hideWorkflowActions?: boolean;
-}) {
-  const rawFollowers =
-    app.profileFollowers != null && app.profileFollowers > 0
-      ? app.profileFollowers
-      : app.influencerFollowers;
-  const followers = Number(rawFollowers ?? 0);
-  const engagementDisplay =
-    app.influencerEngagement != null && !Number.isNaN(Number(app.influencerEngagement))
-      ? `${Number(app.influencerEngagement)}%`
-      : "—";
-  const sentAtLabel = sentAt
-    ? new Date(sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : "—";
-
-  return (
-    <div
-      className={`bg-neutral-100 rounded-xl p-3 flex flex-col gap-5 border transition-colors ${isSelected
-        ? "border-primary-500 ring-1 ring-primary-200"
-        : "border-transparent"
-        }`}
-    >
-      {/* Top: avatar + checkbox (-8px) + bookmark amarelo 40px rounded-lg */}
-      <div className="flex items-center justify-between">
-        <div className="relative shrink-0">
-          <img
-            src={getUploadUrl(app.influencerAvatar) ?? undefined}
-            alt={app.influencerName}
-            className="size-[60px] rounded-2xl object-cover bg-neutral-200"
-          />
-          <SocialNetworkCornerBadge
-            networkType={app.profileType}
-            title={app.profileTypeLabel}
-          />
-          {!hideWorkflowActions && (
-            <button
-              type="button"
-              onClick={onSelect}
-              className="absolute -left-2 -top-2 size-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-sm"
-            >
-              {isSelected ? (
-                <Icon name="Check" size={14} color="var(--color-primary-600)" className="text-primary-600" />
-              ) : (
-                <div className="size-3 rounded-full border-2 border-neutral-300" />
-              )}
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          className="size-10 rounded-lg flex items-center justify-center shrink-0 bg-[#ffdf2a]"
-          aria-label="Salvar"
-        >
-          <Icon name="Bookmark" size={24} color="#171717" />
-        </button>
-      </div>
-
-      {/* Nome + @username */}
-      <div className="flex flex-col gap-0.5">
-        <p className="text-lg font-medium text-neutral-950 truncate leading-6">
-          {app.influencerName}
-        </p>
-        <p className="text-sm text-neutral-500 truncate leading-5">
-          @{app.profileUsername}
-        </p>
-      </div>
-
-      {/* Stats: Seguidores | Engajamento — boxes #e4e4e4, label 14px, value 20px */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-neutral-200 rounded-lg p-3 flex flex-col gap-1">
-          <p className="text-sm text-neutral-500">Seguidores</p>
-          <p className="text-xl font-medium text-neutral-950">
-            {followers.toLocaleString("pt-BR")}
-          </p>
-        </div>
-        <div className="bg-neutral-200 rounded-lg p-3 flex flex-col gap-1">
-          <p className="text-sm text-neutral-500">Engajamento</p>
-          <p className="text-xl font-medium text-neutral-950">
-            {engagementDisplay}
-          </p>
-        </div>
-      </div>
-
-      {/* Nicho — tag primary-100, text primary-600, rounded-xl, p-3 */}
-      {nicheName && (
-        <div className="rounded-xl bg-primary-100 px-3 py-3">
-          <p className="text-sm text-primary-600 font-normal">{nicheName}</p>
-        </div>
-      )}
-
-      {/* Enviado em + ações (só inscrições orgânicas) */}
-      <div className="flex flex-col gap-3">
-        <p className="text-base font-medium text-neutral-500 leading-5">
-          Enviado em: {sentAtLabel}
-        </p>
-        {!hideWorkflowActions && (
-          <>
-            <div className="flex gap-1">
-              <Button
-                onClick={onApprove}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-full font-semibold text-base bg-primary-600 hover:bg-primary-700 text-white border-0"
-              >
-                <Icon name="Check" size={24} color="#fafafa" />
-                Aprovar
-              </Button>
-              <Button
-                variant="outline"
-                onClick={onReject}
-                disabled={isUpdatingStatus}
-                className="h-11 rounded-full font-semibold text-base border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-700"
-              >
-                <Icon name="X" size={24} color="#525252" />
-                Reprovar
-              </Button>
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={onViewPhases}
-                className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-              >
-                <Icon name="Link" size={24} color="#737373" />
-                Ver perfil
-              </button>
-              <button
-                type="button"
-                onClick={onMoveToCuration}
-                disabled={isUpdatingStatus}
-                className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-              >
-                <Icon name="ArrowRight" size={16} color="#737373" />
-                Mover para curadoria
-              </button>
-            </div>
-          </>
-        )}
-        {hideWorkflowActions && (
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onViewPhases}
-              className="flex items-center gap-1 text-base font-medium text-neutral-500 underline hover:text-neutral-700"
-            >
-              <Icon name="Link" size={24} color="#737373" />
-              Ver perfil
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 interface ApplicationsTabProps {
@@ -364,32 +177,49 @@ export function ApplicationsTab({
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
-  const applicationsQuery = useCampaignInscriptions(campaignId, "applications");
-  const preSelectionQuery = useCampaignInscriptions(campaignId, "pre_selection");
-  const { data: niches = [] } = useNiches();
-  const [selectedInfluencer, setSelectedInfluencer] =
-    useState<Influencer | null>(null);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectionFeedback, setRejectionFeedback] = useState("");
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [selectedProfileInfluencer, setSelectedProfileInfluencer] = useState<Influencer | null>(null);
-  const [selectedInfluencers, setSelectedInfluencers] = useState<Set<string>>(
-    new Set()
-  );
-  const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<
-    "curation" | "approve" | "reject" | null
-  >(null);
-  const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
   // Segmento: "organic" (Inscrições Orgânicas) | "preselection" (Pré-seleções Enviadas)
   const [segmentTab, setSegmentTab] = useState<"organic" | "preselection">("organic");
+  // Segmentos já visitados — queries só são habilitadas na primeira visita
+  const [seenSegments, setSeenSegments] = useState<Set<"organic" | "preselection">>(
+    () => new Set<"organic" | "preselection">(["organic"]),
+  );
 
-  useEffect(() => {
-    setSelectedInfluencers(new Set());
-  }, [segmentTab]);
+  const markSegmentSeen = useCallback(
+    (seg: "organic" | "preselection") => {
+      setSegmentTab(seg);
+      setSeenSegments((prev) => {
+        if (prev.has(seg)) return prev;
+        const next = new Set(prev);
+        next.add(seg);
+        return next;
+      });
+    },
+    [],
+  );
 
-  // Estados de filtros
+  // Quando há um focusCampaignUserId precisamos buscar ambos os segmentos para encontrar o usuário
+  const enableAll = !!focusCampaignUserId;
+  const applicationsQuery = useCampaignInscriptions(campaignId, "applications", {
+    enabled: enableAll || seenSegments.has("organic"),
+  });
+  const preSelectionQuery = useCampaignInscriptions(campaignId, "pre_selection", {
+    enabled: enableAll || seenSegments.has("preselection"),
+  });
+  const { data: niches = [] } = useNiches();
+
+  // Modal de reprovação individual
+  const [rejectTarget, setRejectTarget] = useState<Influencer | null>(null);
+
+  // Modal de perfil (redes sociais)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedProfileInfluencer, setSelectedProfileInfluencer] = useState<Influencer | null>(null);
+
+  // Modal de ação em massa
+  const [bulkActionType, setBulkActionType] = useState<BulkActionType | null>(null);
+  const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
+
+  // Filtros
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
   const [filterFollowersMin, setFilterFollowersMin] = useState("");
@@ -397,7 +227,6 @@ export function ApplicationsTab({
   const [filterEngagementMin, setFilterEngagementMin] = useState("");
   const [filterEngagementMax, setFilterEngagementMax] = useState("");
 
-  // Hooks para bulk operations
   const {
     approve: bulkApprove,
     reject: bulkReject,
@@ -424,26 +253,24 @@ export function ApplicationsTab({
     [preSelectionInfluencers]
   );
 
-  const tabLoading =
-    applicationsQuery.isLoading || preSelectionQuery.isLoading;
-  const tabError =
-    applicationsQuery.isError || preSelectionQuery.isError;
+  // Loading/error relativos ao segmento ativo (o outro carrega em background quando visitado)
+  const activeQuery = segmentTab === "organic" ? applicationsQuery : preSelectionQuery;
+  const tabLoading = activeQuery.isLoading;
+  const tabError = activeQuery.isError;
   const tabErrorMessage =
-    (applicationsQuery.error as Error)?.message ||
-    (preSelectionQuery.error as Error)?.message ||
+    (activeQuery.error as Error)?.message ||
     "Não foi possível carregar as inscrições.";
 
-  // Função de filtro reutilizável para aplicações e pré-seleções
   const applyFilters = useCallback(
     (list: ApplicationWithProfile[]) => {
       return list.filter((app) => {
         if (searchTerm) {
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch =
-            app.influencerName.toLowerCase().includes(searchLower) ||
-            app.influencerUsername.toLowerCase().includes(searchLower) ||
-            app.profileUsername.toLowerCase().includes(searchLower);
-          if (!matchesSearch) return false;
+          const lower = searchTerm.toLowerCase();
+          const matches =
+            app.influencerName.toLowerCase().includes(lower) ||
+            app.influencerUsername.toLowerCase().includes(lower) ||
+            app.profileUsername.toLowerCase().includes(lower);
+          if (!matches) return false;
         }
         if (filterNiche && app.influencerNiche !== filterNiche) return false;
         const rawF =
@@ -471,30 +298,43 @@ export function ApplicationsTab({
         return true;
       });
     },
-    [
-      searchTerm,
-      filterNiche,
-      filterFollowersMin,
-      filterFollowersMax,
-      filterEngagementMin,
-      filterEngagementMax,
-    ]
+    [searchTerm, filterNiche, filterFollowersMin, filterFollowersMax, filterEngagementMin, filterEngagementMax]
   );
 
-  const filteredApplications = useMemo(
-    () => applyFilters(applicationsWithProfiles),
-    [applicationsWithProfiles, applyFilters]
+  const filteredApplications = useMemo(() => applyFilters(applicationsWithProfiles), [applicationsWithProfiles, applyFilters]);
+  const filteredPreselections = useMemo(() => applyFilters(preselectionsWithProfiles), [preselectionsWithProfiles, applyFilters]);
+  const currentFilteredList = segmentTab === "organic" ? filteredApplications : filteredPreselections;
+
+  const currentFilteredKeys = useMemo(
+    () => currentFilteredList.map((app) => app.profileKey),
+    [currentFilteredList]
   );
 
-  const filteredPreselections = useMemo(
-    () => applyFilters(preselectionsWithProfiles),
-    [preselectionsWithProfiles, applyFilters]
-  );
+  const { selected: selectedInfluencers, toggle: handleSelectApplication, toggleAll: handleSelectAll, clear: clearSelection, isAllSelected } =
+    useBulkSelection(currentFilteredKeys);
 
-  // Lista atual conforme o segmento (orgânico ou pré-seleções)
-  const currentFilteredList =
-    segmentTab === "organic" ? filteredApplications : filteredPreselections;
+  // Limpa seleção ao trocar segmento
+  useEffect(() => {
+    clearSelection();
+  }, [segmentTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Nichos disponíveis para o segmento atual
+  const listForNiches = segmentTab === "organic" ? applicationsWithProfiles : preselectionsWithProfiles;
+  const nicheOptions = useMemo(() => {
+    const uniqueNiches = new Set<string>();
+    listForNiches.forEach((app) => {
+      if (app.influencerNiche) {
+        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
+        if (niche) uniqueNiches.add(niche.id.toString());
+      }
+    });
+    return Array.from(uniqueNiches).map((id) => {
+      const niche = niches.find((n) => n.id.toString() === id);
+      return { value: id, label: niche?.name || id };
+    });
+  }, [listForNiches, niches]);
+
+  // Focus handling
   const focusHandledRef = useRef<string | null>(null);
   useEffect(() => {
     focusHandledRef.current = null;
@@ -518,8 +358,8 @@ export function ApplicationsTab({
       return;
     }
 
-    if (fullOrganic) setSegmentTab("organic");
-    else setSegmentTab("preselection");
+    if (fullOrganic) markSegmentSeen("organic");
+    else markSegmentSeen("preselection");
 
     setSelectedProfileInfluencer(fullInf);
     setIsProfileModalOpen(true);
@@ -535,229 +375,48 @@ export function ApplicationsTab({
     onFocusUserConsumed,
   ]);
 
-  // Opções de nichos disponíveis (do segmento atual: orgânico ou pré-seleções)
-  const listForNiches = segmentTab === "organic" ? applicationsWithProfiles : preselectionsWithProfiles;
-  const nicheOptions = useMemo(() => {
-    const uniqueNiches = new Set<string>();
-    listForNiches.forEach((app) => {
-      if (app.influencerNiche) {
-        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
-        if (niche) uniqueNiches.add(niche.id.toString());
+  // ── Handlers de ação ────────────────────────────────────────────────────────
+
+  const handleApprove = (app: ApplicationWithProfile) => {
+    updateStatus(
+      {
+        influencer_id: app.influencerId,
+        status: "approved",
+        feedback: "Aprovado pelo usuário",
+        network_id: app.profileId ? Number(app.profileId) : undefined,
+      },
+      {
+        onSuccess: () => toast.success(`${app.profileTypeLabel} aprovado com sucesso!`),
+        onError: (error: Error) => toast.error(error?.message || "Erro ao aprovar influenciador"),
       }
-    });
-    return Array.from(uniqueNiches).map((id) => {
-      const niche = niches.find((n) => n.id.toString() === id);
-      return { value: id, label: niche?.name || id };
-    });
-  }, [listForNiches, niches]);
-
-  const handleSelectApplication = (profileKey: string) => {
-    setSelectedInfluencers((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(profileKey)) {
-        newSet.delete(profileKey);
-      } else {
-        newSet.add(profileKey);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedInfluencers.size === currentFilteredList.length) {
-      setSelectedInfluencers(new Set());
-    } else {
-      setSelectedInfluencers(new Set(currentFilteredList.map((app) => app.profileKey)));
-    }
-  };
-
-  const handleBulkMoveToCuration = () => {
-    const selectedApps = currentFilteredList.filter((app) =>
-      selectedInfluencers.has(app.profileKey)
     );
+  };
 
-    if (segmentTab === "preselection") {
-      Promise.all(
-        selectedApps.map((app) =>
-          moveToPreSelectionCurationAsync({
-            influencerId: app.influencerId,
-            data: {
-              network_id: app.profileId ? Number(app.profileId) : undefined,
-            },
-          })
-        )
-      )
-        .then(() => {
-          setSelectedInfluencers(new Set());
-          setIsBulkActionModalOpen(false);
-          setBulkActionType(null);
-          toast.success(
-            selectedApps.length === 1
-              ? "Perfil movido para curadoria da pré-seleção"
-              : `${selectedApps.length} perfil(is) movido(s) para curadoria da pré-seleção`
-          );
-        })
-        .catch((error: any) => {
-          toast.error(error?.message || "Erro ao mover para curadoria da pré-seleção");
-        });
-      return;
-    }
+  const handleReject = (app: ApplicationWithProfile) => {
+    const influencer =
+      organicInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
+      preSelectionInfluencers.find((inf) => String(inf.id) === String(app.influencerId));
+    if (influencer) setRejectTarget(influencer);
+  };
 
-    // Fluxo orgânico: atualizar status para curadoria
-    const promises = selectedApps.map((app) =>
-      updateStatus(
-        {
-          influencer_id: app.influencerId,
-          status: "curation",
-          feedback: undefined,
-          network_id: app.profileId ? Number(app.profileId) : undefined,
+  const handleConfirmRejection = (feedback: string) => {
+    if (!rejectTarget) return;
+    const selectedApp = filteredApplications.find((a) => a.influencerId === rejectTarget.id);
+    updateStatus(
+      {
+        influencer_id: rejectTarget.id,
+        status: "rejected",
+        feedback,
+        network_id: selectedApp?.profileId ? Number(selectedApp.profileId) : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Influenciador reprovado");
+          setRejectTarget(null);
         },
-        {
-          onSuccess: () => {},
-          onError: (error: any) => {
-            toast.error(`Erro ao mover ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
-          },
-        }
-      )
-    );
-
-    Promise.all(promises).then(() => {
-      setSelectedInfluencers(new Set());
-      setIsBulkActionModalOpen(false);
-      setBulkActionType(null);
-      toast.success(`${selectedApps.length} perfil(is) movido(s) para curadoria`);
-    });
-  };
-
-  const handleBulkApprove = () => {
-    const selectedApps = currentFilteredList.filter((app) =>
-      selectedInfluencers.has(app.profileKey)
-    );
-
-    // Agrupar por network_id para fazer bulk actions eficientes
-    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
-    selectedApps.forEach((app) => {
-      const networkId = app.profileId || "general";
-      if (!appsByNetworkId.has(networkId)) {
-        appsByNetworkId.set(networkId, []);
+        onError: (error: Error) => toast.error(error?.message || "Erro ao reprovar influenciador"),
       }
-      appsByNetworkId.get(networkId)!.push(app);
-    });
-
-    // Se todos têm o mesmo network_id, fazer uma única chamada bulk
-    if (appsByNetworkId.size === 1) {
-      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
-      const influencerIds = apps.map((app) => app.influencerId);
-
-      bulkApprove(
-        {
-          influencerIds,
-          network_id: networkId !== "general" ? Number(networkId) : undefined
-        },
-        {
-          onSuccess: () => {
-            setSelectedInfluencers(new Set());
-            setIsBulkActionModalOpen(false);
-            setBulkActionType(null);
-          },
-        }
-      );
-    } else {
-      // Se têm network_ids diferentes, fazer chamadas individuais
-      const promises = selectedApps.map((app) =>
-        updateStatus(
-          {
-            influencer_id: app.influencerId,
-            status: "approved",
-            feedback: "Aprovado pelo usuário",
-            network_id: app.profileId ? Number(app.profileId) : undefined,
-          },
-          {
-            onSuccess: () => {
-              // Sucesso individual
-            },
-            onError: (error: any) => {
-              toast.error(`Erro ao aprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
-            },
-          }
-        )
-      );
-
-      Promise.all(promises).then(() => {
-        setSelectedInfluencers(new Set());
-        setIsBulkActionModalOpen(false);
-        setBulkActionType(null);
-        toast.success(`${selectedApps.length} perfil(is) aprovado(s)`);
-      });
-    }
-  };
-
-  const handleBulkReject = () => {
-    if (bulkRejectionFeedback.trim()) {
-      const selectedApps = currentFilteredList.filter((app) =>
-        selectedInfluencers.has(app.profileKey)
-      );
-
-      // Agrupar por network_id para fazer bulk actions eficientes
-      const appsByNetworkId = new Map<string | number, typeof selectedApps>();
-      selectedApps.forEach((app) => {
-        const networkId = app.profileId || "general";
-        if (!appsByNetworkId.has(networkId)) {
-          appsByNetworkId.set(networkId, []);
-        }
-        appsByNetworkId.get(networkId)!.push(app);
-      });
-
-      // Se todos têm o mesmo network_id, fazer uma única chamada bulk
-      if (appsByNetworkId.size === 1) {
-        const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
-        const influencerIds = apps.map((app) => app.influencerId);
-
-        bulkReject(
-          {
-            influencerIds,
-            feedback: bulkRejectionFeedback,
-            network_id: networkId !== "general" ? Number(networkId) : undefined
-          },
-          {
-            onSuccess: () => {
-              setSelectedInfluencers(new Set());
-              setBulkRejectionFeedback("");
-              setIsBulkActionModalOpen(false);
-              setBulkActionType(null);
-            },
-          }
-        );
-      } else {
-        // Se têm network_ids diferentes, fazer chamadas individuais
-        const promises = selectedApps.map((app) =>
-          updateStatus(
-            {
-              influencer_id: app.influencerId,
-              status: "rejected",
-              feedback: bulkRejectionFeedback,
-              network_id: app.profileId ? Number(app.profileId) : undefined,
-            },
-            {
-              onSuccess: () => {
-                // Sucesso individual
-              },
-              onError: (error: any) => {
-                toast.error(`Erro ao reprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`);
-              },
-            }
-          )
-        );
-
-        Promise.all(promises).then(() => {
-          setSelectedInfluencers(new Set());
-          setBulkRejectionFeedback("");
-          setIsBulkActionModalOpen(false);
-          setBulkActionType(null);
-          toast.success(`${selectedApps.length} perfil(is) reprovado(s)`);
-        });
-      }
-    }
+    );
   };
 
   const handleMoveToCuration = (app: ApplicationWithProfile) => {
@@ -769,12 +428,8 @@ export function ApplicationsTab({
         network_id: app.profileId ? Number(app.profileId) : undefined,
       },
       {
-        onSuccess: () => {
-          toast.success(`${app.profileTypeLabel} movido para curadoria!`);
-        },
-        onError: (error: any) => {
-          toast.error(error?.message || "Erro ao mover influenciador");
-        },
+        onSuccess: () => toast.success(`${app.profileTypeLabel} movido para curadoria!`),
+        onError: (error: Error) => toast.error(error?.message || "Erro ao mover influenciador"),
       }
     );
   };
@@ -783,119 +438,148 @@ export function ApplicationsTab({
     moveToPreSelectionCuration(
       {
         influencerId: app.influencerId,
-        data: {
-          network_id: app.profileId ? Number(app.profileId) : undefined,
-        },
+        data: { network_id: app.profileId ? Number(app.profileId) : undefined },
       },
       {
-        onSuccess: () => {
-          toast.success("Movido para curadoria da pré-seleção!");
-        },
-        onError: (error: any) => {
+        onSuccess: () => toast.success("Movido para curadoria da pré-seleção!"),
+        onError: (error: Error) => toast.error(error?.message || "Erro ao mover para curadoria da pré-seleção"),
+      }
+    );
+  };
+
+  const handleBulkMoveToCuration = () => {
+    const selectedApps = currentFilteredList.filter((app) => selectedInfluencers.has(app.profileKey));
+
+    if (segmentTab === "preselection") {
+      Promise.all(
+        selectedApps.map((app) =>
+          moveToPreSelectionCurationAsync({
+            influencerId: app.influencerId,
+            data: { network_id: app.profileId ? Number(app.profileId) : undefined },
+          })
+        )
+      )
+        .then(() => {
+          clearSelection();
+          setBulkActionType(null);
+          toast.success(
+            selectedApps.length === 1
+              ? "Perfil movido para curadoria da pré-seleção"
+              : `${selectedApps.length} perfil(is) movido(s) para curadoria da pré-seleção`
+          );
+        })
+        .catch((error: Error) => {
           toast.error(error?.message || "Erro ao mover para curadoria da pré-seleção");
-        },
-      }
+        });
+      return;
+    }
+
+    const promises = selectedApps.map((app) =>
+      updateStatus(
+        { influencer_id: app.influencerId, status: "curation", feedback: undefined, network_id: app.profileId ? Number(app.profileId) : undefined },
+        { onError: (error: Error) => toast.error(`Erro ao mover ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`) }
+      )
     );
+    Promise.all(promises).then(() => {
+      clearSelection();
+      setBulkActionType(null);
+      toast.success(`${selectedApps.length} perfil(is) movido(s) para curadoria`);
+    });
   };
 
-  const handleApprove = (app: ApplicationWithProfile) => {
-    updateStatus(
-      {
-        influencer_id: app.influencerId,
-        status: "approved",
-        feedback: "Aprovado pelo usuário",
-        network_id: app.profileId ? Number(app.profileId) : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${app.profileTypeLabel} aprovado com sucesso!`);
-        },
-        onError: (error: any) => {
-          toast.error(error?.message || "Erro ao aprovar influenciador");
-        },
-      }
-    );
-  };
+  const handleBulkApprove = () => {
+    const selectedApps = currentFilteredList.filter((app) => selectedInfluencers.has(app.profileKey));
+    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
+    selectedApps.forEach((app) => {
+      const key = app.profileId || "general";
+      if (!appsByNetworkId.has(key)) appsByNetworkId.set(key, []);
+      appsByNetworkId.get(key)!.push(app);
+    });
 
-  const handleReject = (app: ApplicationWithProfile) => {
-    // Encontrar o influenciador correspondente (inscrições orgânicas ou pré-seleção)
-    const influencer =
-      organicInfluencers.find((inf) => String(inf.id) === String(app.influencerId)) ??
-      preSelectionInfluencers.find((inf) => String(inf.id) === String(app.influencerId));
-    if (influencer) {
-      setSelectedInfluencer(influencer);
-      setIsRejectModalOpen(true);
+    if (appsByNetworkId.size === 1) {
+      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
+      bulkApprove(
+        { influencerIds: apps.map((a) => a.influencerId), network_id: networkId !== "general" ? Number(networkId) : undefined },
+        { onSuccess: () => { clearSelection(); setBulkActionType(null); } }
+      );
+    } else {
+      const promises = selectedApps.map((app) =>
+        updateStatus(
+          { influencer_id: app.influencerId, status: "approved", feedback: "Aprovado pelo usuário", network_id: app.profileId ? Number(app.profileId) : undefined },
+          { onError: (error: Error) => toast.error(`Erro ao aprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`) }
+        )
+      );
+      Promise.all(promises).then(() => {
+        clearSelection();
+        setBulkActionType(null);
+        toast.success(`${selectedApps.length} perfil(is) aprovado(s)`);
+      });
     }
   };
 
-  const handleConfirmRejection = () => {
-    if (selectedInfluencer && rejectionFeedback.trim()) {
-      // Encontrar o perfil selecionado para obter o network_id
-      const selectedApp = filteredApplications.find(
-        (app) => app.influencerId === selectedInfluencer.id
-      );
+  const handleBulkReject = () => {
+    if (!bulkRejectionFeedback.trim()) return;
+    const selectedApps = currentFilteredList.filter((app) => selectedInfluencers.has(app.profileKey));
+    const appsByNetworkId = new Map<string | number, typeof selectedApps>();
+    selectedApps.forEach((app) => {
+      const key = app.profileId || "general";
+      if (!appsByNetworkId.has(key)) appsByNetworkId.set(key, []);
+      appsByNetworkId.get(key)!.push(app);
+    });
 
-      updateStatus(
-        {
-          influencer_id: selectedInfluencer.id,
-          status: "rejected",
-          feedback: rejectionFeedback,
-          network_id: selectedApp?.profileId ? Number(selectedApp.profileId) : undefined,
-        },
+    if (appsByNetworkId.size === 1) {
+      const [networkId, apps] = Array.from(appsByNetworkId.entries())[0];
+      bulkReject(
+        { influencerIds: apps.map((a) => a.influencerId), feedback: bulkRejectionFeedback, network_id: networkId !== "general" ? Number(networkId) : undefined },
         {
           onSuccess: () => {
-            toast.success("Influenciador reprovado");
-            setIsRejectModalOpen(false);
-            setSelectedInfluencer(null);
-            setRejectionFeedback("");
-          },
-          onError: (error: any) => {
-            toast.error(error?.message || "Erro ao reprovar influenciador");
+            clearSelection();
+            setBulkRejectionFeedback("");
+            setBulkActionType(null);
           },
         }
       );
+    } else {
+      const promises = selectedApps.map((app) =>
+        updateStatus(
+          { influencer_id: app.influencerId, status: "rejected", feedback: bulkRejectionFeedback, network_id: app.profileId ? Number(app.profileId) : undefined },
+          { onError: (error: Error) => toast.error(`Erro ao reprovar ${app.profileTypeLabel}: ${error?.message || "Erro desconhecido"}`) }
+        )
+      );
+      Promise.all(promises).then(() => {
+        clearSelection();
+        setBulkRejectionFeedback("");
+        setBulkActionType(null);
+        toast.success(`${selectedApps.length} perfil(is) reprovado(s)`);
+      });
     }
   };
 
-  const handleBulkAction = () => {
-    if (bulkActionType === "curation") {
-      handleBulkMoveToCuration();
-    } else if (bulkActionType === "approve") {
-      handleBulkApprove();
-    } else if (bulkActionType === "reject") {
-      handleBulkReject();
-    }
+  const handleBulkConfirm = () => {
+    if (bulkActionType === "curation") handleBulkMoveToCuration();
+    else if (bulkActionType === "approve") handleBulkApprove();
+    else if (bulkActionType === "reject") handleBulkReject();
   };
 
   const organicCount = applicationsWithProfiles.length;
   const preselectionCount = preselectionsWithProfiles.length;
 
-  if (tabLoading) {
-    return <ApplicationsTabSkeleton />;
-  }
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (tabLoading) return <ApplicationsTabSkeleton />;
 
   if (tabError) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-neutral-950">
-            Inscrições na campanha
-          </h2>
+          <h2 className="text-2xl font-semibold text-neutral-950">Inscrições na campanha</h2>
           <p className="text-base text-neutral-500">
             Acompanhe quem se inscreveu pelo descobrir, revise os perfis e aprove ou recuse para avançar na seleção.
           </p>
         </div>
         <div className="flex flex-col gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-4 text-danger-900">
           <p className="text-sm">{tabErrorMessage}</p>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-max"
-            onClick={() => {
-              void applicationsQuery.refetch();
-              void preSelectionQuery.refetch();
-            }}
-          >
+          <Button type="button" variant="outline" className="w-max" onClick={() => { void applicationsQuery.refetch(); void preSelectionQuery.refetch(); }}>
             Tentar novamente
           </Button>
         </div>
@@ -906,91 +590,59 @@ export function ApplicationsTab({
   return (
     <>
       <div className="flex flex-col gap-6">
-        {/* Título e descrição (Figma) */}
+        {/* Título */}
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-neutral-950">
-            Inscrições na campanha
-          </h2>
+          <h2 className="text-2xl font-semibold text-neutral-950">Inscrições na campanha</h2>
           <p className="text-base text-neutral-500">
             Acompanhe quem se inscreveu pelo descobrir, revise os perfis e aprove ou recuse para avançar na seleção.
           </p>
         </div>
 
-        {/* Segment: Inscrições Orgânicas | Pré-seleções Enviadas (Figma) */}
+        {/* Segment tabs */}
         <div>
           <div className="bg-white rounded-lg rounded-b-none p-1 flex w-full max-w-md">
             <div className="flex gap-1 bg-[#F0F0F0] w-full p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setSegmentTab("organic")}
-                className={`flex-1 py-2.5 px-5 rounded-md border text-sm font-medium transition-colors cursor-pointer ${segmentTab === "organic"
-                  ? "bg-white text-neutral-950 border-neutral-300 shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700 border-transparent"
-                  }`}
-              >
-                Inscrições Orgânicas ({organicCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSegmentTab("preselection")}
-                className={`flex-1 py-2.5 px-5 rounded-md border text-sm font-medium transition-colors cursor-pointer ${segmentTab === "preselection"
-                  ? "bg-white text-neutral-950 border-neutral-300 shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700 border-transparent"
-                  }`}
-              >
-                Pré-seleções Enviadas ({preselectionCount})
-              </button>
+              {(["organic", "preselection"] as const).map((seg) => {
+                const labels = { organic: `Inscrições Orgânicas (${organicCount})`, preselection: `Pré-seleções Enviadas (${preselectionCount})` };
+                return (
+                  <button
+                    key={seg}
+                    type="button"
+                    onClick={() => markSegmentSeen(seg)}
+                    className={`flex-1 py-2.5 px-5 rounded-md border text-sm font-medium transition-colors cursor-pointer ${
+                      segmentTab === seg
+                        ? "bg-white text-neutral-950 border-neutral-300 shadow-sm"
+                        : "text-neutral-500 hover:text-neutral-700 border-transparent"
+                    }`}
+                  >
+                    {labels[seg]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div className="bg-white rounded-xl rounded-tl-none p-6">
-            {/* Toolbar: seleção em massa só em Inscrições Orgânicas */}
+            {/* Toolbar de seleção em massa (só orgânicas) */}
             {segmentTab === "organic" && (
               <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={
-                      selectedInfluencers.size === currentFilteredList.length &&
-                      currentFilteredList.length > 0
-                    }
-                    onCheckedChange={handleSelectAll}
-                  />
+                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                   <label className="text-sm font-medium text-neutral-950 cursor-pointer">
                     Selecionar todos ({currentFilteredList.length})
                   </label>
                 </div>
                 {selectedInfluencers.size > 0 && (
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setBulkActionType("curation");
-                        setIsBulkActionModalOpen(true);
-                      }}
-                      className="h-11 rounded-full font-semibold"
-                    >
+                    <Button variant="outline" onClick={() => setBulkActionType("curation")} className="h-11 rounded-full font-semibold">
                       <Icon name="ArrowRight" color="#404040" size={16} className="mr-2" />
                       Mover para Curadoria
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setBulkActionType("approve");
-                        setIsBulkActionModalOpen(true);
-                      }}
-                      className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50"
-                    >
+                    <Button variant="outline" onClick={() => setBulkActionType("approve")} className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50">
                       <Icon name="Check" color="#16a34a" size={16} className="mr-2" />
                       Aprovar selecionados
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setBulkActionType("reject");
-                        setIsBulkActionModalOpen(true);
-                      }}
-                      className="h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50"
-                    >
+                    <Button variant="outline" onClick={() => setBulkActionType("reject")} className="h-11 rounded-full font-semibold text-danger-600 border-danger-200 hover:bg-danger-50">
                       <Icon name="X" color="#dc2626" size={16} className="mr-2" />
                       Reprovar selecionados
                     </Button>
@@ -999,7 +651,7 @@ export function ApplicationsTab({
               </div>
             )}
 
-            {/* Filtros — uma linha (Figma) */}
+            {/* Filtros */}
             <div className="flex flex-wrap items-end gap-3 mb-6">
               <div className="flex-1 min-w-[200px] flex flex-col gap-1">
                 <label className="text-base font-medium text-neutral-950">Buscar por nome</label>
@@ -1026,101 +678,68 @@ export function ApplicationsTab({
               </div>
               <div className="flex-1 min-w-[120px] flex flex-col gap-1">
                 <label className="text-base font-medium text-neutral-950">Seguidores (mín)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={filterFollowersMin}
-                  onChange={(e) => setFilterFollowersMin(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0"
-                />
+                <input type="number" placeholder="0" value={filterFollowersMin} onChange={(e) => setFilterFollowersMin(e.target.value)} className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0" />
               </div>
               <div className="flex-1 min-w-[120px] flex flex-col gap-1">
                 <label className="text-base font-medium text-neutral-950">Seguidores (máx)</label>
-                <input
-                  type="number"
-                  placeholder="∞"
-                  value={filterFollowersMax}
-                  onChange={(e) => setFilterFollowersMax(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0"
-                />
+                <input type="number" placeholder="∞" value={filterFollowersMax} onChange={(e) => setFilterFollowersMax(e.target.value)} className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0" />
               </div>
               <div className="flex-1 min-w-[120px] flex flex-col gap-1">
                 <label className="text-base font-medium text-neutral-950">Engajamento (mín)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={filterEngagementMin}
-                  onChange={(e) => setFilterEngagementMin(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0"
-                />
+                <input type="number" placeholder="0" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0" />
               </div>
               <div className="flex-1 min-w-[120px] flex flex-col gap-1">
                 <label className="text-base font-medium text-neutral-950">Engajamento (máx)</label>
-                <input
-                  type="number"
-                  placeholder="100"
-                  value={filterEngagementMax}
-                  onChange={(e) => setFilterEngagementMax(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0"
-                />
+                <input type="number" placeholder="100" value={filterEngagementMax} onChange={(e) => setFilterEngagementMax(e.target.value)} className="w-full bg-neutral-100 rounded-full px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 outline-none border-0" />
               </div>
             </div>
 
+            {/* Grid de cards */}
             {segmentTab === "organic" && applicationsWithProfiles.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Users" color="#A3A3A3" size={48} />
-                <p className="text-neutral-600 mt-4">
-                  Nenhuma inscrição no momento
-                </p>
+                <p className="text-neutral-600 mt-4">Nenhuma inscrição no momento</p>
               </div>
             ) : segmentTab === "preselection" && preselectionsWithProfiles.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Send" color="#A3A3A3" size={48} />
-                <p className="text-neutral-600 mt-4">
-                  Nenhuma pré-seleção enviada
-                </p>
+                <p className="text-neutral-600 mt-4">Nenhuma pré-seleção enviada</p>
               </div>
             ) : currentFilteredList.length === 0 ? (
               <div className="text-center py-12">
                 <Icon name="Search" color="#A3A3A3" size={48} />
-                <p className="text-neutral-600 mt-4">
-                  Nenhum perfil encontrado com os filtros aplicados
-                </p>
+                <p className="text-neutral-600 mt-4">Nenhum perfil encontrado com os filtros aplicados</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentFilteredList.map((app) => {
-                  const nicheName = resolveNicheDisplayName(
-                    app.influencerNiche,
-                    niches,
-                    app.influencerNicheName,
-                  );
+                  const nicheName = resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName);
+                  const sentAtLabel = app.sentAt
+                    ? `Enviado em: ${new Date(app.sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })}`
+                    : "Enviado em: —";
+                  const isPreselection = segmentTab === "preselection";
+                  const actionLoading = isPreselection
+                    ? isUpdatingStatus || isMovingToPreSelectionCuration
+                    : isUpdatingStatus;
+
                   return (
-                    <ApplicationCard
+                    <InfluencerProfileCard
                       key={app.profileKey}
-                      app={app}
+                      data={app}
                       nicheName={nicheName}
                       isSelected={selectedInfluencers.has(app.profileKey)}
-                      isUpdatingStatus={
-                        segmentTab === "preselection"
-                          ? isUpdatingStatus || isMovingToPreSelectionCuration
-                          : isUpdatingStatus
-                      }
-                      onSelect={() => handleSelectApplication(app.profileKey)}
-                      onApprove={() => handleApprove(app)}
-                      onReject={() => handleReject(app)}
+                      isActionLoading={actionLoading}
+                      metaLabel={sentAtLabel}
+                      selectable={!isPreselection}
+                      onSelect={!isPreselection ? () => handleSelectApplication(app.profileKey) : undefined}
+                      onApprove={!isPreselection ? () => handleApprove(app) : undefined}
+                      onReject={!isPreselection ? () => handleReject(app) : undefined}
                       onMoveToCuration={
-                        segmentTab === "preselection"
+                        isPreselection
                           ? () => handleMoveToPreSelectionCuration(app)
                           : () => handleMoveToCuration(app)
                       }
-                      onViewPhases={() =>
-                        navigate({
-                          to: "/influencer/$influencerId",
-                          params: { influencerId: app.influencerId },
-                        })
-                      }
-                      hideWorkflowActions={segmentTab === "preselection"}
+                      onViewProfile={() => navigate({ to: "/influencer/$influencerId", params: { influencerId: app.influencerId } })}
                     />
                   );
                 })}
@@ -1130,100 +749,27 @@ export function ApplicationsTab({
         </div>
       </div>
 
-      {/* Modal de reprovação */}
-      {selectedInfluencer && isRejectModalOpen && (
-        <Modal
-          title="Reprovar influenciador"
-          onClose={() => {
-            setIsRejectModalOpen(false);
-            setSelectedInfluencer(null);
-            setRejectionFeedback("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <Avatar
-                src={selectedInfluencer.avatar}
-                alt={selectedInfluencer.name}
-                size="lg"
-              />
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedInfluencer.name}
-                </h3>
-                <p className="text-neutral-600">
-                  @{selectedInfluencer.username}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-danger-50 rounded-2xl p-4">
-              <p className="text-sm text-danger-900">
-                O feedback é obrigatório ao reprovar um influenciador. Ele será
-                enviado ao influenciador para que possa entender o motivo da
-                reprovação.
-              </p>
-            </div>
-
-            <Textarea
-              label="Feedback de reprovação"
-              placeholder="Explique o motivo da reprovação..."
-              value={rejectionFeedback}
-              onChange={(e) => setRejectionFeedback(e.target.value)}
-              error={
-                !rejectionFeedback.trim()
-                  ? "Este campo é obrigatório"
-                  : undefined
-              }
-            />
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsRejectModalOpen(false);
-                  setSelectedInfluencer(null);
-                  setRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleConfirmRejection}
-                disabled={!rejectionFeedback.trim()}
-                className="flex-1"
-              >
-                Confirmar reprovação
-              </Button>
-            </div>
-          </div>
-        </Modal>
+      {/* Modal de reprovação individual */}
+      {rejectTarget && (
+        <RejectionModal
+          influencer={rejectTarget}
+          onConfirm={handleConfirmRejection}
+          onClose={() => setRejectTarget(null)}
+        />
       )}
 
       {/* Modal de visualização de redes sociais */}
       {isProfileModalOpen && selectedProfileInfluencer && (
         <Modal
           title={`Redes Sociais - ${selectedProfileInfluencer.name}`}
-          onClose={() => {
-            setIsProfileModalOpen(false);
-            setSelectedProfileInfluencer(null);
-          }}
+          onClose={() => { setIsProfileModalOpen(false); setSelectedProfileInfluencer(null); }}
         >
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
-              <Avatar
-                src={selectedProfileInfluencer.avatar}
-                alt={selectedProfileInfluencer.name}
-                size="lg"
-              />
+              <Avatar src={selectedProfileInfluencer.avatar} alt={selectedProfileInfluencer.name} size="lg" />
               <div>
-                <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.name}
-                </h3>
-                <p className="text-neutral-600">
-                  @{selectedProfileInfluencer.username}
-                </p>
+                <h3 className="text-lg font-semibold text-neutral-950">{selectedProfileInfluencer.name}</h3>
+                <p className="text-neutral-600">@{selectedProfileInfluencer.username}</p>
               </div>
             </div>
 
@@ -1235,46 +781,20 @@ export function ApplicationsTab({
                 <div className="bg-neutral-50 rounded-2xl p-4">
                   <div className="flex flex-col gap-3">
                     {selectedProfileInfluencer.social_networks.map((network) => (
-                      <div
-                        key={network.id}
-                        className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200"
-                      >
+                      <div key={network.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
                         <div className="flex items-center gap-3">
-                          <SocialNetworkIcon
-                            networkType={network.type}
-                            size={20}
-                            color="#404040"
-                          />
+                          <SocialNetworkIcon networkType={network.type} size={20} color="#404040" />
                           <div>
                             <p className="text-sm font-semibold text-neutral-950">
-                              {(() => {
-                                const networkLabels: { [key: string]: string } = {
-                                  instagram: "Instagram",
-                                  tiktok: "TikTok",
-                                  youtube: "YouTube",
-                                  facebook: "Facebook",
-                                  twitter: "Twitter",
-                                };
-                                return networkLabels[network.type?.toLowerCase() || ""] || network.name || network.type;
-                              })()}
+                              {getNetworkLabel(network.type, network.name || network.type)}
                             </p>
-                            {network.username && (
-                              <p className="text-xs text-neutral-600">
-                                @{network.username}
-                              </p>
-                            )}
-                            {network.name && network.name !== network.username && (
-                              <p className="text-xs text-neutral-600">
-                                {network.name}
-                              </p>
-                            )}
+                            {network.username && <p className="text-xs text-neutral-600">@{network.username}</p>}
+                            {network.name && network.name !== network.username && <p className="text-xs text-neutral-600">{network.name}</p>}
                           </div>
                         </div>
                         {network.members !== undefined && network.members > 0 && (
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-neutral-950">
-                              {network.members.toLocaleString("pt-BR")}
-                            </p>
+                            <p className="text-sm font-semibold text-neutral-950">{network.members.toLocaleString("pt-BR")}</p>
                             <p className="text-xs text-neutral-600">seguidores</p>
                           </div>
                         )}
@@ -1285,9 +805,7 @@ export function ApplicationsTab({
               </div>
             ) : (
               <div className="bg-neutral-50 rounded-2xl p-4 text-center">
-                <p className="text-sm text-neutral-600">
-                  Nenhuma rede social cadastrada
-                </p>
+                <p className="text-sm text-neutral-600">Nenhuma rede social cadastrada</p>
               </div>
             )}
 
@@ -1300,20 +818,12 @@ export function ApplicationsTab({
               </div>
               <div>
                 <p className="text-sm text-neutral-600 mb-1">Engajamento</p>
-                <p className="text-lg font-semibold text-neutral-950">
-                  {selectedProfileInfluencer.engagement}%
-                </p>
+                <p className="text-lg font-semibold text-neutral-950">{selectedProfileInfluencer.engagement}%</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm text-neutral-600 mb-1">Nicho</p>
                 <Badge
-                  text={
-                    resolveNicheDisplayName(
-                      selectedProfileInfluencer.niche,
-                      niches,
-                      selectedProfileInfluencer.nicheName,
-                    ) ?? "-"
-                  }
+                  text={resolveNicheDisplayName(selectedProfileInfluencer.niche, niches, selectedProfileInfluencer.nicheName) ?? "-"}
                   backgroundColor="bg-tertiary-50"
                   textColor="text-tertiary-900"
                 />
@@ -1322,10 +832,7 @@ export function ApplicationsTab({
 
             <Button
               variant="outline"
-              onClick={() => {
-                setIsProfileModalOpen(false);
-                setSelectedProfileInfluencer(null);
-              }}
+              onClick={() => { setIsProfileModalOpen(false); setSelectedProfileInfluencer(null); }}
               className="w-full"
             >
               Fechar
@@ -1335,84 +842,15 @@ export function ApplicationsTab({
       )}
 
       {/* Modal de ação em massa */}
-      {isBulkActionModalOpen && bulkActionType && (
-        <Modal
-          title={
-            bulkActionType === "curation"
-              ? "Mover influenciadores para curadoria"
-              : bulkActionType === "approve"
-                ? "Aprovar influenciadores selecionados"
-                : "Reprovar influenciadores selecionados"
-          }
-          onClose={() => {
-            setIsBulkActionModalOpen(false);
-            setBulkActionType(null);
-            setBulkRejectionFeedback("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <p className="text-sm text-neutral-600">
-              {bulkActionType === "curation"
-                ? `Você está prestes a mover ${selectedInfluencers.size} influenciador(es) para curadoria.`
-                : bulkActionType === "approve"
-                  ? `Você está prestes a aprovar ${selectedInfluencers.size} influenciador(es).`
-                  : `Você está prestes a reprovar ${selectedInfluencers.size} influenciador(es).`}
-            </p>
-
-            {bulkActionType === "reject" && (
-              <>
-                <div className="bg-danger-50 rounded-2xl p-4">
-                  <p className="text-sm text-danger-900">
-                    O feedback é obrigatório ao reprovar influenciadores em
-                    massa. Ele será enviado a todos os influenciadores
-                    selecionados.
-                  </p>
-                </div>
-                <Textarea
-                  label="Feedback de reprovação"
-                  placeholder="Explique o motivo da reprovação..."
-                  value={bulkRejectionFeedback}
-                  onChange={(e) => setBulkRejectionFeedback(e.target.value)}
-                  error={
-                    !bulkRejectionFeedback.trim()
-                      ? "Este campo é obrigatório"
-                      : undefined
-                  }
-                />
-              </>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsBulkActionModalOpen(false);
-                  setBulkActionType(null);
-                  setBulkRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleBulkAction}
-                disabled={
-                  (bulkActionType === "reject" &&
-                    !bulkRejectionFeedback.trim()) ||
-                  isApproving ||
-                  isRejecting ||
-                  isUpdatingStatus
-                }
-                className="flex-1"
-              >
-                {isApproving || isRejecting || isUpdatingStatus
-                  ? "Processando..."
-                  : "Confirmar"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <BulkActionModal
+        actionType={bulkActionType}
+        count={selectedInfluencers.size}
+        rejectionFeedback={bulkRejectionFeedback}
+        onRejectionFeedbackChange={setBulkRejectionFeedback}
+        onConfirm={handleBulkConfirm}
+        onClose={() => { setBulkActionType(null); setBulkRejectionFeedback(""); }}
+        isLoading={isApproving || isRejecting || isUpdatingStatus}
+      />
     </>
   );
 }

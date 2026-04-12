@@ -3,27 +3,16 @@ import { icons } from "lucide-react";
 
 import { SidebarItem } from "@/components/sidebar-item";
 import { SidebarUserMenu } from "@/components/sidebar-user-menu";
+import { useWorkspacePermissions } from "@/contexts/workspace-context";
 
 import hypeappLogo from "@/assets/images/hypeapp-logo.png";
-
-const menus = [
-  {
-    label: "Dashboard",
-    icon: "LayoutDashboard",
-    href: "/",
-  },
-  {
-    label: "Campanhas",
-    icon: "Megaphone",
-    href: "/campaigns",
-  },
-];
 
 const SIDEBAR_NARROW_WIDTH = 140;
 
 export function Sidebar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isNarrow, setIsNarrow] = useState(false);
+  const permissions = useWorkspacePermissions();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -35,6 +24,23 @@ export function Sidebar() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const menus = [
+    {
+      label: "Dashboard",
+      icon: "LayoutDashboard" as keyof typeof icons,
+      href: "/",
+      visible: true,
+    },
+    {
+      label: "Campanhas",
+      icon: "Megaphone" as keyof typeof icons,
+      href: "/campaigns",
+      visible: permissions.campaigns_read,
+    },
+  ];
+
+  const visibleMenus = menus.filter((m) => m.visible);
 
   return (
     <div
@@ -51,11 +57,11 @@ export function Sidebar() {
 
       <nav className="flex-1 min-h-0">
         <ul className="flex flex-col gap-2">
-          {menus.map((menu) => (
+          {visibleMenus.map((menu) => (
             <SidebarItem
               key={menu.label}
               href={menu.href}
-              icon={menu.icon as keyof typeof icons}
+              icon={menu.icon}
               label={menu.label}
               compact={isNarrow}
             />

@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Avatar } from "@/components/ui/avatar";
 import { useCampaigns } from "@/hooks/use-campaigns";
-import { useWorkspaceContext } from "@/contexts/workspace-context";
+import { useWorkspaceContext, useWorkspacePermissions } from "@/contexts/workspace-context";
 import { getUploadUrl } from "@/lib/utils/api";
 import { getCampaignStatusValue } from "@/shared/utils/campaign-status";
 
@@ -31,6 +31,7 @@ function RouteComponent() {
     selectWorkspace,
   } = useWorkspaceContext();
 
+  const permissions = useWorkspacePermissions();
   const hasWorkspace = !!selectedWorkspace;
   const { data: campaignsData = [], isLoading, error } = useCampaigns({
     enabled: hasWorkspace,
@@ -268,14 +269,16 @@ function RouteComponent() {
               />
             </div>
 
-            <Link
-              to="/campaigns/new"
-              params={{}}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
-            >
-              <Icon name="Plus" color="#FAFAFA" size={16} />
-              <span className="font-semibold">Criar campanha</span>
-            </Link>
+            {permissions.campaigns_create && (
+              <Link
+                to="/campaigns/new"
+                params={{}}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
+              >
+                <Icon name="Plus" color="#FAFAFA" size={16} />
+                <span className="font-semibold">Criar campanha</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -307,13 +310,15 @@ function RouteComponent() {
                   {emptyMessageByFilter.description}
                 </span>
               </div>
-              <Link
-                to="/campaigns/new"
-                params={{}}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
-              >
-                Criar campanha
-              </Link>
+              {permissions.campaigns_create && (
+                <Link
+                  to="/campaigns/new"
+                  params={{}}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary-600 px-6 font-medium text-sm text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 outline-none"
+                >
+                  Criar campanha
+                </Link>
+              )}
             </div>
           </div>
         )}

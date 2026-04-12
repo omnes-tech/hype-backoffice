@@ -1,24 +1,26 @@
 import { useState, useMemo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
-import { Modal } from "@/components/ui/modal";
-import { Avatar } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/text-area";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
-import type { CampaignScript, CampaignPhase } from "@/shared/types";
+import type { CampaignScript, RawCampaignScriptResponse, CampaignPhase } from "@/shared/types";
 import { useCampaignScripts } from "@/hooks/use-campaign-scripts";
 import { useApproveScript, useRejectScript } from "@/hooks/use-campaign-scripts";
 import { useBulkScriptActions } from "@/hooks/use-bulk-script-actions";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import {
   getSocialNetworkDisplayLabel,
   SocialNetworkCornerBadge,
   SocialNetworkIcon,
 } from "@/components/social-network-icon";
+import { RejectionModal } from "./shared/rejection-modal";
+import { BulkActionModal } from "./shared/bulk-action-modal";
+import { FilterPanel } from "./shared/filter-panel";
 
 interface ScriptApprovalTabProps {
   campaignPhases?: CampaignPhase[];
@@ -31,14 +33,12 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("pending");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [searchInfluencer, setSearchInfluencer] = useState("");
+  const debouncedSearch = useDebounce(searchInfluencer, 350);
 
   // Estados de UI
   const [selectedScript, setSelectedScript] = useState<CampaignScript | null>(null);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<CampaignScript | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [rejectionFeedback, setRejectionFeedback] = useState("");
-  const [selectedScripts, setSelectedScripts] = useState<Set<string>>(new Set());
-  const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
 
@@ -66,7 +66,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
 
   // Normalizar roteiros conforme formato da API
   const normalizedScripts = useMemo(() => {
-    return scripts.map((script: any) => ({
+    return scripts.map((script: RawCampaignScriptResponse) => ({
       id: script.id,
       campaign_id: script.campaign_id,
       influencer_id: script.influencer_id,
@@ -124,15 +124,15 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     }
 
     // Filtro por busca de influenciador
-    if (searchInfluencer) {
-      const searchLower = searchInfluencer.toLowerCase();
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
       filtered = filtered.filter((script) =>
         (script.influencerName || script.influencer_name || "").toLowerCase().includes(searchLower)
       );
     }
 
     return filtered;
-  }, [normalizedScripts, selectedPhaseFilter, selectedStatusFilter, searchInfluencer]);
+  }, [normalizedScripts, selectedPhaseFilter, selectedStatusFilter, debouncedSearch]);
 
   // Hooks para mutations
   const { mutate: approveScript, isPending: isApproving } = useApproveScript(campaignId || "");
@@ -144,6 +144,15 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
     isRejecting: isBulkRejecting,
   } = useBulkScriptActions({ campaignId: campaignId || "" });
 
+  const filteredScriptIds = useMemo(() => filteredScripts.map((s) => s.id), [filteredScripts]);
+  const {
+    selected: selectedScripts,
+    toggle: handleSelectScript,
+    toggleAll: handleSelectAll,
+    clear: clearSelectedScripts,
+    isAllSelected: isAllScriptsSelected,
+  } = useBulkSelection(filteredScriptIds);
+
   const handleApprove = (script: CampaignScript) => {
     approveScript(
       { script_id: script.id },
@@ -152,7 +161,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
           toast.success("Roteiro aprovado com sucesso!");
           refetchScripts();
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao aprovar roteiro");
         },
       }
@@ -160,57 +169,24 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
   };
 
   const handleReject = (script: CampaignScript) => {
-    setSelectedScript(script);
-    setIsRejectModalOpen(true);
-    setRejectionFeedback("");
+    setRejectTarget(script);
   };
 
-  const handleConfirmRejection = () => {
-    if (!selectedScript) return;
-
-    if (!rejectionFeedback.trim()) {
-      toast.error("Feedback é obrigatório para rejeição");
-      return;
-    }
-
+  const handleConfirmRejection = (feedback: string) => {
+    if (!rejectTarget) return;
     rejectScript(
-      {
-        script_id: selectedScript.id,
-        feedback: rejectionFeedback,
-      },
+      { script_id: rejectTarget.id, feedback },
       {
         onSuccess: () => {
           toast.success("Roteiro rejeitado com sucesso!");
-          setIsRejectModalOpen(false);
-          setSelectedScript(null);
-          setRejectionFeedback("");
+          setRejectTarget(null);
           refetchScripts();
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao rejeitar roteiro");
         },
       }
     );
-  };
-
-  const handleSelectScript = (scriptId: string) => {
-    setSelectedScripts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(scriptId)) {
-        newSet.delete(scriptId);
-      } else {
-        newSet.add(scriptId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedScripts.size === filteredScripts.length) {
-      setSelectedScripts(new Set());
-    } else {
-      setSelectedScripts(new Set(filteredScripts.map((s) => s.id)));
-    }
   };
 
   const handleBulkApprove = () => {
@@ -222,8 +198,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
 
     bulkApprove(scriptIds, {
       onSuccess: () => {
-        setSelectedScripts(new Set());
-        setIsBulkActionModalOpen(false);
+        clearSelectedScripts();
         setBulkActionType(null);
         refetchScripts();
       },
@@ -246,9 +221,8 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
       { scriptIds, feedback: bulkRejectionFeedback },
       {
         onSuccess: () => {
-          setSelectedScripts(new Set());
+          clearSelectedScripts();
           setBulkRejectionFeedback("");
-          setIsBulkActionModalOpen(false);
           setBulkActionType(null);
           refetchScripts();
         },
@@ -339,26 +313,13 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
           </p>
         </div>
 
-        {/* Card 1: Buscar influenciador + Fases - alinhado ao Figma */}
-        <div className="bg-white rounded-[12px] p-5 flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Buscar influenciador"
-              placeholder="Nome ou @username"
-              value={searchInfluencer}
-              onChange={(e) => setSearchInfluencer(e.target.value)}
-            />
-          </div>
-          <div className="w-full sm:w-[258px]">
-            <Select
-              label="Fases"
-              placeholder="Todas as fases"
-              options={phaseOptions}
-              value={selectedPhaseFilter}
-              onChange={setSelectedPhaseFilter}
-            />
-          </div>
-        </div>
+        <FilterPanel
+          search={searchInfluencer}
+          onSearchChange={setSearchInfluencer}
+          phaseOptions={phaseOptions}
+          selectedPhase={selectedPhaseFilter}
+          onPhaseChange={setSelectedPhaseFilter}
+        />
 
         {/* Card 2: Status pills + lista de roteiros */}
         <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
@@ -391,10 +352,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-1">
                 <Checkbox
-                  checked={
-                    filteredScripts.length > 0 &&
-                    selectedScripts.size === filteredScripts.length
-                  }
+                  checked={isAllScriptsSelected}
                   onCheckedChange={handleSelectAll}
                   className="rounded-[4px] border-[#c8c8c8] bg-[#f5f5f5] size-6"
                 />
@@ -407,7 +365,6 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                 onClick={() => {
                   if (selectedScripts.size > 0) {
                     setBulkActionType("approve");
-                    setIsBulkActionModalOpen(true);
                   } else {
                     toast.error("Selecione pelo menos um roteiro");
                   }
@@ -768,151 +725,29 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
         </Modal>
       )}
 
-      {/* Modal de reprovação */}
-      {selectedScript && isRejectModalOpen && (
-        <Modal
-          title="Reprovar roteiro"
-          onClose={() => {
-            setIsRejectModalOpen(false);
-            setSelectedScript(null);
-            setRejectionFeedback("");
+      {/* Modal de reprovação individual */}
+      {rejectTarget && (
+        <RejectionModal
+          influencer={{
+            id: rejectTarget.id,
+            name: rejectTarget.influencerName || rejectTarget.influencer_name || "Sem nome",
+            avatar: rejectTarget.influencerAvatar || "",
           }}
-        >
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <Avatar
-                src={selectedScript.influencerAvatar || ""}
-                alt={selectedScript.influencerName || selectedScript.influencer_name || ""}
-                size="lg"
-              />
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-950">
-                  {selectedScript.influencerName || selectedScript.influencer_name || "Sem nome"}
-                </h3>
-              </div>
-            </div>
-
-            <div className="bg-danger-50 rounded-2xl p-4">
-              <p className="text-sm text-danger-900">
-                O feedback é obrigatório ao reprovar um roteiro. Ele será enviado
-                ao influenciador para que possa entender o motivo da reprovação.
-              </p>
-            </div>
-
-            <Textarea
-              label="Feedback de reprovação"
-              placeholder="Explique o motivo da reprovação..."
-              value={rejectionFeedback}
-              onChange={(e) => setRejectionFeedback(e.target.value)}
-              error={
-                !rejectionFeedback.trim()
-                  ? "Este campo é obrigatório"
-                  : undefined
-              }
-            />
-
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsRejectModalOpen(false);
-                  setSelectedScript(null);
-                  setRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleConfirmRejection}
-                disabled={!rejectionFeedback.trim() || isRejecting}
-                className="flex-1"
-              >
-                {isRejecting ? "Processando..." : "Confirmar reprovação"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          onConfirm={handleConfirmRejection}
+          onClose={() => setRejectTarget(null)}
+        />
       )}
 
       {/* Modal de ação em massa */}
-      {isBulkActionModalOpen && bulkActionType && (
-        <Modal
-          title={
-            bulkActionType === "approve"
-              ? "Aprovar roteiros selecionados"
-              : "Reprovar roteiros selecionados"
-          }
-          onClose={() => {
-            setIsBulkActionModalOpen(false);
-            setBulkActionType(null);
-            setBulkRejectionFeedback("");
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <p className="text-sm text-neutral-600">
-              {bulkActionType === "approve"
-                ? `Você está prestes a aprovar ${selectedScripts.size} roteiro(s).`
-                : `Você está prestes a reprovar ${selectedScripts.size} roteiro(s).`}
-            </p>
-
-            {bulkActionType === "reject" && (
-              <>
-                <div className="bg-danger-50 rounded-2xl p-4">
-                  <p className="text-sm text-danger-900">
-                    O feedback é obrigatório ao reprovar roteiros em massa. Ele
-                    será enviado a todos os influenciadores selecionados.
-                  </p>
-                </div>
-                <Textarea
-                  label="Feedback de reprovação"
-                  placeholder="Explique o motivo da reprovação..."
-                  value={bulkRejectionFeedback}
-                  onChange={(e) => setBulkRejectionFeedback(e.target.value)}
-                  error={
-                    !bulkRejectionFeedback.trim()
-                      ? "Este campo é obrigatório"
-                      : undefined
-                  }
-                />
-              </>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsBulkActionModalOpen(false);
-                  setBulkActionType(null);
-                  setBulkRejectionFeedback("");
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={
-                  bulkActionType === "approve"
-                    ? handleBulkApprove
-                    : handleBulkReject
-                }
-                disabled={
-                  (bulkActionType === "reject" &&
-                    !bulkRejectionFeedback.trim()) ||
-                  isBulkApproving ||
-                  isBulkRejecting
-                }
-                className="flex-1"
-              >
-                {isBulkApproving || isBulkRejecting
-                  ? "Processando..."
-                  : "Confirmar"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <BulkActionModal
+        actionType={bulkActionType}
+        count={selectedScripts.size}
+        rejectionFeedback={bulkRejectionFeedback}
+        onRejectionFeedbackChange={setBulkRejectionFeedback}
+        onConfirm={bulkActionType === "approve" ? handleBulkApprove : handleBulkReject}
+        onClose={() => { setBulkActionType(null); setBulkRejectionFeedback(""); }}
+        isLoading={isBulkApproving || isBulkRejecting}
+      />
     </>
   );
 }

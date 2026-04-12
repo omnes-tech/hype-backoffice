@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react";
-import Select, { type MenuListProps, type MultiValue, type StylesConfig } from "react-select";
-import { FixedSizeList } from "react-window";
+import Select, { type MultiValue, type StylesConfig } from "react-select";
 
 import { ErrorMessage } from "@/components/ui/error-message";
 
@@ -19,27 +18,6 @@ interface MultiSelectProps extends Omit<ComponentProps<"div">, "onChange"> {
   disabled?: boolean;
   isSearchable?: boolean;
   menuPlacement?: "auto" | "bottom" | "top";
-}
-
-const ITEM_HEIGHT = 40;
-const MAX_VISIBLE = 8;
-
-function VirtualizedMenuList({ children, maxHeight }: MenuListProps<MultiSelectOption, true>) {
-  const items = Array.isArray(children) ? children : [children];
-  const height = Math.min(items.length * ITEM_HEIGHT, maxHeight ?? MAX_VISIBLE * ITEM_HEIGHT);
-
-  return (
-    <FixedSizeList
-      height={height}
-      itemCount={items.length}
-      itemSize={ITEM_HEIGHT}
-      width="100%"
-    >
-      {({ index, style }: { index: number; style: React.CSSProperties }) => (
-        <div style={style}>{items[index]}</div>
-      )}
-    </FixedSizeList>
-  );
 }
 
 const customStyles: StylesConfig<MultiSelectOption, true> = {
@@ -151,7 +129,6 @@ export function MultiSelect({
         noOptionsMessage={() => "Nenhuma opção encontrada"}
         classNamePrefix="react-select"
         menuPlacement={menuPlacement}
-        components={{ MenuList: VirtualizedMenuList }}
       />
 
       {error && <ErrorMessage message={error} />}

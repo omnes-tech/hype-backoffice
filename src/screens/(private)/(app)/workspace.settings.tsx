@@ -46,6 +46,157 @@ const ROLE_LABEL: Record<WorkspaceRole, string> = {
   member: "Membro",
 };
 
+const PERMISSION_GROUPS: Array<{
+  label: string;
+  items: Array<{ key: string; label: string }>;
+}> = [
+  {
+    label: "Workspace",
+    items: [
+      { key: "workspace_read", label: "Ver workspace" },
+      { key: "workspace_settings_write", label: "Editar configurações" },
+      { key: "workspace_photo_write", label: "Alterar foto" },
+      { key: "workspace_delete", label: "Excluir workspace" },
+    ],
+  },
+  {
+    label: "Membros",
+    items: [
+      { key: "members_list", label: "Listar membros" },
+      { key: "members_invite", label: "Convidar membros" },
+      { key: "members_remove", label: "Remover membros" },
+      { key: "members_role_write", label: "Gerenciar papéis e permissões" },
+    ],
+  },
+  {
+    label: "Campanhas",
+    items: [
+      { key: "campaigns_read", label: "Ver campanhas" },
+      { key: "campaigns_create", label: "Criar campanhas" },
+      { key: "campaigns_write", label: "Editar campanhas" },
+      { key: "campaigns_delete", label: "Excluir campanhas" },
+      { key: "campaigns_publish", label: "Publicar campanhas" },
+    ],
+  },
+  {
+    label: "Influenciadores",
+    items: [
+      { key: "influencers_read", label: "Ver influenciadores" },
+      { key: "influencers_invite", label: "Convidar influenciadores" },
+      { key: "influencers_approve", label: "Aprovar influenciadores" },
+      { key: "influencers_reject", label: "Rejeitar influenciadores" },
+    ],
+  },
+  {
+    label: "Roteiros",
+    items: [
+      { key: "scripts_read", label: "Ver roteiros" },
+      { key: "scripts_write", label: "Escrever roteiros" },
+      { key: "scripts_approve", label: "Aprovar roteiros" },
+      { key: "scripts_reject", label: "Rejeitar roteiros" },
+    ],
+  },
+  {
+    label: "Conteúdo",
+    items: [
+      { key: "content_read", label: "Ver conteúdo" },
+      { key: "content_write", label: "Enviar conteúdo" },
+      { key: "content_approve", label: "Aprovar conteúdo" },
+      { key: "content_reject", label: "Rejeitar conteúdo" },
+    ],
+  },
+  {
+    label: "Contratos",
+    items: [
+      { key: "contracts_read", label: "Ver contratos" },
+      { key: "contracts_write", label: "Gerenciar contratos" },
+    ],
+  },
+  {
+    label: "Financeiro",
+    items: [
+      { key: "financial_read", label: "Ver financeiro" },
+      { key: "financial_balance_add", label: "Adicionar saldo" },
+      { key: "financial_payments_approve", label: "Aprovar pagamentos" },
+      { key: "financial_reports_export", label: "Exportar relatórios" },
+    ],
+  },
+];
+
+function PermissionsSelector({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  disabled?: boolean;
+}) {
+  const toggle = (key: string) => {
+    onChange(value.includes(key) ? value.filter((k) => k !== key) : [...value, key]);
+  };
+
+  const toggleGroup = (group: (typeof PERMISSION_GROUPS)[number]) => {
+    const allSelected = group.items.every((i) => value.includes(i.key));
+    if (allSelected) {
+      onChange(value.filter((k) => !group.items.some((i) => i.key === k)));
+    } else {
+      const toAdd = group.items.map((i) => i.key).filter((k) => !value.includes(k));
+      onChange([...value, ...toAdd]);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {PERMISSION_GROUPS.map((group) => {
+        const allChecked = group.items.every((i) => value.includes(i.key));
+        const someChecked = group.items.some((i) => value.includes(i.key));
+        return (
+          <div
+            key={group.label}
+            className="rounded-lg border border-neutral-200 bg-neutral-50 p-3"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                {group.label}
+              </span>
+              {!disabled && (
+                <button
+                  type="button"
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                  onClick={() => toggleGroup(group)}
+                >
+                  {allChecked ? "Desmarcar" : someChecked ? "Todos" : "Todos"}
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {group.items.map((item) => (
+                <label
+                  key={item.key}
+                  className={clsx(
+                    "flex items-center gap-2 select-none",
+                    disabled ? "cursor-default opacity-60" : "cursor-pointer",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={value.includes(item.key)}
+                    onChange={() => !disabled && toggle(item.key)}
+                    disabled={disabled}
+                    className="h-4 w-4 rounded border-neutral-300 accent-primary-600"
+                  />
+                  <span className="text-sm text-neutral-700">{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const workspaceFormSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da marca").max(120),
   description: z.string().max(2000).optional(),
@@ -84,6 +235,9 @@ function apiErr(e: unknown): string {
         return "Este e-mail já faz parte deste workspace.";
       }
       return e.message || "Conflito: e-mail já em uso.";
+    }
+    if (st === 400 && e.message.toLowerCase().includes("name")) {
+      return "Este e-mail não tem cadastro no backoffice. Use a aba \"Criar usuário\" para criar uma conta com nome e e-mail.";
     }
     return e.message;
   }
@@ -125,6 +279,16 @@ function WorkspaceSettingsScreen() {
     "invite",
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Permissões customizadas para os formulários de convite/criação
+  const [invitePermissions, setInvitePermissions] = useState<string[]>([]);
+  const [showInvitePermissions, setShowInvitePermissions] = useState(false);
+  const [createPermissions, setCreatePermissions] = useState<string[]>([]);
+  const [showCreatePermissions, setShowCreatePermissions] = useState(false);
+
+  // Modal de edição de permissões de membro existente
+  const [permModalMember, setPermModalMember] = useState<WorkspaceMember | null>(null);
+  const [permModalValues, setPermModalValues] = useState<string[]>([]);
 
   const nicheOptions = [
     { value: "", label: "Nenhum / não alterar nicho" },
@@ -271,6 +435,8 @@ function WorkspaceSettingsScreen() {
   const canRemove = perms?.members_remove === true;
   const removeOnlyMember = perms?.members_remove_only_member_role === true;
   const canDeleteWs = perms?.workspace_delete === true;
+  /** Pode definir/editar permissões de outros membros. */
+  const canManagePermissions = canRoleWrite;
 
   const canRemoveMember = (m: WorkspaceMember) => {
     if (!canRemove) return false;
@@ -328,7 +494,7 @@ function WorkspaceSettingsScreen() {
               type="button"
               variant="outline"
               disabled={!canPhoto || photoMutation.isPending}
-              className="w-auto px-4"
+              className="w-auto px-4 min-w-max"
               onClick={() => photoInputRef.current?.click()}
             >
               {photoMutation.isPending ? "Enviando…" : "Alterar foto"}
@@ -461,28 +627,42 @@ function WorkspaceSettingsScreen() {
                           )}
                         </td>
                         <td className="px-3 py-2.5">
-                          {canRemoveMember(m) && !isSelf ? (
-                            <button
-                              type="button"
-                              className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-                              disabled={removeMutation.isPending}
-                              onClick={() => {
-                                if (
-                                  !confirm(
-                                    `Remover ${m.name} deste workspace?`,
+                          <div className="flex items-center gap-3">
+                            {canManagePermissions && m.role !== "owner" && (
+                              <button
+                                type="button"
+                                className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                                onClick={() => {
+                                  setPermModalMember(m);
+                                  setPermModalValues([]);
+                                }}
+                              >
+                                Permissões
+                              </button>
+                            )}
+                            {canRemoveMember(m) && !isSelf ? (
+                              <button
+                                type="button"
+                                className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                                disabled={removeMutation.isPending}
+                                onClick={() => {
+                                  if (
+                                    !confirm(
+                                      `Remover ${m.name} deste workspace?`,
+                                    )
                                   )
-                                )
-                                  return;
-                                removeMutation.mutate(m.user_id, {
-                                  onSuccess: () =>
-                                    toast.success("Membro removido."),
-                                  onError: (e) => toast.error(apiErr(e)),
-                                });
-                              }}
-                            >
-                              Remover
-                            </button>
-                          ) : null}
+                                    return;
+                                  removeMutation.mutate(m.user_id, {
+                                    onSuccess: () =>
+                                      toast.success("Membro removido."),
+                                    onError: (e) => toast.error(apiErr(e)),
+                                  });
+                                }}
+                              >
+                                Remover
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -548,13 +728,25 @@ function WorkspaceSettingsScreen() {
                   {
                     email: values.email.trim(),
                     role: values.role,
+                    permissions: canManagePermissions && invitePermissions.length > 0 ? invitePermissions : undefined,
                   },
                   {
                     onSuccess: (result) => {
                       toastAfterMemberInvite(result.created_account);
                       resetInviteExisting({ email: "", role: "member" });
+                      setInvitePermissions([]);
+                      setShowInvitePermissions(false);
                     },
-                    onError: (e) => toast.error(apiErr(e)),
+                    onError: (e) => {
+                      const st = (e as { status?: number }).status;
+                      const msg = (e as Error).message?.toLowerCase() ?? "";
+                      if (st === 400 && msg.includes("name")) {
+                        setMemberAddMode("create");
+                        toast.error("Este e-mail não tem cadastro. Preencha o nome para criar uma conta.");
+                      } else {
+                        toast.error(apiErr(e));
+                      }
+                    },
                   },
                 );
               })}
@@ -593,6 +785,31 @@ function WorkspaceSettingsScreen() {
                   />
                 </div>
               </div>
+              {canManagePermissions && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 w-fit"
+                    onClick={() => setShowInvitePermissions((v) => !v)}
+                  >
+                    <span>{showInvitePermissions ? "▾" : "▸"}</span>
+                    <span>
+                      Permissões personalizadas
+                      {invitePermissions.length > 0 && (
+                        <span className="ml-1.5 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                          {invitePermissions.length} selecionadas
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  {showInvitePermissions && (
+                    <PermissionsSelector
+                      value={invitePermissions}
+                      onChange={setInvitePermissions}
+                    />
+                  )}
+                </div>
+              )}
               <Button
                 type="submit"
                 disabled={inviteMutation.isPending}
@@ -611,6 +828,7 @@ function WorkspaceSettingsScreen() {
                     email: values.email.trim(),
                     role: values.role,
                     name: values.name.trim(),
+                    permissions: canManagePermissions && createPermissions.length > 0 ? createPermissions : undefined,
                   },
                   {
                     onSuccess: (result) => {
@@ -620,6 +838,8 @@ function WorkspaceSettingsScreen() {
                         email: "",
                         role: "member",
                       });
+                      setCreatePermissions([]);
+                      setShowCreatePermissions(false);
                     },
                     onError: (e) => toast.error(apiErr(e)),
                   },
@@ -654,32 +874,55 @@ function WorkspaceSettingsScreen() {
                   {...registerCreateMember("email")}
                 />
               </div>
-              <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-                <div className="w-full min-w-0 sm:w-56 sm:shrink-0">
-                  <Select
-                    label="Papel inicial"
-                    options={[
-                      { value: "member", label: ROLE_LABEL.member },
-                      { value: "admin", label: ROLE_LABEL.admin },
-                    ]}
-                    value={createMemberRole}
-                    openUp
-                    onChange={(v) =>
-                      setCreateMemberRole("role", v as CreateMemberFormValues["role"], {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={inviteMutation.isPending}
-                  className="w-full sm:w-auto sm:min-w-[180px]"
-                >
-                  {inviteMutation.isPending ? "Salvando…" : "Criar e vincular"}
-                </Button>
+              <div className="w-full min-w-0 sm:w-56 sm:shrink-0">
+                <Select
+                  label="Papel inicial"
+                  options={[
+                    { value: "member", label: ROLE_LABEL.member },
+                    { value: "admin", label: ROLE_LABEL.admin },
+                  ]}
+                  value={createMemberRole}
+                  openUp
+                  onChange={(v) =>
+                    setCreateMemberRole("role", v as CreateMemberFormValues["role"], {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                />
               </div>
+              {canManagePermissions && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 w-fit"
+                    onClick={() => setShowCreatePermissions((v) => !v)}
+                  >
+                    <span>{showCreatePermissions ? "▾" : "▸"}</span>
+                    <span>
+                      Permissões personalizadas
+                      {createPermissions.length > 0 && (
+                        <span className="ml-1.5 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                          {createPermissions.length} selecionadas
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  {showCreatePermissions && (
+                    <PermissionsSelector
+                      value={createPermissions}
+                      onChange={setCreatePermissions}
+                    />
+                  )}
+                </div>
+              )}
+              <Button
+                type="submit"
+                disabled={inviteMutation.isPending}
+                className="w-full sm:w-auto sm:min-w-[180px]"
+              >
+                {inviteMutation.isPending ? "Salvando…" : "Criar e vincular"}
+              </Button>
             </form>
           )}
         </section>
@@ -705,6 +948,57 @@ function WorkspaceSettingsScreen() {
           </Button>
         </section>
       ) : null}
+
+      {permModalMember && (
+        <Modal
+          title={`Permissões — ${permModalMember.name}`}
+          onClose={() => setPermModalMember(null)}
+          panelClassName="max-w-3xl"
+        >
+          <p className="text-sm text-neutral-600 mb-4">
+            Selecione as permissões para <strong>{permModalMember.name}</strong>.
+            As permissões selecionadas substituem as padrão do papel{" "}
+            <strong>{ROLE_LABEL[permModalMember.role]}</strong>.
+          </p>
+          <PermissionsSelector
+            value={permModalValues}
+            onChange={setPermModalValues}
+          />
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="sm:w-auto"
+              onClick={() => setPermModalMember(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={roleMutation.isPending}
+              className="sm:w-auto sm:min-w-[140px]"
+              onClick={() => {
+                roleMutation.mutate(
+                  {
+                    userId: permModalMember.user_id,
+                    role: permModalMember.role,
+                    permissions: permModalValues,
+                  },
+                  {
+                    onSuccess: () => {
+                      toast.success("Permissões atualizadas.");
+                      setPermModalMember(null);
+                    },
+                    onError: (e) => toast.error(apiErr(e)),
+                  },
+                );
+              }}
+            >
+              {roleMutation.isPending ? "Salvando…" : "Salvar permissões"}
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {deleteOpen ? (
         <Modal

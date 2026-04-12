@@ -44,7 +44,7 @@ export function useBulkAddInfluencers(campaignId: string) {
       });
       toast.success("Influenciadores adicionados com sucesso");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "Erro ao adicionar influenciadores";
       toast.error(message);
     },

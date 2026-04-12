@@ -30,8 +30,7 @@ import {
   mergePaymentDetailsWithServer,
 } from "@/shared/utils/campaign-edit-request";
 import { activateMural } from "@/shared/services/mural";
-import { getSubnicheValueByLabel } from "@/shared/data/subniches";
-import { getNicheParentId } from "@/shared/utils/niche-tree";
+import { isNicheRoot } from "@/shared/utils/niche-tree";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUploadUrl } from "@/lib/utils/api";
 import { useNiches } from "@/hooks/use-niches";
@@ -124,136 +123,144 @@ function RouteComponent() {
     campaignVisibility: "public",
   });
 
-  // Carregar dados da campanha no formData apenas uma vez (quando disponível)
+  // Carregar dados da campanha no formData apenas uma vez (quando campanha E nichos disponíveis)
   useEffect(() => {
     if (formInitializedRef.current) return;
-    if (campaign && phases) {
-      formInitializedRef.current = true;
-      // Processar subnichos
-      const subnicheIds = Array.isArray(campaign.secondary_niches)
-        ? campaign.secondary_niches
-            .map((n: any) => {
-              const name = typeof n === 'object' ? n.name : String(n);
-              return getSubnicheValueByLabel(name);
-            })
-            .filter(Boolean)
-        : campaign.secondary_niches 
-          ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
-          : [];
-      
-      let mainNicheId = "";
-      if (campaign.primary_niche?.id != null) {
-        mainNicheId = String(campaign.primary_niche.id);
-      } else if (subnicheIds.length > 0 && niches.length > 0) {
-        const rawFirst = subnicheIds[0];
-        const firstSubniche = niches.find(
-          (n) => String(n.id) === String(rawFirst),
-        );
-        const parentKey = firstSubniche
-          ? getNicheParentId(firstSubniche)
-          : null;
-        if (parentKey) {
-          mainNicheId = parentKey;
-        }
+    if (!campaign || !phases) return;
+    // Aguarda os nichos carregarem para poder separar raiz vs. filho corretamente
+    if (niches.length === 0) return;
+
+    formInitializedRef.current = true;
+
+    // Extrair IDs numéricos diretamente da resposta da API (secondary_niches pode ser
+    // Array<{ id, name }> ou number[])
+    const allNicheIds: string[] = Array.isArray(campaign.secondary_niches)
+      ? campaign.secondary_niches
+          .map((n: any) => (typeof n === "object" && n !== null ? String(n.id) : String(n)))
+          .filter(Boolean)
+      : [];
+
+    const mainNicheIds: string[] = [];
+    const subnicheIds: string[] = [];
+
+    // Nicho primário explícito tem precedência
+    if (campaign.primary_niche?.id != null) {
+      mainNicheIds.push(String(campaign.primary_niche.id));
+    }
+
+    // Separar raízes de filhos usando a árvore carregada
+    allNicheIds.forEach((id) => {
+      const niche = niches.find((n) => String(n.id) === id);
+      if (niche && isNicheRoot(niche)) {
+        if (!mainNicheIds.includes(id)) mainNicheIds.push(id);
+      } else {
+        subnicheIds.push(id);
       }
-      
-      const initialForm: CampaignFormData = {
-        title: campaign.title || "",
-        description: campaign.description || "",
-        mainNiche: mainNicheId,
-        subniches: subnicheIds.join(","),
-        influencersCount: campaign.max_influencers?.toString() || "0",
-        minFollowers: campaign.segment_min_followers?.toString() || "0",
-        state: Array.isArray(campaign.segment_state) 
-          ? campaign.segment_state.join(",") 
-          : campaign.segment_state || "",
-        city: Array.isArray(campaign.segment_city) 
-          ? campaign.segment_city.join(",") 
-          : campaign.segment_city || "",
-        gender: Array.isArray(campaign.segment_genders)
-          ? campaign.segment_genders.join(", ")
-          : campaign.segment_genders || "all",
-        paymentType: campaign.payment_method || "",
-        paymentFixedAmount: campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
+    });
+
+    const parseBenefits = (raw: string | string[] | undefined): string[] => {
+      if (!raw) return [""];
+      if (Array.isArray(raw)) {
+        const filtered = raw.filter((item) => item.trim() !== "");
+        return filtered.length > 0 ? filtered : [""];
+      }
+      const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.some((l) => l.startsWith(".") || l.startsWith("-") || l.startsWith("•"))) {
+        return lines
+          .filter((l) => l.startsWith(".") || l.startsWith("-") || l.startsWith("•"))
+          .map((l) => l.replace(/^[.\-•]\s*/, "").trim())
+          .filter(Boolean);
+      }
+      return lines.length > 0 ? lines : [""];
+    };
+
+    const toStringArray = (raw: string | string[] | undefined): string[] => {
+      if (!raw) return [""];
+      if (Array.isArray(raw)) return raw;
+      return [raw];
+    };
+
+    const initialForm: CampaignFormData = {
+      title: campaign.title || "",
+      description: campaign.description || "",
+      mainNiche: mainNicheIds.join(","),
+      subniches: subnicheIds.join(","),
+      influencersCount: campaign.max_influencers?.toString() || "0",
+      minFollowers: campaign.segment_min_followers
+        ? campaign.segment_min_followers.toString()
+        : "",
+      state: Array.isArray(campaign.segment_state)
+        ? campaign.segment_state.join(",")
+        : campaign.segment_state || "",
+      city: Array.isArray(campaign.segment_city)
+        ? campaign.segment_city.join(",")
+        : campaign.segment_city || "",
+      gender: Array.isArray(campaign.segment_genders)
+        ? campaign.segment_genders[0] || "all"
+        : campaign.segment_genders || "all",
+      paymentType: campaign.payment_method || "",
+      paymentFixedAmount:
+        campaign.payment_method === "fixed" && campaign.payment_method_details?.amount
           ? formatReais(campaign.payment_method_details.amount)
           : "",
-        paymentSwapItem: campaign.payment_method === "swap" && campaign.payment_method_details?.description
+      paymentSwapItem:
+        campaign.payment_method === "swap" && campaign.payment_method_details?.description
           ? campaign.payment_method_details.description.split(" - Valor de mercado:")[0]?.trim() || ""
           : "",
-        paymentSwapMarketValue: campaign.payment_method === "swap" && campaign.payment_method_details?.amount
+      paymentSwapMarketValue:
+        campaign.payment_method === "swap" && campaign.payment_method_details?.amount
           ? formatReais(campaign.payment_method_details.amount)
           : "",
-        paymentCpaActions: campaign.payment_method === "cpa" && campaign.payment_method_details?.description
+      paymentCpaActions:
+        campaign.payment_method === "cpa" && campaign.payment_method_details?.description
           ? campaign.payment_method_details.description
               .replace("Ações que geram CPA:", "")
               .split(" - Valor:")[0]
               ?.trim() || ""
           : "",
-        paymentCpaValue: campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
+      paymentCpaValue:
+        campaign.payment_method === "cpa" && campaign.payment_method_details?.amount
           ? formatReais(campaign.payment_method_details.amount)
           : "",
-        paymentCpmValue: campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
+      paymentCpmValue:
+        campaign.payment_method === "cpm" && campaign.payment_method_details?.amount
           ? formatReais(campaign.payment_method_details.amount)
           : "",
-        benefits: campaign.benefits
-          ? (() => {
-              // Se já for um array, retornar diretamente
-              if (Array.isArray(campaign.benefits)) {
-                return campaign.benefits.filter(item => item.trim() !== "").length > 0 
-                  ? campaign.benefits.filter(item => item.trim() !== "") 
-                  : [""];
-              }
-              // Se for string, fazer parsing (compatibilidade com dados antigos)
-              const lines = campaign.benefits.split(/\n/).map(line => line.trim()).filter(line => line);
-              // Se tiver marcadores (., -, •), usar a lógica de parsing
-              if (lines.some(line => line.startsWith('.') || line.startsWith('-') || line.startsWith('•'))) {
-                return lines
-                  .filter(line => line.startsWith('.') || line.startsWith('-') || line.startsWith('•'))
-                  .map(line => line.replace(/^[.\-•]\s*/, '').trim())
-                  .filter(line => line);
-              }
-              // Caso contrário, retornar como array simples (cada linha é um item)
-              return lines.length > 0 ? lines : [""];
-            })()
-          : [""],
-        generalObjective: campaign.objective || "",
-      whatToDo: Array.isArray(campaign.rules_does) 
-        ? campaign.rules_does 
-        : campaign.rules_does 
-          ? [campaign.rules_does]
-          : [""],
-      whatNotToDo: Array.isArray(campaign.rules_does_not)
-        ? campaign.rules_does_not
-        : campaign.rules_does_not
-          ? [campaign.rules_does_not]
-          : [""],
-        banner: campaign.banner ? getUploadUrl(campaign.banner) || campaign.banner : "",
-        imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
-        brandFiles: "",
-        phasesCount: phases.length.toString(),
-        phases: [...phases]
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-          .map((phase) => ({
-            ...phase,
-            includeImageRights: (campaign.image_rights_period ?? 0) > 0,
-            imageRightsPeriod:
-              (campaign.image_rights_period ?? 0) > 0
-                ? String(campaign.image_rights_period)
-                : "",
-            files: phase.files ?? "",
-          })),
-        benefitsBonus: "",
-        campaignVisibility: "public",
-      };
+      benefits: parseBenefits(campaign.benefits),
+      generalObjective: campaign.objective || "",
+      whatToDo: toStringArray(campaign.rules_does),
+      whatNotToDo: toStringArray(campaign.rules_does_not),
+      banner: campaign.banner ? getUploadUrl(campaign.banner) || campaign.banner : "",
+      imageRightsPeriod: campaign.image_rights_period?.toString() || "0",
+      brandFiles: "",
+      phasesCount: phases.length.toString(),
+      phases: [...phases]
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((phase) => ({
+          ...phase,
+          includeImageRights: (campaign.image_rights_period ?? 0) > 0,
+          imageRightsPeriod:
+            (campaign.image_rights_period ?? 0) > 0
+              ? String(campaign.image_rights_period)
+              : "",
+          files: phase.files ?? "",
+        })),
+      // Recupera o bonus embutido em payment_method_details.description ("Bônus: X")
+      benefitsBonus: (() => {
+        const desc = campaign.payment_method_details?.description ?? "";
+        const m = desc.match(/Bônus:\s*(.+?)(?:\n\n|$)/);
+        return m ? m[1].trim() : "";
+      })(),
+      campaignVisibility: campaign.status === "draft" ? "private" : "public",
+    };
 
-      const rawInitialPayload = buildCampaignUpdatePayloadFromForm(initialForm);
-      initialCampaignApiPayloadRef.current = mergePaymentDetailsWithServer(
-        rawInitialPayload,
-        campaign
-      );
-      initialPhasesApiPayloadRef.current = buildPhasesPayloadFromForm(initialForm);
-      setFormData(initialForm);
-    }
+    const rawInitialPayload = buildCampaignUpdatePayloadFromForm(initialForm);
+    initialCampaignApiPayloadRef.current = mergePaymentDetailsWithServer(
+      rawInitialPayload,
+      campaign,
+    );
+    initialPhasesApiPayloadRef.current = buildPhasesPayloadFromForm(initialForm);
+    setFormData(initialForm);
   }, [campaign, phases, niches]);
 
   const totalSteps = 6;
@@ -346,8 +353,9 @@ function RouteComponent() {
         ...(successDescription ? { description: successDescription } : {}),
       });
       navigate({ to: "/campaigns/$campaignId", params: { campaignId } });
-    } catch (error: any) {
-      toast.error(error?.message || "Erro ao atualizar campanha. Tente novamente.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao atualizar campanha. Tente novamente.";
+      toast.error(message);
     }
   };
 
@@ -420,7 +428,7 @@ function RouteComponent() {
             <div key={`edit-step-${stepNum}`} className="flex gap-4 items-center shrink-0">
               <button
                 type="button"
-                className={`flex gap-2 items-center justify-center pb-3 shrink-0 text-left ${
+                className={`flex gap-2 items-center justify-center pb-3 shrink-0 text-left cursor-pointer ${
                   isActive ? "border-b-[3px] border-tertiary-500" : ""
                 }`}
                 onClick={() => {

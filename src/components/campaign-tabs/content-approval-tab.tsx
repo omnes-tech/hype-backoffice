@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { InputDate } from "@/components/ui/input-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
-import type { CampaignContent, AIEvaluation, CampaignPhase } from "@/shared/types";
+import type { CampaignContent, RawCampaignContentResponse, AIEvaluation, CampaignPhase } from "@/shared/types";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
+import { FilterPanel } from "./shared/filter-panel";
 import { useCampaignContents } from "@/hooks/use-campaign-contents";
 import { useApproveContent, useRejectContent } from "@/hooks/use-campaign-contents";
 import { useBulkContentActions } from "@/hooks/use-bulk-content-actions";
@@ -42,6 +45,7 @@ export function ContentApprovalTab({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("pending");
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [searchInfluencer, setSearchInfluencer] = useState("");
+  const debouncedSearch = useDebounce(searchInfluencer, 350);
   const [filterSocialNetwork, _setFilterSocialNetwork] = useState("");
   
   // Estados de UI
@@ -51,7 +55,6 @@ export function ContentApprovalTab({
   const [rejectionFeedback, setRejectionFeedback] = useState("");
   const [captionFeedback, setCaptionFeedback] = useState("");
   const [newSubmissionDeadline, setNewSubmissionDeadline] = useState("");
-  const [selectedContents, setSelectedContents] = useState<Set<string>>(new Set());
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<"approve" | "reject" | null>(null);
   const [bulkRejectionFeedback, setBulkRejectionFeedback] = useState("");
@@ -89,7 +92,7 @@ export function ContentApprovalTab({
 
   // Normalizar conteúdos (garantir compatibilidade com diferentes formatos da API)
   const normalizedContents = useMemo(() => {
-    return contents.map((content: any) => ({
+    return contents.map((content: RawCampaignContentResponse) => ({
       id: content.id,
       campaign_id: content.campaign_id,
       influencer_id: content.influencer_id || content.influencerId,
@@ -198,8 +201,8 @@ export function ContentApprovalTab({
     }
 
     // Filtro por busca de influenciador
-    if (searchInfluencer) {
-      const searchLower = searchInfluencer.toLowerCase();
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
       filtered = filtered.filter((content) =>
         content.influencerName.toLowerCase().includes(searchLower)
       );
@@ -215,7 +218,17 @@ export function ContentApprovalTab({
     }
 
     return filtered;
-  }, [normalizedContents, selectedPhaseFilter, selectedStatusFilter, searchInfluencer, filterSocialNetwork]);
+  }, [normalizedContents, selectedPhaseFilter, selectedStatusFilter, debouncedSearch, filterSocialNetwork]);
+
+  // Seleção múltipla
+  const filteredContentIds = useMemo(() => filteredContents.map((c) => c.id), [filteredContents]);
+  const {
+    selected: selectedContents,
+    toggle: handleSelectContent,
+    toggleAll: handleSelectAll,
+    clear: clearSelectedContents,
+    isAllSelected: isAllContentsSelected,
+  } = useBulkSelection(filteredContentIds);
 
   // Hooks para mutations
   const { mutate: approveContent, isPending: isApproving } = useApproveContent(campaignId || "");
@@ -272,25 +285,6 @@ export function ContentApprovalTab({
     })),
   ];
 
-  const handleSelectContent = (contentId: string) => {
-    setSelectedContents((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(contentId)) {
-        newSet.delete(contentId);
-      } else {
-        newSet.add(contentId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedContents.size === filteredContents.length) {
-      setSelectedContents(new Set());
-    } else {
-      setSelectedContents(new Set(filteredContents.map((content) => content.id)));
-    }
-  };
 
   const handleBulkApprove = () => {
     const contentIds = Array.from(selectedContents);
@@ -312,7 +306,7 @@ export function ContentApprovalTab({
       },
       {
         onSuccess: () => {
-          setSelectedContents(new Set());
+          clearSelectedContents();
           setBulkRejectionFeedback("");
           setBulkCaptionFeedback("");
           setBulkNewSubmissionDeadline("");
@@ -347,7 +341,7 @@ export function ContentApprovalTab({
       },
       {
         onSuccess: () => {
-          setSelectedContents(new Set());
+          clearSelectedContents();
           setBulkRejectionFeedback("");
           setBulkCaptionFeedback("");
           setBulkNewSubmissionDeadline("");
@@ -378,7 +372,7 @@ export function ContentApprovalTab({
           setNewSubmissionDeadline("");
           refetchContents();
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao aprovar conteúdo");
         },
       }
@@ -411,7 +405,7 @@ export function ContentApprovalTab({
             setNewSubmissionDeadline("");
             refetchContents();
           },
-          onError: (error: any) => {
+          onError: (error: Error) => {
             toast.error(error?.message || "Erro ao reprovar conteúdo");
           },
         }
@@ -656,25 +650,13 @@ export function ContentApprovalTab({
           </p>
         </div>
 
-        <div className="bg-white rounded-[12px] p-5 flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Buscar influenciador"
-              placeholder="Nome ou @username"
-              value={searchInfluencer}
-              onChange={(e) => setSearchInfluencer(e.target.value)}
-            />
-          </div>
-          <div className="w-full sm:w-[258px]">
-            <Select
-              label="Fases"
-              placeholder="Todas as fases"
-              options={phaseOptions}
-              value={selectedPhaseFilter}
-              onChange={setSelectedPhaseFilter}
-            />
-          </div>
-        </div>
+        <FilterPanel
+          search={searchInfluencer}
+          onSearchChange={setSearchInfluencer}
+          phaseOptions={phaseOptions}
+          selectedPhase={selectedPhaseFilter}
+          onPhaseChange={setSelectedPhaseFilter}
+        />
 
         <div className="bg-white rounded-[12px] p-5 flex flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -704,10 +686,7 @@ export function ContentApprovalTab({
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-1">
                 <Checkbox
-                  checked={
-                    filteredContents.length > 0 &&
-                    selectedContents.size === filteredContents.length
-                  }
+                  checked={isAllContentsSelected}
                   onCheckedChange={handleSelectAll}
                   className="rounded-[4px] border-[#c8c8c8] bg-[#f5f5f5] size-6"
                 />

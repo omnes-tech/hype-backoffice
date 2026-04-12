@@ -90,9 +90,13 @@ function CreateCampaignPage() {
   };
 
   const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
-    const secondary_niches = formData.subniches
+    const subnicheIds = formData.subniches
       ? formData.subniches.split(",").filter(Boolean).map((id) => parseInt(id, 10)).filter((id) => !isNaN(id))
       : [];
+    const mainNicheIds = formData.mainNiche
+      ? formData.mainNiche.split(",").filter(Boolean).map((id) => parseInt(id, 10)).filter((id) => !isNaN(id))
+      : [];
+    const secondary_niches = [...new Set([...mainNicheIds, ...subnicheIds])];
 
     const benefitsFiltered = Array.isArray(formData.benefits)
       ? formData.benefits.filter((item) => item.trim() !== "")

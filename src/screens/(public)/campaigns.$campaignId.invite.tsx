@@ -53,9 +53,41 @@ function formatInvitePhaseDate(iso?: string): string {
 function hasRemunerationBlock(data: PublicCampaignInviteData): boolean {
   return Boolean(
     data.payment_method ||
-      data.payment_method_details?.description?.trim() ||
-      (data.payment_method_details?.amount != null &&
-        Number.isFinite(data.payment_method_details.amount)),
+    data.payment_method_details?.description?.trim() ||
+    (data.payment_method_details?.amount != null &&
+      Number.isFinite(data.payment_method_details.amount)),
+  );
+}
+
+function NicheListModal({ title, names, onClose }: { title: string; names: string[]; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-neutral-950">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-neutral-100 transition-colors"
+          >
+            <Icon name="X" size={20} color="#525252" />
+          </button>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {names.map((name, i) => (
+            <li key={i} className="text-base text-neutral-950 py-1 border-b border-neutral-100 last:border-b-0">
+              {name}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -69,6 +101,10 @@ function PublicCampaignInviteScreen() {
   const [inviteDeclined, setInviteDeclined] = useState(false);
   const [acceptModalOpen, setAcceptModalOpen] = useState(false);
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [nicheModalOpen, setNicheModalOpen] = useState(false);
+  const [secondaryNicheModalOpen, setSecondaryNicheModalOpen] = useState(false);
+
+  const MAX_NICHES_INVITE = 3;
 
   const handleAccept = () => {
     setAcceptModalOpen(true);
@@ -140,11 +176,10 @@ function PublicCampaignInviteScreen() {
           <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6">
             {data.status ? (
               <span
-                className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                  statusValue === "published"
-                    ? "bg-emerald-500/90 text-white"
-                    : "bg-white/90 text-neutral-950"
-                }`}
+                className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${statusValue === "published"
+                  ? "bg-emerald-500/90 text-white"
+                  : "bg-white/90 text-neutral-950"
+                  }`}
               >
                 {getCampaignStatusDisplayLabel(data.status)}
               </span>
@@ -204,17 +239,57 @@ function PublicCampaignInviteScreen() {
                 </div>
               </div>
             ) : null}
-            {data.primary_niche?.name ? (
+            {data.niches && data.niches.length > 0 ? (
               <div className="flex items-start gap-3 rounded-xl bg-neutral-50 border border-neutral-100 p-4 sm:col-span-2">
                 <div className="size-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
                   <Icon name="Tag" size={20} color="#525252" />
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                    Nicho
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">
+                    Nichos
                   </p>
                   <p className="text-base font-semibold text-neutral-950">
-                    {data.primary_niche.name}
+                    {data.niches.slice(0, MAX_NICHES_INVITE).join(", ")}
+                    {data.niches.length > MAX_NICHES_INVITE && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          onClick={() => setNicheModalOpen(true)}
+                          className="text-sm font-medium text-amber-700 underline"
+                        >
+                          ver mais ({data.niches.length})
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {data.secondary_niche_names && data.secondary_niche_names.length > 0 ? (
+              <div className="flex items-start gap-3 rounded-xl bg-neutral-50 border border-neutral-100 p-4 sm:col-span-2">
+                <div className="size-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                  <Icon name="Tag" size={20} color="#525252" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">
+                    Subnichos
+                  </p>
+                  <p className="text-base font-semibold text-neutral-950">
+                    {data.secondary_niche_names.slice(0, MAX_NICHES_INVITE).join(", ")}
+                    {data.secondary_niche_names.length > MAX_NICHES_INVITE && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          onClick={() => setSecondaryNicheModalOpen(true)}
+                          className="text-sm font-medium text-amber-700 underline"
+                        >
+                          ver mais ({data.secondary_niche_names.length})
+                        </button>
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -263,8 +338,8 @@ function PublicCampaignInviteScreen() {
                     <p className="whitespace-pre-wrap">{data.payment_method_details.description}</p>
                   ) : null}
                   {data.payment_method === "fixed" &&
-                  data.payment_method_details?.amount != null &&
-                  Number.isFinite(data.payment_method_details.amount) ? (
+                    data.payment_method_details?.amount != null &&
+                    Number.isFinite(data.payment_method_details.amount) ? (
                     <p className="font-medium text-neutral-950">
                       Valor: {formatReais(data.payment_method_details.amount)}
                       {data.payment_method_details.currency
@@ -273,26 +348,26 @@ function PublicCampaignInviteScreen() {
                     </p>
                   ) : null}
                   {data.payment_method === "cpm" &&
-                  data.payment_method_details?.amount != null &&
-                  Number.isFinite(data.payment_method_details.amount) ? (
+                    data.payment_method_details?.amount != null &&
+                    Number.isFinite(data.payment_method_details.amount) ? (
                     <p className="font-medium text-neutral-950">
                       CPM: {formatReais(data.payment_method_details.amount)}
                     </p>
                   ) : null}
                   {!data.payment_method_details?.description?.trim() &&
-                  data.payment_method !== "fixed" &&
-                  data.payment_method !== "cpm" &&
-                  (data.payment_method === "swap" || data.payment_method === "cpa") ? (
+                    data.payment_method !== "fixed" &&
+                    data.payment_method !== "cpm" &&
+                    (data.payment_method === "swap" || data.payment_method === "cpa") ? (
                     <p className="text-neutral-600">
                       Os valores e condições específicos podem constar na descrição acima ou serão
                       alinhados com a marca após a aprovação.
                     </p>
                   ) : null}
                   {!data.payment_method_details?.description?.trim() &&
-                  data.payment_method !== "fixed" &&
-                  data.payment_method !== "cpm" &&
-                  data.payment_method !== "swap" &&
-                  data.payment_method !== "cpa" ? (
+                    data.payment_method !== "fixed" &&
+                    data.payment_method !== "cpm" &&
+                    data.payment_method !== "swap" &&
+                    data.payment_method !== "cpa" ? (
                     <p className="text-neutral-600 text-sm">
                       Consulte a marca ou o app para o detalhamento completo desta forma de
                       pagamento.
@@ -435,6 +510,22 @@ function PublicCampaignInviteScreen() {
               </ul>
             </section>
           ) : null}
+
+          {nicheModalOpen && data.niches && (
+            <NicheListModal
+              title="Todos os nichos"
+              names={data.niches}
+              onClose={() => setNicheModalOpen(false)}
+            />
+          )}
+
+          {secondaryNicheModalOpen && data.secondary_niche_names && (
+            <NicheListModal
+              title="Todos os subnichos"
+              names={data.secondary_niche_names}
+              onClose={() => setSecondaryNicheModalOpen(false)}
+            />
+          )}
 
           <CampaignInviteAcceptModal
             isOpen={acceptModalOpen}

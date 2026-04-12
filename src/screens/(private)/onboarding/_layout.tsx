@@ -67,9 +67,9 @@ function RouteComponent() {
             variant="outline"
             disabled={isLoggingOut}
           >
-            <Icon name="LogOut" size={16} color="#ffffff" />
+            <Icon name="LogOut" size={16} color="#000000" />
 
-            <p className="text-neutral-50 font-medium">
+            <p className="text-black font-medium">
               {isLoggingOut ? "Saindo..." : "Sair"}
             </p>
           </Button>

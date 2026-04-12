@@ -24,7 +24,7 @@ function RouteComponent() {
         </p>
       </div>
 
-      <Button className="max-w-72" onClick={() => navigate({ to: "/" })}>
+      <Button className="max-w-72 min-w-max" onClick={() => navigate({ to: "/" })}>
         <p className="text-neutral-50 font-semibold">Começar agora</p>
       </Button>
     </div>

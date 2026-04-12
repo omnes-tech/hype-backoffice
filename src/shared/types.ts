@@ -15,19 +15,50 @@ export type WorkspaceRole = "owner" | "admin" | "member";
 
 /** Permissões calculadas no servidor por workspace (UX; mutações ainda validam 403). */
 export interface WorkspacePermissions {
+  // Workspace
   workspace_read: boolean;
   workspace_settings_write: boolean;
   workspace_delete: boolean;
   workspace_photo_write: boolean;
+  // Membros
   members_list: boolean;
   members_invite: boolean;
   members_remove: boolean;
   members_remove_only_member_role: boolean;
   members_role_write: boolean;
+  // Campanhas
   campaigns_read: boolean;
+  campaigns_create: boolean;
   campaigns_write: boolean;
+  campaigns_delete: boolean;
+  campaigns_publish: boolean;
+  // Influenciadores
+  influencers_read: boolean;
+  influencers_invite: boolean;
+  influencers_approve: boolean;
+  influencers_reject: boolean;
+  // Roteiros
+  scripts_read: boolean;
+  scripts_write: boolean;
+  scripts_approve: boolean;
+  scripts_reject: boolean;
+  // Conteúdo
+  content_read: boolean;
+  content_write: boolean;
+  content_approve: boolean;
+  content_reject: boolean;
+  // Contratos
+  contracts_read: boolean;
+  contracts_write: boolean;
+  // Financeiro
+  financial_read: boolean;
+  financial_balance_add: boolean;
+  financial_payments_approve: boolean;
+  financial_reports_export: boolean;
+  /** @deprecated use influencers_read */
   catalog_read: boolean;
   catalog_write: boolean;
+  /** @deprecated use financial_read */
   billing_read: boolean;
   billing_write: boolean;
 }
@@ -202,6 +233,10 @@ export interface CampaignFormData {
   campaignVisibility?: "public" | "private";
   /** Nome do nicho primário (API `primary_niche`) para exibição no dashboard */
   primaryNicheName?: string;
+  /** Nomes dos nichos raízes vindos da API para exibição no dashboard. */
+  nicheNames?: string[];
+  /** Nomes dos subnichos (filhos) vindos da API para exibição no dashboard. */
+  subNicheNames?: string[];
 }
 
 export interface Influencer {
@@ -353,6 +388,79 @@ export interface CampaignScript {
   phase_id?: string | null;
   submitted_at?: string;
   submittedAt?: string;
+  approved_at?: string;
+  feedback?: string | null;
+}
+
+/** Formato bruto retornado pela API para `social_network` — pode ser string ou objeto. */
+type RawSocialNetwork =
+  | string
+  | { id?: string; type: string; name?: string; username?: string }
+  | undefined
+  | null;
+
+/**
+ * Resposta bruta da API para conteúdos antes da normalização.
+ * `social_network` chega como string ou objeto dependendo do endpoint.
+ */
+export interface RawCampaignContentResponse {
+  id: string;
+  campaign_id?: string;
+  influencer_id?: string;
+  influencerId?: string;
+  influencer_name?: string;
+  influencerName?: string;
+  influencer_avatar?: string;
+  influencerAvatar?: string;
+  social_network?: RawSocialNetwork;
+  socialNetwork?: string;
+  social_network_type?: string;
+  content_type?: string;
+  contentType?: string;
+  content_format?: CampaignContent["content_format"];
+  content_format_type?: string | null;
+  preview_url?: string;
+  previewUrl?: string;
+  preview_urls?: string[];
+  previewUrls?: string[];
+  post_url?: string;
+  postUrl?: string;
+  status: CampaignContent["status"];
+  phase?: CampaignContent["phase"];
+  phase_id?: string | null;
+  phaseId?: string;
+  submitted_at?: string;
+  submittedAt?: string;
+  published_at?: string | null;
+  publishedAt?: string;
+  feedback?: string | null;
+  caption?: string | null;
+  caption_feedback?: string | null;
+  metadata?: { content_format_type?: string } | null;
+  ai_evaluation?: unknown | null;
+}
+
+/**
+ * Resposta bruta da API para roteiros antes da normalização.
+ * `social_network` chega como string ou objeto dependendo do endpoint.
+ */
+export interface RawCampaignScriptResponse {
+  id: string;
+  campaign_id?: string;
+  influencer_id?: string;
+  influencer_name?: string;
+  influencer_avatar?: string;
+  social_network?: RawSocialNetwork;
+  social_network_type?: string;
+  content_format?: CampaignScript["content_format"];
+  content_format_type?: string | null;
+  metadata?: { content_format_type?: string } | null;
+  phase?: CampaignScript["phase"];
+  script?: string;
+  file_url?: string;
+  status: CampaignScript["status"];
+  phase_id?: string | null;
+  submitted_at?: string;
   approved_at?: string;
   feedback?: string | null;
 }

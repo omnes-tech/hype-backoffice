@@ -28,15 +28,28 @@ import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
-import type { Influencer } from "@/shared/types";
 import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
 import { mapUserStatusToKanbanColumn } from "./management-status-map";
+import {
+  kanbanColumns,
+  idToString,
+  participantToExtended,
+  type ExtendedInfluencer,
+  type KanbanColumn,
+  type StatusHistory,
+} from "./management-kanban-config";
+import {
+  validateStatusTransition,
+  validateUserStatusTransition,
+  getTransitionNote,
+} from "./management-status-transitions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useChat } from "@/hooks/use-chat";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNiches } from "@/hooks/use-niches";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
+import { getNetworkLabel } from "@/shared/constants/network-labels";
 
 interface ManagementTabProps {
   participants: CampaignManagementParticipant[];
@@ -47,118 +60,8 @@ interface ManagementTabProps {
   onOpenChatConsumed?: () => void;
 }
 
-interface StatusHistory {
-  id: string;
-  status: string;
-  timestamp: string;
-  notes?: string;
-}
-
-interface ExtendedInfluencer extends Omit<Influencer, "id"> {
-  id: string | number;
-  /** ID do usuário na plataforma (rota /influencer/$influencerId) */
-  user_id?: string | number;
-  socialNetwork?: string;
-  social_networks?: Array<{
-    id: number | string;
-    type: string;
-    name: string;
-    username?: string;
-    members?: number;
-  }>;
-  statusHistory?: StatusHistory[];
-}
-
-function participantToExtended(
-  p: CampaignManagementParticipant,
-): ExtendedInfluencer {
-  const chronological = [...(p.status_history || [])].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
-  const statusHistory = chronological.map((h) => ({
-    id: String(h.id),
-    status: mapUserStatusToKanbanColumn(h.status),
-    timestamp: h.timestamp,
-    notes: h.notes,
-  }));
-  const primaryNetwork = p.social_network || p.social_networks?.[0]?.type;
-  return {
-    id: p.id,
-    user_id: p.user_id,
-    name: p.name,
-    username: p.username || "",
-    avatar: p.avatar || "",
-    followers: p.followers ?? 0,
-    engagement: p.engagement ?? 0,
-    niche: p.niche || "",
-    nicheName: p.nicheName,
-    status: (p.status || "applications") as Influencer["status"],
-    social_networks: p.social_networks,
-    socialNetwork: primaryNetwork,
-    statusHistory,
-  };
-}
-
-// Helper para converter ID para string
-const idToString = (id: string | number): string => {
-  return typeof id === "number" ? String(id) : id;
-};
-
-// Cores e labels alinhados ao Figma (FORÇA TAREFA - Gerenciamento)
-const kanbanColumns = [
-  { id: "applications", label: "Inscrições", color: "bg-[#f5f5f5]" },
-  { id: "pre_selection", label: "Pré-seleção", color: "bg-[#faf5ff]" },
-  {
-    id: "pre_selection_curation",
-    label: "Curadoria pré-seleção",
-    color: "bg-[#f2e2ff]",
-  },
-  { id: "curation", label: "Curadoria", color: "bg-[#f0f6ff]" },
-  { id: "invited", label: "Convidados", color: "bg-[#fdfce9]" },
-  {
-    id: "contract_pending",
-    label: "Contrato Pendente",
-    color: "bg-[#f1fdfa]",
-  },
-  {
-    id: "approved",
-    label: "Aprovado / Em Andamento",
-    color: "bg-[#f1fdf4]",
-  },
-  {
-    id: "script_pending",
-    label: "Aguardando Aprovação Roteiro",
-    color: "bg-[#eff2ff]",
-  },
-  {
-    id: "content_pending",
-    label: "Aguardando Conteúdo",
-    color: "bg-[#fefbeb]",
-  },
-  {
-    id: "pending_approval",
-    label: "Aguardando Aprovação Conteúdo",
-    color: "bg-[#fef7ed]",
-  },
-  { id: "in_correction", label: "Em Correção", color: "bg-[#fcf9c3]" },
-  {
-    id: "content_approved",
-    label: "Conteúdo Aprovado",
-    color: "bg-[#faf5ff]",
-  },
-  {
-    id: "payment_pending",
-    label: "Aguardando Pagamento",
-    color: "bg-[#eefeff]",
-  },
-  { id: "published", label: "Publicado", color: "bg-[#f1fdf5]" },
-  {
-    id: "rejected",
-    label: "Recusados",
-    color: "bg-[#fdf2f2]",
-    highlight: true,
-  },
-];
+// StatusHistory, ExtendedInfluencer, kanbanColumns, idToString e participantToExtended
+// foram extraídos para management-kanban-config.ts
 
 // Componente de Card Arrastável
 function SortableInfluencerCard({
@@ -302,7 +205,7 @@ function KanbanColumn({
   setSelectedInfluencer,
   setIsRejectModalOpen,
 }: {
-  column: (typeof kanbanColumns)[0];
+  column: KanbanColumn;
   influencers: ExtendedInfluencer[];
   influencerIds: string[];
   onInfluencerClick: (inf: ExtendedInfluencer) => void;
@@ -609,7 +512,7 @@ export function ManagementTab({
           setIsModalOpen(false);
           setSelectedInfluencer(null);
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao aprovar influenciador");
         },
       },
@@ -650,7 +553,7 @@ export function ManagementTab({
           setIsModalOpen(false);
           setSelectedInfluencer(null);
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao recusar influenciador");
         },
       },
@@ -684,7 +587,7 @@ export function ManagementTab({
           setIsModalOpen(false);
           setSelectedInfluencer(null);
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(
             error?.message || "Erro ao mover influenciador para curadoria",
           );
@@ -751,13 +654,7 @@ export function ManagementTab({
         return [];
       case "rejected":
         // Rejeitado - pode ser reativado movendo para applications ou curation
-        return [
-          {
-            label: "Reativar (Applications)",
-            action: "applications",
-            targetStatus: "applications",
-          },
-        ];
+        return [];
       default:
         return [];
     }
@@ -770,26 +667,17 @@ export function ManagementTab({
 
   const getSocialNetworkIcon = (network?: string) => {
     const icons: { [key: string]: keyof typeof import("lucide-react").icons } =
-      {
-        instagram: "Instagram",
-        youtube: "Youtube",
-        tiktok: "Music",
-        facebook: "Facebook",
-        twitter: "Twitter",
-      };
-    return icons[network || ""] || "Share2";
-  };
-
-  const getSocialNetworkLabel = (network?: string) => {
-    const labels: { [key: string]: string } = {
+    {
       instagram: "Instagram",
-      youtube: "YouTube",
-      tiktok: "TikTok",
+      youtube: "Youtube",
+      tiktok: "Music",
       facebook: "Facebook",
       twitter: "Twitter",
     };
-    return labels[network || ""] || network || "N/A";
+    return icons[network || ""] || "Share2";
   };
+
+  const getSocialNetworkLabel = (network?: string) => getNetworkLabel(network, network || "N/A");
 
   const handleInfluencerClick = (influencer: ExtendedInfluencer) => {
     setSelectedInfluencer(influencer);
@@ -872,7 +760,7 @@ export function ManagementTab({
         // Se o influenciador tiver apenas uma rede social, usar o network_id dela
         const networkId =
           draggedInfluencer.social_networks &&
-          draggedInfluencer.social_networks.length === 1
+            draggedInfluencer.social_networks.length === 1
             ? typeof draggedInfluencer.social_networks[0].id === "string"
               ? Number(draggedInfluencer.social_networks[0].id)
               : draggedInfluencer.social_networks[0].id
@@ -894,7 +782,7 @@ export function ManagementTab({
               );
               toast.success("Status do usuário atualizado com sucesso!");
             },
-            onError: (error: any) => {
+            onError: (error: Error) => {
               toast.error(
                 error?.message || "Erro ao atualizar status do usuário",
               );
@@ -920,13 +808,11 @@ export function ManagementTab({
             ? "pre_selection"
             : targetStatus === "pre_selection_curation"
               ? "pre_selection_curation"
-              : targetStatus === "approved" ||
-                  targetStatus === "approved_progress"
+              : targetStatus === "approved"
                 ? "approved"
                 : targetStatus === "rejected"
                   ? "rejected"
-                  : targetStatus === "applications" ||
-                      targetStatus === "inscriptions"
+                  : targetStatus === "applications"
                     ? "applications"
                     : targetStatus === "invited"
                       ? "invited"
@@ -953,7 +839,7 @@ export function ManagementTab({
       // Se o influenciador tiver apenas uma rede social, usar o network_id dela
       const networkId =
         draggedInfluencer.social_networks &&
-        draggedInfluencer.social_networks.length === 1
+          draggedInfluencer.social_networks.length === 1
           ? typeof draggedInfluencer.social_networks[0].id === "string"
             ? Number(draggedInfluencer.social_networks[0].id)
             : draggedInfluencer.social_networks[0].id
@@ -975,7 +861,7 @@ export function ManagementTab({
             );
             toast.success("Status atualizado com sucesso!");
           },
-          onError: (error: any) => {
+          onError: (error: Error) => {
             toast.error(error?.message || "Erro ao atualizar status");
           },
         },
@@ -996,180 +882,8 @@ export function ManagementTab({
     }
   };
 
-  const validateStatusTransition = (
-    fromStatus: string,
-    toStatus: string,
-  ): boolean => {
-    // Regras de transição válidas conforme documentação de status
-    // Baseado em: API_ENDPOINTS_BACKOFFICE_CHAT.md e Untitled.md
-    const validTransitions: { [key: string]: string[] } = {
-      // applications → pre_selection, curation, invited, rejected
-      applications: ["pre_selection", "curation", "invited", "rejected"],
-      // pre_selection → pre_selection_curation, curation, rejected
-      pre_selection: ["pre_selection_curation", "curation", "rejected"],
-      // pre_selection_curation → curation, invited, approved, rejected
-      pre_selection_curation: ["curation", "invited", "approved", "rejected"],
-      // curation → invited, approved, rejected
-      curation: ["invited", "approved", "rejected"],
-      // invited → contract_pending, rejected
-      invited: ["contract_pending", "rejected"],
-      // contract_pending → approved, rejected
-      contract_pending: ["approved", "rejected"],
-      // approved → script_pending, rejected
-      approved: ["script_pending", "rejected"],
-      // script_pending → content_pending, rejected
-      script_pending: ["content_pending", "rejected"],
-      // content_pending → pending_approval, rejected
-      content_pending: ["pending_approval", "rejected"],
-      // pending_approval → content_approved, in_correction
-      pending_approval: ["content_approved", "in_correction"],
-      // in_correction → pending_approval
-      in_correction: ["pending_approval"],
-      // content_approved → payment_pending, published
-      content_approved: ["payment_pending", "published"],
-      // payment_pending → published
-      payment_pending: ["published"],
-      // published → nenhum (status final)
-      published: [],
-      // rejected → nenhum (status final)
-      rejected: [],
-      // Compatibilidade com valores antigos
-      inscriptions: ["curation", "invited", "rejected"],
-      approved_progress: ["pending_approval", "rejected"],
-      awaiting_approval: ["content_approved", "in_correction"],
-    };
-
-    const allowedStatuses = validTransitions[fromStatus] || [];
-    return allowedStatuses.includes(toStatus);
-  };
-
-  // Para usuários da campanha, permitir transições conforme documentação
-  // O backoffice pode mover manualmente entre: applications, curation, invited, contract_pending, approved, script_pending, content_pending, rejected
-  // Os status pending_approval, in_correction, content_approved, payment_pending, published são automáticos
-  const validateUserStatusTransition = (
-    fromStatus: string,
-    toStatus: string,
-  ): boolean => {
-    // Status automáticos não podem ser movidos manualmente
-    const automaticStatuses = [
-      "pending_approval",
-      "in_correction",
-      "content_approved",
-      "payment_pending",
-      "published",
-    ];
-
-    // Se o status de destino é automático, não permitir movimento manual
-    if (automaticStatuses.includes(toStatus)) {
-      return false;
-    }
-
-    // Transições válidas para movimento manual pelo backoffice
-    const userValidTransitions: { [key: string]: string[] } = {
-      // applications → pre_selection, curation, invited, rejected
-      applications: ["pre_selection", "curation", "invited", "rejected"],
-      // pre_selection → pre_selection_curation, curation, rejected
-      pre_selection: ["pre_selection_curation", "curation", "rejected"],
-      // pre_selection_curation → curation, invited, approved, rejected
-      pre_selection_curation: ["curation", "invited", "approved", "rejected"],
-      // curation → invited, approved, rejected
-      curation: ["invited", "approved", "rejected"],
-      // invited → contract_pending, rejected
-      invited: ["contract_pending", "rejected"],
-      // contract_pending → approved, rejected
-      contract_pending: ["approved", "rejected"],
-      // approved → script_pending, curation, rejected
-      approved: ["script_pending", "curation", "rejected"],
-      // script_pending → content_pending, rejected
-      script_pending: ["content_pending", "rejected"],
-      // content_pending → rejected
-      content_pending: ["rejected"],
-      // rejected → applications, curation (pode ser reativado)
-      rejected: ["applications", "curation"],
-      // Compatibilidade com valores antigos
-      inscriptions: ["curation", "invited", "rejected"],
-      approved_progress: ["curation", "rejected"],
-    };
-
-    const allowedStatuses = userValidTransitions[fromStatus] || [];
-    return allowedStatuses.includes(toStatus);
-  };
-
-  const getTransitionNote = (fromStatus: string, toStatus: string): string => {
-    // Notas de transição conforme documentação de status
-    const notes: { [key: string]: string } = {
-      // Transições de applications
-      "applications->curation": "Movido para curadoria",
-      "applications->pre_selection": "Movido para pré-seleção",
-      "applications->invited": "Convidado para participar",
-      "applications->rejected": "Recusado",
-      // Transições de pre_selection
-      "pre_selection->pre_selection_curation":
-        "Movido para curadoria da pré-seleção",
-      "pre_selection->curation": "Movido para curadoria",
-      "pre_selection->rejected": "Recusado",
-      // Transições de pre_selection_curation
-      "pre_selection_curation->curation": "Movido para curadoria",
-      "pre_selection_curation->invited":
-        "Convidado após curadoria da pré-seleção",
-      "pre_selection_curation->approved":
-        "Aprovado após curadoria da pré-seleção",
-      "pre_selection_curation->rejected": "Recusado",
-      // Transições de curation
-      "curation->invited": "Convidado após curadoria",
-      "curation->approved": "Aprovado após curadoria",
-      "curation->rejected": "Recusado após curadoria",
-      // Transições de invited
-      "invited->contract_pending": "Contrato pendente",
-      "invited->rejected": "Recusou o convite",
-      // Transições de contract_pending
-      "contract_pending->approved": "Contrato aprovado",
-      "contract_pending->rejected": "Contrato recusado",
-      // Transições de approved
-      "approved->script_pending": "Aguardando aprovação de roteiro",
-      "approved->rejected": "Removido da campanha",
-      "approved->curation": "Movido para curadoria",
-      // Transições de script_pending
-      "script_pending->content_pending":
-        "Roteiro aprovado, aguardando conteúdo",
-      "script_pending->rejected": "Roteiro recusado",
-      // Transições de content_pending
-      "content_pending->pending_approval": "Conteúdo enviado para aprovação",
-      "content_pending->rejected": "Recusado",
-      // Transições de pending_approval
-      "pending_approval->content_approved": "Conteúdo aprovado",
-      "pending_approval->in_correction":
-        "Conteúdo recusado, aguardando correção",
-      // Transições de in_correction
-      "in_correction->pending_approval": "Novo conteúdo enviado após correção",
-      // Transições de content_approved
-      "content_approved->payment_pending": "Aguardando pagamento",
-      "content_approved->published": "Publicação identificada pelo bot",
-      // Transições de payment_pending
-      "payment_pending->published": "Pagamento processado, conteúdo publicado",
-      // Transições de rejected (reativação)
-      "rejected->applications": "Reativado - movido para inscrições",
-      "rejected->curation": "Reativado - movido para curadoria",
-      // Compatibilidade com valores antigos
-      "inscriptions->approved": "Aprovado",
-      "inscriptions->approved_progress": "Aprovado",
-      "inscriptions->rejected": "Recusado",
-      "inscriptions->curation": "Movido para curadoria",
-      "curation->approved_progress": "Aprovado após curadoria",
-      "invited->approved_progress": "Aceitou o convite",
-      "approved_progress->pending_approval": "Conteúdo enviado para aprovação",
-      "approved_progress->awaiting_approval": "Conteúdo enviado para aprovação",
-      "awaiting_approval->content_approved": "Conteúdo aprovado",
-      "awaiting_approval->in_correction":
-        "Conteúdo recusado, aguardando correção",
-      "in_correction->awaiting_approval": "Novo conteúdo enviado",
-    };
-
-    return (
-      notes[`${fromStatus}->${toStatus}`] ||
-      `Movido de ${getStatusLabel(fromStatus)} para ${getStatusLabel(toStatus)}`
-    );
-  };
+  // validateStatusTransition, validateUserStatusTransition e getTransitionNote
+  // foram extraídos para management-status-transitions.ts
 
   const allPhaseIds = kanbanColumns.map((c) => c.id);
   const isAllPhasesFilterSelected =
@@ -1238,11 +952,10 @@ export function ManagementTab({
                 <button
                   type="button"
                   onClick={() => setSelectedPhaseFilterIds([...allPhaseIds])}
-                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${
-                    isAllPhasesFilterSelected
-                      ? "bg-primary-600 text-white border-transparent"
-                      : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                  }`}
+                  className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isAllPhasesFilterSelected
+                    ? "bg-primary-600 text-white border-transparent"
+                    : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                    }`}
                 >
                   Geral
                 </button>
@@ -1253,11 +966,10 @@ export function ManagementTab({
                       key={col.id}
                       type="button"
                       onClick={() => togglePhaseFilter(col.id)}
-                      className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${
-                        isActive
-                          ? "bg-primary-600 text-white border-transparent"
-                          : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
-                      }`}
+                      className={`px-3 py-2 border rounded-[32px] text-base transition-colors cursor-pointer ${isActive
+                        ? "bg-primary-600 text-white border-transparent"
+                        : " border-[#e5e5e5] text-neutral-950 hover:bg-neutral-50"
+                        }`}
                     >
                       {col.label}
                     </button>
@@ -1346,7 +1058,7 @@ export function ManagementTab({
                 </p>
                 {/* Mostrar todas as redes sociais */}
                 {selectedInfluencer.social_networks &&
-                selectedInfluencer.social_networks.length > 0 ? (
+                  selectedInfluencer.social_networks.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {selectedInfluencer.social_networks.map((network) => (
                       <Badge
@@ -1537,7 +1249,7 @@ export function ManagementTab({
                 onClick={() => {
                   const userId =
                     selectedInfluencer.user_id != null &&
-                    String(selectedInfluencer.user_id).trim() !== ""
+                      String(selectedInfluencer.user_id).trim() !== ""
                       ? String(selectedInfluencer.user_id)
                       : null;
                   if (!userId) {
@@ -1820,9 +1532,8 @@ function ChatModal({
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-3 items-end ${
-                      fromInfluencer ? "justify-start" : "justify-end"
-                    }`}
+                    className={`flex gap-3 items-end ${fromInfluencer ? "justify-start" : "justify-end"
+                      }`}
                   >
                     {/* Avatar do influenciador (ESQUERDA) */}
                     {fromInfluencer && (
@@ -1836,11 +1547,10 @@ function ChatModal({
 
                     {/* Mensagem */}
                     <div
-                      className={`max-w-[70%] rounded-2xl p-3 ${
-                        fromInfluencer
-                          ? "bg-neutral-100 text-neutral-950 rounded-bl-sm"
-                          : "bg-primary-600 text-neutral-50 rounded-br-sm"
-                      }`}
+                      className={`max-w-[70%] rounded-2xl p-3 ${fromInfluencer
+                        ? "bg-neutral-100 text-neutral-950 rounded-bl-sm"
+                        : "bg-primary-600 text-neutral-50 rounded-br-sm"
+                        }`}
                     >
                       {/* Texto da mensagem */}
                       {msg.message && (
@@ -1858,11 +1568,10 @@ function ChatModal({
                             (attUrl: string, idx: number) => (
                               <div
                                 key={idx}
-                                className={`flex items-center gap-2 p-2 rounded-lg ${
-                                  fromInfluencer
-                                    ? "bg-neutral-200"
-                                    : "bg-primary-500"
-                                }`}
+                                className={`flex items-center gap-2 p-2 rounded-lg ${fromInfluencer
+                                  ? "bg-neutral-200"
+                                  : "bg-primary-500"
+                                  }`}
                               >
                                 <Icon
                                   name="Paperclip"
@@ -1873,11 +1582,10 @@ function ChatModal({
                                   href={attUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className={`text-xs underline truncate flex-1 ${
-                                    fromInfluencer
-                                      ? "text-neutral-700"
-                                      : "text-neutral-50"
-                                  }`}
+                                  className={`text-xs underline truncate flex-1 ${fromInfluencer
+                                    ? "text-neutral-700"
+                                    : "text-neutral-50"
+                                    }`}
                                 >
                                   Anexo {idx + 1}
                                 </a>
@@ -1889,11 +1597,10 @@ function ChatModal({
 
                       {/* Timestamp */}
                       <p
-                        className={`text-xs mt-1 ${
-                          fromInfluencer
-                            ? "text-neutral-500"
-                            : "text-neutral-200 opacity-80"
-                        }`}
+                        className={`text-xs mt-1 ${fromInfluencer
+                          ? "text-neutral-500"
+                          : "text-neutral-200 opacity-80"
+                          }`}
                       >
                         {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
                           hour: "2-digit",
@@ -1962,7 +1669,7 @@ function ChatModal({
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
             placeholder={
               isConnected ? "Digite sua mensagem..." : "Conectando..."
             }

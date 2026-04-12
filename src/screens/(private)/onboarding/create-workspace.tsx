@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,10 +11,8 @@ import { saveWorkspaceId } from "@/lib/utils/api";
 import type { Workspace } from "@/shared/types";
 import { useNiches } from "@/hooks/use-niches";
 import { isNicheRoot } from "@/shared/utils/niche-tree";
-import { useWorkspaces } from "@/hooks/use-workspaces";
 
 import { ImageUpload } from "@/components/image-upload";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/text-area";
@@ -61,15 +59,6 @@ function RouteComponent() {
 
   const [preview, setPreview] = useState<string | null>(null);
   const { data: niches = [], isLoading: isLoadingNiches } = useNiches();
-  const { data: workspaces = [], isLoading: isLoadingWorkspaces } =
-    useWorkspaces();
-
-  useEffect(() => {
-    if (isLoadingWorkspaces) return;
-    if (workspaces.length > 0) {
-      navigate({ to: "/", replace: true });
-    }
-  }, [isLoadingWorkspaces, workspaces.length, navigate]);
 
   const {
     control,
@@ -99,7 +88,7 @@ function RouteComponent() {
       onSuccess: async (workspace: Workspace, variables: CreateWorkspaceData) => {
         queryClient.invalidateQueries({ queryKey: ["me-workspaces"] });
         saveWorkspaceId(workspace.id); // workspace.id já é string (UUID)
-        
+
         // Fazer upload da foto se houver
         if (variables.photo && variables.photo.length > 0) {
           try {
@@ -108,19 +97,15 @@ function RouteComponent() {
             toast.error("Workspace criado, mas houve um erro ao fazer upload da foto.");
           }
         }
-        
+
         toast.success(`Sua marca ${workspace.name} foi criada com sucesso.`);
         navigate({ to: "/onboarding/welcome" });
       },
-      onError: (error: any) => {
-        const errorMessage = error?.message || error?.response?.data?.message || "Erro ao criar workspace. Tente novamente.";
+      onError: (error: Error) => {
+        const errorMessage = error?.message || "Erro ao criar workspace. Tente novamente.";
         toast.error(errorMessage);
       },
     });
-
-  if (isLoadingWorkspaces || workspaces.length > 0) {
-    return <LoadingSpinner message="Carregando..." />;
-  }
 
   return (
     <form
@@ -193,7 +178,7 @@ function RouteComponent() {
         />
       </div>
 
-      <Button type="submit" disabled={isCreatingWorkspace}>
+      <Button type="submit" disabled={isCreatingWorkspace} className="min-w-max">
         <p className="text-neutral-50 font-semibold">
           {isCreatingWorkspace ? "Criando sua marca..." : "Criar"}
         </p>

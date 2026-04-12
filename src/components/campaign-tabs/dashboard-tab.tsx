@@ -3,13 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData } from "@/shared/types";
 import { getUploadUrl } from "@/lib/utils/api";
-import { useNiches } from "@/hooks/use-niches";
 import { CheckIcon } from "../icons/CheckIcon";
-
-/** Bloco animado de skeleton (shimmer) para estados de carregamento */
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`skeleton ${className ?? ""}`} aria-hidden />;
-}
+import { getNetworkLabel } from "@/shared/constants/network-labels";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Modal } from "@/components/ui/modal";
 
 /** Skeleton do layout da aba Dashboard — espelha a estrutura real para transição suave */
 export function DashboardTabSkeleton() {
@@ -135,6 +132,8 @@ export function DashboardTabSkeleton() {
   );
 }
 
+const MAX_NICHES_VISIBLE = 3;
+
 interface DashboardTabProps {
   campaign: CampaignFormData;
   metrics: {
@@ -144,14 +143,12 @@ interface DashboardTabProps {
     activeInfluencers: number;
   };
   progressPercentage: number;
+  /** Nomes dos nichos raízes — vem direto da API, sem lookup. */
+  nicheNames?: string[];
+  /** Nomes dos subnichos (filhos) — vem direto da API, sem lookup. */
+  subNicheNames?: string[];
 }
 
-const socialNetworkLabels: { [key: string]: string } = {
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  ugc: "UGC",
-};
 
 const contentTypeLabels: { [key: string]: string } = {
   post: "Post",
@@ -244,29 +241,13 @@ function timestampFromPhaseCreatedAt(iso: string): number {
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
 }
 
-export function DashboardTab({ campaign, metrics, progressPercentage }: DashboardTabProps) {
+export function DashboardTab({ campaign, metrics, progressPercentage, nicheNames: nicheNamesProp, subNicheNames: subNicheNamesProp }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
-  const { data: niches = [] } = useNiches();
+  const [nicheModalOpen, setNicheModalOpen] = useState(false);
+  const [subNicheModalOpen, setSubNicheModalOpen] = useState(false);
 
-  const primaryNicheLabel = useMemo(() => {
-    const fromApi = campaign.primaryNicheName?.trim();
-    if (fromApi) return fromApi;
-    if (campaign.mainNiche) {
-      const n = niches.find((x) => x.id.toString() === campaign.mainNiche);
-      if (n?.name) return n.name;
-    }
-    return "";
-  }, [campaign.primaryNicheName, campaign.mainNiche, niches]);
-
-  const subnicheNames = useMemo(() => {
-    if (!campaign.subniches) return "";
-    const nicheIds = campaign.subniches.split(",").filter(Boolean);
-    const names = nicheIds.map((id) => {
-      const niche = niches.find((n) => n.id.toString() === id.trim());
-      return niche?.name || id;
-    });
-    return names.join(", ");
-  }, [campaign.subniches, niches]);
+  const nicheNames = nicheNamesProp ?? (campaign.primaryNicheName?.trim() ? [campaign.primaryNicheName.trim()] : []);
+  const subNicheNames = subNicheNamesProp ?? [];
 
   const periodLabel = useMemo(() => {
     if (!campaign.phases?.length) return "-";
@@ -390,15 +371,40 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
               </p>
             </div>
           )}
-          {/* Nicho | Sub-Nicho | Período | Remuneração */}
           <div className="flex flex-wrap">
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] p-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Nicho</p>
-              <p className="text-base font-medium text-neutral-950">{primaryNicheLabel || "-"}</p>
+              {nicheNames.length === 0 ? (
+                <p className="text-base font-medium text-neutral-950">-</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {nicheNames.slice(0, MAX_NICHES_VISIBLE).map((name, i) => (
+                    <p key={i} className="text-base font-medium text-neutral-950 leading-snug">{name}</p>
+                  ))}
+                  {nicheNames.length > MAX_NICHES_VISIBLE && (
+                    <button type="button" onClick={() => setNicheModalOpen(true)} className="text-sm font-medium text-primary-600 underline text-left mt-1">
+                      ver mais ({nicheNames.length})
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Sub-Nicho</p>
-              <p className="text-base font-medium text-neutral-950">{subnicheNames || "-"}</p>
+              {subNicheNames.length === 0 ? (
+                <p className="text-base font-medium text-neutral-950">-</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {subNicheNames.slice(0, MAX_NICHES_VISIBLE).map((name, i) => (
+                    <p key={i} className="text-base font-medium text-neutral-950 leading-snug">{name}</p>
+                  ))}
+                  {subNicheNames.length > MAX_NICHES_VISIBLE && (
+                    <button type="button" onClick={() => setSubNicheModalOpen(true)} className="text-sm font-medium text-primary-600 underline text-left mt-1">
+                      ver mais ({subNicheNames.length})
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-[120px] border-r border-[#E5E5E5] px-4 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Período</p>
@@ -409,6 +415,25 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
               <p className="text-base font-medium text-neutral-950">R${remunerationLabel}</p>
             </div>
           </div>
+
+          {nicheModalOpen && (
+            <Modal title="Todos os nichos" onClose={() => setNicheModalOpen(false)} panelClassName="max-w-md">
+              <ul className="flex flex-col gap-2">
+                {nicheNames.map((name, i) => (
+                  <li key={i} className="text-base text-neutral-950 py-1 border-b border-neutral-100 last:border-b-0">{name}</li>
+                ))}
+              </ul>
+            </Modal>
+          )}
+          {subNicheModalOpen && (
+            <Modal title="Todos os subnichos" onClose={() => setSubNicheModalOpen(false)} panelClassName="max-w-md">
+              <ul className="flex flex-col gap-2">
+                {subNicheNames.map((name, i) => (
+                  <li key={i} className="text-base text-neutral-950 py-1 border-b border-neutral-100 last:border-b-0">{name}</li>
+                ))}
+              </ul>
+            </Modal>
+          )}
           {/* Descrição */}
           <div className="p-5 flex flex-col">
             <p className="text-lg font-semibold text-neutral-950">Descrição</p>
@@ -432,11 +457,6 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
                     </li>
                   ))}
                 </ul>
-                {whatToDoList.length > 3 && (
-                  <button type="button" className="text-base font-medium text-neutral-500 underline text-left">
-                    Ver mais ({whatToDoList.length})
-                  </button>
-                )}
               </div>
             </div>
             <div className="flex-1 min-w-0 p-4">
@@ -450,27 +470,15 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
                     </li>
                   ))}
                 </ul>
-                {whatNotToDoList.length > 3 && (
-                  <button type="button" className="text-base font-medium text-neutral-500 underline text-left">
-                    Ver mais ({whatNotToDoList.length})
-                  </button>
-                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Coluna direita: Fases, Segmentação, Benefícios */}
         <div className="w-full lg:w-[min(100%,457px)] flex flex-col gap-4 shrink-0">
-          {/* Fases da campanha */}
           <div className="bg-white rounded-lg overflow-hidden">
             <div className="flex items-center justify-between p-5">
               <h3 className="text-xl font-semibold text-neutral-950">Fases da campanha</h3>
-              {campaign.phases && campaign.phases.length > 0 && (
-                <button type="button" className="text-base font-medium text-neutral-500 underline">
-                  Ver mais ({campaign.phases.length} Fases)
-                </button>
-              )}
             </div>
             {campaign.phases && campaign.phases.length > 0 ? (
               <div className="border-t border-[#E5E5E5]">
@@ -523,7 +531,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage }: Dashboar
                                     <div key={format.id} className="p-3 bg-white rounded-xl border border-[#E5E5E5] flex justify-between items-center">
                                       <div>
                                         <p className="text-sm font-medium text-neutral-950">
-                                          {socialNetworkLabels[format.socialNetwork] || format.socialNetwork}
+                                          {getNetworkLabel(format.socialNetwork, format.socialNetwork)}
                                         </p>
                                         <p className="text-xs text-neutral-600">
                                           {contentTypeLabels[format.contentType] || format.contentType}

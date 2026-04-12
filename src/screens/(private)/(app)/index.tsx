@@ -235,18 +235,22 @@ function RouteComponent() {
             )}
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
-            <Link to="/campaigns">
-              <Button variant="outline" className="border-neutral-300 bg-white/80">
-                <Icon name="LayoutGrid" color="#404040" size={16} />
-                <span className="ml-2 text-neutral-800">Campanhas</span>
-              </Button>
-            </Link>
-            <Link to="/campaigns/new">
-              <Button>
-                <Icon name="Plus" color="#FAFAFA" size={16} />
-                <span className="ml-2">Nova campanha</span>
-              </Button>
-            </Link>
+            {permissions.campaigns_read && (
+              <Link to="/campaigns">
+                <Button variant="outline" className="border-neutral-300 bg-white/80">
+                  <Icon name="LayoutGrid" color="#404040" size={16} />
+                  <span className="ml-2 text-neutral-800">Campanhas</span>
+                </Button>
+              </Link>
+            )}
+            {permissions.campaigns_create && (
+              <Link to="/campaigns/new">
+                <Button>
+                  <Icon name="Plus" color="#FAFAFA" size={16} />
+                  <span className="ml-2">Nova campanha</span>
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -603,13 +607,15 @@ function RouteComponent() {
             <p className="text-neutral-600 mt-4 text-center text-sm">
               Nenhuma campanha neste workspace
             </p>
-            <Link to="/campaigns/new" className="mt-5">
-              <Button>
-                <span className="text-neutral-50 font-semibold">
-                  Criar primeira campanha
-                </span>
-              </Button>
-            </Link>
+            {permissions.campaigns_create && (
+              <Link to="/campaigns/new" className="mt-5">
+                <Button>
+                  <span className="text-neutral-50 font-semibold">
+                    Criar primeira campanha
+                  </span>
+                </Button>
+              </Link>
+            )}
           </div>
         )}
       </section>

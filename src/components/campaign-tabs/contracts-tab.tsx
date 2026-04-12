@@ -101,7 +101,7 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
           setExpiresAt("");
           refetchContracts();
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           toast.error(error?.message || "Erro ao enviar contrato");
         },
       }
@@ -114,7 +114,7 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
         toast.success("Contrato reenviado com sucesso!");
         refetchContracts();
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast.error(error?.message || "Erro ao reenviar contrato");
       },
     });

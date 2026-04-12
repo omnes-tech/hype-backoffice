@@ -104,15 +104,23 @@ export function buildPhasesPayloadFromForm(
 export function buildCampaignUpdatePayloadFromForm(
   formData: CampaignFormData
 ): UpdateCampaignData {
-  const secondary_niches = formData.subniches
-    ? formData.subniches
-        .split(",")
-        .filter(Boolean)
-        .map((id) => parseInt(id, 10))
-        .filter((id) => !Number.isNaN(id))
+  const subnicheIds = formData.subniches
+    ? formData.subniches.split(",").filter(Boolean).map((id) => parseInt(id, 10)).filter((id) => !Number.isNaN(id))
     : [];
+  const mainNicheIds = formData.mainNiche
+    ? formData.mainNiche.split(",").filter(Boolean).map((id) => parseInt(id, 10)).filter((id) => !Number.isNaN(id))
+    : [];
+  // Enviar todos os nichos (raiz + filhos) no campo secondary_niches
+  const secondary_niches = [...new Set([...mainNicheIds, ...subnicheIds])];
 
   const buildPaymentDetails = () => {
+    const bonusLine = formData.benefitsBonus?.trim()
+      ? `Bônus: ${formData.benefitsBonus.trim()}`
+      : "";
+
+    const withBonus = (text: string) =>
+      [bonusLine, text].filter(Boolean).join("\n\n");
+
     const baseDetails: { amount?: number; currency?: string; description?: string } = {};
 
     switch (formData.paymentType) {
@@ -120,19 +128,23 @@ export function buildCampaignUpdatePayloadFromForm(
         if (formData.paymentFixedAmount) {
           baseDetails.amount = currencyToNumber(formData.paymentFixedAmount);
           baseDetails.currency = "BRL";
-          baseDetails.description = "Pagamento fixo por influenciador";
+          baseDetails.description = withBonus("Pagamento fixo por influenciador");
         }
         break;
       case "swap":
         if (formData.paymentSwapItem && formData.paymentSwapMarketValue) {
-          baseDetails.description = `${formData.paymentSwapItem} - Valor de mercado: ${formData.paymentSwapMarketValue}`;
+          baseDetails.description = withBonus(
+            `${formData.paymentSwapItem} - Valor de mercado: ${formData.paymentSwapMarketValue}`,
+          );
           baseDetails.amount = currencyToNumber(formData.paymentSwapMarketValue);
           baseDetails.currency = "BRL";
         }
         break;
       case "cpa":
         if (formData.paymentCpaActions && formData.paymentCpaValue) {
-          baseDetails.description = `Ações que geram CPA: ${formData.paymentCpaActions} - Valor: ${formData.paymentCpaValue}`;
+          baseDetails.description = withBonus(
+            `Ações que geram CPA: ${formData.paymentCpaActions} - Valor: ${formData.paymentCpaValue}`,
+          );
           baseDetails.amount = currencyToNumber(formData.paymentCpaValue);
           baseDetails.currency = "BRL";
         }
@@ -141,6 +153,7 @@ export function buildCampaignUpdatePayloadFromForm(
         if (formData.paymentCpmValue) {
           baseDetails.amount = currencyToNumber(formData.paymentCpmValue);
           baseDetails.currency = "BRL";
+          if (bonusLine) baseDetails.description = bonusLine;
         }
         break;
       case "price":

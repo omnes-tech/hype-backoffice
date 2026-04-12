@@ -26,7 +26,7 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
       toast.success("Conteúdos aprovados com sucesso");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "Erro ao aprovar conteúdos";
       toast.error(message);
     },
@@ -57,7 +57,7 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
       toast.success("Conteúdos reprovados com sucesso");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "Erro ao reprovar conteúdos";
       toast.error(message);
     },

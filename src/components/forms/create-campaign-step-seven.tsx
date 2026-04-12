@@ -163,7 +163,7 @@ export function CreateCampaignStepSeven({
     formData.campaignVisibility === "private" ? "private" : "public";
 
   return (
-    <div className="flex flex-col gap-11 pb-8">
+    <div className="flex flex-col gap-4 pb-8">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <h2 className="text-[28px] font-medium leading-8 text-neutral-950">
@@ -176,7 +176,7 @@ export function CreateCampaignStepSeven({
         {/* Main content */}
         <div className="min-w-0 flex-1 flex flex-col gap-7">
           {/* Pública ou privada + cards */}
-          <div className="flex flex-col gap-7">
+          <div className="flex flex-col">
             {/* Esta campanha será pública ou privada? */}
             <div className="rounded-[12px] bg-neutral-050 p-6">
               <p className="mb-4 text-xl font-medium text-neutral-950">
@@ -221,6 +221,11 @@ export function CreateCampaignStepSeven({
               <LabelValue label="Título da campanha" value={formData.title} />
               <LabelValue label="Sobre a campanha" value={formData.description} />
               <LabelValue label="Subnichos da campanha" value={subnicheNames} />
+            </ReviewCard>
+
+            <ReviewCard title="Influenciadores" onEdit={() => onEdit(2)}>
+              <LabelValue label="Quantidade de influenciadores" value={formData.influencersCount} />
+              <LabelValue label="Faixa de seguidores" value={formData.minFollowers} />
             </ReviewCard>
 
             {/* Remuneração e benefícios */}
@@ -406,7 +411,7 @@ export function CreateCampaignStepSeven({
                             type="button"
                             variant="outline"
                             onClick={() => onEditPhase(index)}
-                            className="h-8 shrink-0 rounded-[24px] border-neutral-200 px-4 py-1.5 w-max"
+                            className="h-8 shrink-0 rounded-[24px] border-neutral-200 px-4 py-1.5 min-w-max"
                           >
                             <span className="text-sm font-semibold text-neutral-700">
                               Editar esta fase
@@ -560,35 +565,35 @@ export function CreateCampaignStepSeven({
           </div>
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-2">
-        {onSaveDraft && (
+          {onSaveDraft && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onSaveDraft}
+              disabled={isLoading}
+              className="h-11 rounded-[24px] px-4 border-neutral-300 w-max"
+            >
+              <span className="font-semibold text-neutral-800">Salvar rascunho</span>
+            </Button>
+          )}
           <Button
             type="button"
-            variant="outline"
-            onClick={onSaveDraft}
+            onClick={onSubmitCampaign}
             disabled={isLoading}
-            className="h-11 rounded-[24px] px-4 border-neutral-300 w-max"
+            className="h-11 rounded-[24px] bg-primary-600 px-4 min-w-max"
           >
-            <span className="font-semibold text-neutral-800">Salvar rascunho</span>
+            <div className="flex items-center gap-2">
+              {isLoading && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-50/30 border-t-neutral-50" />
+              )}
+              <span className="font-semibold text-neutral-50">
+                {isLoading ? submitLoadingLabel : submitButtonLabel}
+              </span>
+              {!isLoading && (
+                <Icon name="ArrowRight" size={16} color="#FAFAFA" />
+              )}
+            </div>
           </Button>
-        )}
-        <Button
-          type="button"
-          onClick={onSubmitCampaign}
-          disabled={isLoading}
-          className="h-11 rounded-[24px] bg-primary-600 px-4 w-max"
-        >
-          <div className="flex items-center gap-2">
-            {isLoading && (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-50/30 border-t-neutral-50" />
-            )}
-            <span className="font-semibold text-neutral-50">
-              {isLoading ? submitLoadingLabel : submitButtonLabel}
-            </span>
-            {!isLoading && (
-              <Icon name="ArrowRight" size={16} color="#FAFAFA" />
-            )}
-          </div>
-        </Button>
         </div>
       </div>
     </div >

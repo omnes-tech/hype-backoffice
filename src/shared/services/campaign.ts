@@ -1,4 +1,5 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/http-client";
 import type { CampaignPhaseUpsertPayload, CreatePhaseData } from "./phase";
 import type { DashboardPhase } from "./dashboard";
 import type { Campaign } from "../types";
@@ -20,7 +21,9 @@ export interface CampaignDetail extends Campaign {
   workspace_id?: string;
   /** Quando presente no GET /campaigns/:id, substitui a necessidade de fases vindas só do /dashboard */
   phases?: DashboardPhase[];
-  secondary_niches?: Array<{ id: number; name: string }>;
+  /** Nichos raízes (parent_id: null) retornados pela API. */
+  niches?: Array<{ id: number; name: string; parent_id: null }>;
+  secondary_niches?: Array<{ id: number; name: string; parent_id?: number | null }>;
   payment_method_details?: {
     amount?: number;
     currency?: string;
@@ -80,71 +83,14 @@ export interface UpdateCampaignData extends Partial<Omit<CreateCampaignData, "ph
  * Lista todas as campanhas do workspace
  */
 export async function getCampaigns(): Promise<CampaignListItem[]> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório. Por favor, selecione um workspace.");
-  }
-
-  // Garantir que workspaceId é uma string válida (UUID), não um número simples
-  if (workspaceId === "1" || workspaceId === "0" || /^\d+$/.test(workspaceId)) {
-    throw new Error("Workspace ID inválido. Por favor, selecione um workspace válido.");
-  }
-
-  const request = await fetch(getApiUrl("/campaigns"), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get campaigns" };
-    }
-    throw errorData || "Failed to get campaigns";
-    }
-
-  const response = await request.json();
-  return response.data;
+  return apiGet<CampaignListItem[]>("/campaigns");
 }
 
 /**
  * Busca uma campanha específica por ID
  */
 export async function getCampaign(campaignId: string): Promise<CampaignDetail> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
-  const request = await fetch(getApiUrl(`/campaigns/${campaignId}`), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get campaign" };
-    }
-    throw errorData || "Failed to get campaign";
-    }
-
-  const response = await request.json();
-  return response.data;
+  return apiGet<CampaignDetail>(`/campaigns/${campaignId}`);
 }
 
 /**
@@ -169,48 +115,19 @@ function parseCreateCampaignResponseBody(data: unknown): CampaignDetail {
 export async function createCampaign(
   data: CreateCampaignData
 ): Promise<CampaignDetail> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
-  const request = await fetch(getApiUrl("/campaigns"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to create campaign" };
-    }
-    throw errorData || "Failed to create campaign";
-    }
-
-  const response = await request.json();
-  return parseCreateCampaignResponseBody(response.data);
+  const raw = await apiPost<unknown>("/campaigns", data);
+  return parseCreateCampaignResponseBody(raw);
 }
 
 /**
- * Faz upload do banner da campanha
+ * Faz upload do banner da campanha (usa FormData — não passa pelo apiPost genérico).
  */
 export async function uploadCampaignBanner(
   campaignId: string,
   banner: File
 ): Promise<void> {
   const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
+  if (!workspaceId) throw new Error("Workspace ID é obrigatório");
 
   const formData = new FormData();
   formData.append("banner", banner);
@@ -219,24 +136,19 @@ export async function uploadCampaignBanner(
     method: "POST",
     headers: {
       "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
+      Authorization: `Bearer ${getAuthToken() ?? ""}`,
       "Workspace-Id": workspaceId,
     },
     body: formData,
   });
 
   if (!request.ok) {
-    let errorData;
+    let message = "Failed to upload campaign banner";
     try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to upload campaign banner" };
-    }
-
-    const error = new Error(
-      errorData?.message || "Failed to upload campaign banner"
-    ) as any;
-    error.status = request.status;
+      const body = await request.json();
+      if (typeof body?.message === "string") message = body.message;
+    } catch { /* ignore */ }
+    const error = Object.assign(new Error(message), { status: request.status });
     throw error;
   }
 }
@@ -248,65 +160,13 @@ export async function updateCampaign(
   campaignId: string,
   data: UpdateCampaignData
 ): Promise<void> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
-  const request = await fetch(getApiUrl(`/campaigns/${campaignId}`), {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to update campaign" };
-    }
-    throw errorData || "Failed to update campaign";
-  }
-  /** Resposta documentada: 204 No Content (sem corpo). */
-  if (request.status === 204) {
-    return;
-  }
+  await apiPut(`/campaigns/${campaignId}`, data);
 }
 
 /**
  * Exclui uma campanha
  */
 export async function deleteCampaign(campaignId: string): Promise<void> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
-  const request = await fetch(getApiUrl(`/campaigns/${campaignId}`), {
-    method: "DELETE",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to delete campaign" };
-    }
-    throw errorData || "Failed to delete campaign";
-    }
+  await apiDelete(`/campaigns/${campaignId}`);
 }
 

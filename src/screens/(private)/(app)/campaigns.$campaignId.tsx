@@ -31,13 +31,10 @@ import {
   useCampaignAudienceByAge,
 } from "@/hooks/use-campaign-metrics";
 import { useCampaignManagement } from "@/hooks/use-campaign-management";
-import { useNiches } from "@/hooks/use-niches";
 import {
   checkCampaignPublicationTracking,
   mapApiPhasesToCampaignPhases,
 } from "@/shared/services/dashboard";
-import { getSubnicheValueByLabel } from "@/shared/data/subniches";
-import { getNicheParentId } from "@/shared/utils/niche-tree";
 import { formatReais } from "@/shared/utils/masks";
 import {
   getCampaignStatusDisplayLabel,
@@ -60,21 +57,21 @@ const CAMPAIGN_TAB_DEFS: Array<{
     {
       id: "selection",
       label: "Seleção de influenciadores",
-      visible: (p) => p.catalog_read,
+      visible: (p) => p.influencers_read,
     },
     { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
-    { id: "curation", label: "Curadoria", visible: (p) => p.campaigns_read },
+    { id: "curation", label: "Curadoria", visible: (p) => p.influencers_approve || p.influencers_reject },
     { id: "management", label: "Gerenciamento", visible: (p) => p.campaigns_read },
-    { id: "contracts", label: "Contratos", visible: (p) => p.campaigns_read },
+    { id: "contracts", label: "Contratos", visible: (p) => p.contracts_read },
     {
       id: "script-approval",
       label: "Aprovações de roteiro",
-      visible: (p) => p.campaigns_read,
+      visible: (p) => p.scripts_read,
     },
     {
       id: "approval",
       label: "Aprovações de conteúdo",
-      visible: (p) => p.campaigns_read,
+      visible: (p) => p.content_read,
     },
     {
       id: "metrics",
@@ -265,7 +262,6 @@ function RouteComponent() {
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
 
   // Buscar nichos para determinar o nicho principal
-  const { data: niches = [] } = useNiches();
 
   const phasesFromCampaignDetail = useMemo(() => {
     if (campaign?.phases === undefined || campaign.phases === null) {
@@ -285,41 +281,47 @@ function RouteComponent() {
   const campaignFormData = useMemo(() => {
     if (!campaign) return null;
 
-    // Processar subnichos
-    const subnicheIds = Array.isArray(campaign.secondary_niches)
-      ? campaign.secondary_niches
-        .map((n: any) => {
-          const name = typeof n === 'object' ? n.name : String(n);
-          return getSubnicheValueByLabel(name);
-        })
-        .filter(Boolean)
-      : campaign.secondary_niches
-        ? [getSubnicheValueByLabel(String(campaign.secondary_niches))]
-        : [];
+    // Processar nichos: API retorna `niches` (raízes) e `secondary_niches` (filhos)
+    const allNicheObjects: { id: number; name: string; parent_id: number | null }[] = [
+      ...(Array.isArray(campaign.niches)
+        ? campaign.niches.map((n: any) =>
+            typeof n === "object" && n !== null
+              ? { id: Number(n.id), name: String(n.name ?? ""), parent_id: n.parent_id ?? null }
+              : null
+          ).filter(Boolean)
+        : []),
+      ...(Array.isArray(campaign.secondary_niches)
+        ? campaign.secondary_niches.map((n: any) =>
+            typeof n === "object" && n !== null
+              ? { id: Number(n.id), name: String(n.name ?? ""), parent_id: n.parent_id ?? null }
+              : null
+          ).filter(Boolean)
+        : []),
+    ];
 
-    // Nicho primário: API `primary_niche` ou inferido pelo primeiro subnicho
-    let mainNicheId = "";
-    if (campaign.primary_niche?.id != null) {
-      mainNicheId = String(campaign.primary_niche.id);
-    } else if (subnicheIds.length > 0 && niches.length > 0) {
-      const rawFirst = subnicheIds[0];
-      const firstSubniche = niches.find(
-        (n) => String(n.id) === String(rawFirst),
-      );
-      const parentKey = firstSubniche
-        ? getNicheParentId(firstSubniche)
-        : null;
-      if (parentKey) {
-        mainNicheId = parentKey;
+    const mainNicheIds: string[] = [];
+    const subnicheIds: string[] = [];
+    allNicheObjects.forEach((n) => {
+      const id = String(n.id);
+      if (n.parent_id == null) {
+        mainNicheIds.push(id);
+      } else {
+        subnicheIds.push(id);
       }
-    }
+    });
+
+    // Nomes para o dashboard (não precisam de lookup)
+    const nicheNames = allNicheObjects.filter((n) => n.parent_id == null).map((n) => n.name).filter(Boolean);
+    const subNicheNames = allNicheObjects.filter((n) => n.parent_id != null).map((n) => n.name).filter(Boolean);
 
     return {
       title: campaign.title || "",
       description: campaign.description || "",
-      mainNiche: mainNicheId,
-      primaryNicheName: campaign.primary_niche?.name ?? "",
+      mainNiche: mainNicheIds.join(","),
+      primaryNicheName: nicheNames[0] ?? "",
       subniches: subnicheIds.join(","),
+      nicheNames,
+      subNicheNames,
       influencersCount: campaign.max_influencers?.toString() || "0",
       minFollowers: campaign.segment_min_followers?.toString() || "0",
       state: Array.isArray(campaign.segment_state)
@@ -377,7 +379,7 @@ function RouteComponent() {
       phasesCount: phases.length.toString(),
       phases, // GET campanha (`phases`) ou, em fallback, dashboard
     };
-  }, [campaign, phases, niches]);
+  }, [campaign, phases]);
 
   // Calcular progresso
   const progressPercentage = useMemo(() => {
@@ -535,6 +537,8 @@ function RouteComponent() {
             campaign={campaignFormData}
             metrics={formattedMetrics}
             progressPercentage={progressPercentage}
+            nicheNames={campaignFormData.nicheNames}
+            subNicheNames={campaignFormData.subNicheNames}
           />
         );
       case "management":
@@ -899,7 +903,7 @@ function RouteComponent() {
                           setShowMuralDateModal(false);
                           setTempMuralEndDate("");
                         },
-                        onError: (error: any) => {
+                        onError: (error: Error) => {
                           toast.error(error?.message || "Erro ao ativar Descobrir");
                         },
                       }

@@ -20,7 +20,7 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores aprovados com sucesso");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "Erro ao aprovar influenciadores";
       toast.error(message);
     },
@@ -37,7 +37,7 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores reprovados com sucesso");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "Erro ao reprovar influenciadores";
       toast.error(message);
     },
