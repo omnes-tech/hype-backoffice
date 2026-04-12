@@ -65,7 +65,7 @@ function fromStringArray(arr: string[]): WorkspacePermissions {
   // Compat aliases
   if (base.influencers_read) base.catalog_read = true;
   if (base.financial_read) base.billing_read = true;
-  return base as WorkspacePermissions;
+  return base as unknown as WorkspacePermissions;
 }
 
 export function mergeWorkspacePermissions(

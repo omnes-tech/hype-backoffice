@@ -14,7 +14,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
-import { getUploadUrl } from "@/lib/utils/api";
+
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { SocialNetworkIcon } from "@/components/social-network-icon";

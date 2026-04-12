@@ -282,20 +282,17 @@ function RouteComponent() {
     if (!campaign) return null;
 
     // Processar nichos: API retorna `niches` (raízes) e `secondary_niches` (filhos)
-    const allNicheObjects: { id: number; name: string; parent_id: number | null }[] = [
+    type NicheObj = { id: number; name: string; parent_id: number | null };
+    const toNicheObj = (n: any): NicheObj | null =>
+      typeof n === "object" && n !== null
+        ? { id: Number(n.id), name: String(n.name ?? ""), parent_id: n.parent_id ?? null }
+        : null;
+    const allNicheObjects: NicheObj[] = [
       ...(Array.isArray(campaign.niches)
-        ? campaign.niches.map((n: any) =>
-            typeof n === "object" && n !== null
-              ? { id: Number(n.id), name: String(n.name ?? ""), parent_id: n.parent_id ?? null }
-              : null
-          ).filter(Boolean)
+        ? (campaign.niches.map(toNicheObj).filter((n): n is NicheObj => n !== null))
         : []),
       ...(Array.isArray(campaign.secondary_niches)
-        ? campaign.secondary_niches.map((n: any) =>
-            typeof n === "object" && n !== null
-              ? { id: Number(n.id), name: String(n.name ?? ""), parent_id: n.parent_id ?? null }
-              : null
-          ).filter(Boolean)
+        ? (campaign.secondary_niches.map(toNicheObj).filter((n): n is NicheObj => n !== null))
         : []),
     ];
 

@@ -8,10 +8,8 @@ import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
-import { Input } from "@/components/ui/input";
 import { InputDate } from "@/components/ui/input-date";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select } from "@/components/ui/select";
 import type { CampaignContent, RawCampaignContentResponse, AIEvaluation, CampaignPhase } from "@/shared/types";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import { FilterPanel } from "./shared/filter-panel";
@@ -102,9 +100,9 @@ export function ContentApprovalTab({
       influencer_avatar: content.influencer_avatar || content.influencerAvatar,
       influencerAvatar: content.influencerAvatar || content.influencer_avatar,
       // Suporte ao novo formato: social_network como objeto ou string
-      social_network: content.social_network_type || content.social_network?.type || content.social_network || content.socialNetwork || "",
-      socialNetwork: content.social_network_type || content.social_network?.type || content.socialNetwork || content.social_network || "",
-      social_network_type: content.social_network_type || content.social_network?.type || content.social_network || content.socialNetwork || "",
+      social_network: content.social_network_type || (typeof content.social_network === "object" && content.social_network !== null ? content.social_network.type : content.social_network) || content.socialNetwork || "",
+      socialNetwork: content.social_network_type || (typeof content.social_network === "object" && content.social_network !== null ? content.social_network.type : undefined) || content.socialNetwork || content.social_network || "",
+      social_network_type: content.social_network_type || (typeof content.social_network === "object" && content.social_network !== null ? content.social_network.type : content.social_network) || content.socialNetwork || "",
       social_network_obj: content.social_network && typeof content.social_network === 'object' ? content.social_network : undefined,
       content_type: content.content_type || content.contentType,
       contentType: content.contentType || content.content_type,

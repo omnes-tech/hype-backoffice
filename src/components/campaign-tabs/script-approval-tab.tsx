@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
+import { Avatar } from "@/components/ui/avatar";
+import { Modal } from "@/components/ui/modal";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select } from "@/components/ui/select";
 import type { CampaignScript, RawCampaignScriptResponse, CampaignPhase } from "@/shared/types";
 import { useCampaignScripts } from "@/hooks/use-campaign-scripts";
 import { useApproveScript, useRejectScript } from "@/hooks/use-campaign-scripts";
@@ -76,8 +76,8 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
       influencer_avatar: script.influencer_avatar,
       influencerAvatar: script.influencer_avatar || "",
       // Suporte ao novo formato: social_network como objeto ou string
-      social_network: script.social_network_type || script.social_network?.type || script.social_network || "",
-      social_network_type: script.social_network_type || script.social_network?.type || script.social_network || "",
+      social_network: script.social_network_type || (typeof script.social_network === "object" && script.social_network !== null ? script.social_network.type : script.social_network) || "",
+      social_network_type: script.social_network_type || (typeof script.social_network === "object" && script.social_network !== null ? script.social_network.type : script.social_network) || "",
       social_network_obj: script.social_network || undefined,
       // Novo campo: content_format (pode ser objeto único ou array)
       content_format: script.content_format || undefined,
