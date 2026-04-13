@@ -14,6 +14,7 @@ import { useInfluencersCatalog } from "@/hooks/use-catalog";
 import { useNiches } from "@/hooks/use-niches";
 import {
   getNicheIdKey,
+  isNicheChildOf,
   isNicheRoot,
 } from "@/shared/utils/niche-tree";
 
@@ -171,29 +172,6 @@ export function CreateCampaignStepTwo({
     () => (formData.subniches ? formData.subniches.split(",").filter(Boolean) : []),
     [formData.subniches],
   );
-
-  const subnicheOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const rows: Array<{ value: string; label: string }> = [];
-    niches.forEach((n) => {
-      if (isNicheRoot(n)) return;
-      const key = getNicheIdKey(n);
-      if (seen.has(key)) return;
-      seen.add(key);
-      rows.push({ value: key, label: n.name });
-    });
-    const isOutrosLabel = (label: string) => {
-      const t = label.trim().toLowerCase();
-      return t === "outros" || t === "outro";
-    };
-    const sorted = [...rows].sort((a, b) => {
-      const ao = isOutrosLabel(a.label) ? 1 : 0;
-      const bo = isOutrosLabel(b.label) ? 1 : 0;
-      if (ao !== bo) return ao - bo;
-      return a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" });
-    });
-    return sorted;
-  }, [niches]);
 
   const handleStateChange = (values: string[]) => {
     setSelectedStates(values);
@@ -365,7 +343,7 @@ export function CreateCampaignStepTwo({
       </div>
 
       {/* Card 2: Segmento de conteúdo – Nicho + Subnicho */}
-      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+      <div className="flex flex-col gap-6 rounded-[12px] bg-[#FAFAFA] p-6">
         <div className="flex flex-col gap-0">
           <h3 className="text-2xl font-medium leading-8 text-[#0A0A0A]">
             Segmento de conteúdo
@@ -375,32 +353,77 @@ export function CreateCampaignStepTwo({
             campanha precisa.
           </p>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <MultiSelect
-              label="Nicho"
-              placeholder="Selecione um ou mais nichos"
-              options={mainNicheOptions}
-              value={selectedMainNiches}
-              onChange={(values) => {
-                updateFormData("mainNiche", values.join(","));
-              }}
-              isSearchable
-              menuPlacement="top"
-            />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <MultiSelect
-              label="Subnicho (opcional)"
-              placeholder="Opcional — selecione um ou mais subnichos"
-              options={subnicheOptions}
-              value={selectedSubniches}
-              onChange={(values) => updateFormData("subniches", values.join(","))}
-              isSearchable
-              menuPlacement="top"
-            />
-          </div>
-        </div>
+
+        {/* Nichos pai */}
+        <MultiSelect
+          label="Nicho principal"
+          placeholder="Selecione um ou mais nichos"
+          options={mainNicheOptions}
+          value={selectedMainNiches}
+          onChange={(values) => {
+            // remove subnichos de pais que foram desmarcados
+            const removed = selectedMainNiches.filter((v) => !values.includes(v));
+            if (removed.length > 0) {
+              const removedChildKeys = new Set(
+                removed.flatMap((parentKey) =>
+                  niches
+                    .filter((n) => isNicheChildOf(parentKey, n))
+                    .map(getNicheIdKey),
+                ),
+              );
+              const nextSubs = selectedSubniches.filter(
+                (s) => !removedChildKeys.has(s),
+              );
+              updateFormData("subniches", nextSubs.join(","));
+            }
+            updateFormData("mainNiche", values.join(","));
+          }}
+          isSearchable
+        />
+
+        {/* Subnichos por pai selecionado */}
+        {selectedMainNiches.map((parentKey) => {
+          const parent = niches.find((n) => getNicheIdKey(n) === parentKey);
+          const children = niches.filter((n) => isNicheChildOf(parentKey, n));
+          if (children.length === 0) return null;
+          return (
+            <div
+              key={parentKey}
+              className="flex flex-col gap-3 border-l-2 border-[#E5E5E5] pl-4"
+            >
+              <p className="text-sm font-medium text-[#626262]">
+                Subnichos de{" "}
+                <span className="text-[#0A0A0A]">{parent?.name}</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {children.map((child) => {
+                  const key = getNicheIdKey(child);
+                  const isSelected = selectedSubniches.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        const next = isSelected
+                          ? selectedSubniches.filter((s) => s !== key)
+                          : [...selectedSubniches, key];
+                        updateFormData("subniches", next.join(","));
+                      }}
+                      className={[
+                        "rounded-full px-4 py-1.5 text-sm transition-colors",
+                        isSelected
+                          ? "bg-[#0A0A0A]/10 text-[#0A0A0A] ring-1 ring-[#0A0A0A]/20"
+                          : "bg-[#F5F5F5] text-[#404040] hover:bg-[#E5E5E5]",
+                      ].join(" ")}
+                    >
+                      {child.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Card 3: Localização */}

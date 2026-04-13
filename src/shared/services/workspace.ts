@@ -207,12 +207,24 @@ function normalizeWorkspaceMember(row: unknown): WorkspaceMember | null {
     roleRaw === "owner" || roleRaw === "admin" || roleRaw === "member"
       ? roleRaw
       : "member";
+  let permissions: string[] | undefined;
+  const permsRaw = o.permissions;
+  if (Array.isArray(permsRaw)) {
+    permissions = permsRaw.filter((p): p is string => typeof p === "string");
+  } else if (permsRaw && typeof permsRaw === "object") {
+    // Formato objeto booleano: { campaigns_read: true, ... }
+    permissions = Object.entries(permsRaw as Record<string, unknown>)
+      .filter(([, v]) => v === true)
+      .map(([k]) => k);
+  }
+
   return {
     user_id: userId,
     name: String(o.name ?? ""),
     email: String(o.email ?? ""),
     role,
     created_at: o.created_at != null ? String(o.created_at) : "",
+    ...(permissions !== undefined ? { permissions } : {}),
   };
 }
 

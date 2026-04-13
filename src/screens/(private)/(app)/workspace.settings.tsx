@@ -634,7 +634,7 @@ function WorkspaceSettingsScreen() {
                                 className="text-sm font-medium text-primary-600 hover:text-primary-700"
                                 onClick={() => {
                                   setPermModalMember(m);
-                                  setPermModalValues([]);
+                                  setPermModalValues(m.permissions ?? []);
                                 }}
                               >
                                 Permissões

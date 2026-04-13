@@ -84,6 +84,8 @@ export interface WorkspaceMember {
   email: string;
   role: WorkspaceRole;
   created_at: string;
+  /** Permissões customizadas do membro — array de strings retornado pela API. */
+  permissions?: string[];
 }
 
 export interface Niche {
