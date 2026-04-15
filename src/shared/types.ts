@@ -270,6 +270,8 @@ export interface Influencer {
   phase?: string;
   /** campaign_users.id — quando a lista de inscrições vem da API enriquecida */
   campaign_user_id?: string;
+  updated_at?: string;
+  is_external?: boolean;
   // Perfis de rede social que se inscreveram na campanha (vem direto da API)
   social_networks?: Array<{
     id: number | string;

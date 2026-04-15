@@ -108,6 +108,8 @@ interface ApplicationWithProfile {
   profileFollowers: number;
   profileKey: string;
   profileStatus: CurationProfileStatus;
+  updatedAt?: string | null;
+  isExternal?: boolean;
 }
 
 function profileMatchesCurationColumn(
@@ -165,6 +167,8 @@ function expandCurationProfiles(
         profileUsername: inf.username,
         profileFollowers: inf.followers,
         profileKey: `${inf.campaign_user_id ?? inf.id}-general`,
+        updatedAt: inf.updated_at,
+        isExternal: inf.is_external,
       };
 
       if (column === "pending" && (infStatus === "curation" || infStatus === "pre_selection_curation") && profiles.length === 0) {
@@ -201,6 +205,8 @@ function expandCurationProfiles(
         profileFollowers: members,
         profileKey: `${inf.campaign_user_id ?? inf.id}-${profile.id}`,
         profileStatus,
+        updatedAt: inf.updated_at,
+        isExternal: inf.is_external,
       });
     });
   });

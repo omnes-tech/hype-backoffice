@@ -22,6 +22,8 @@ export interface InfluencerCardData {
   influencerEngagement: number;
   /** Motivo de recomendação (seleção de influenciadores) */
   recommendationReason?: string;
+  updatedAt?: string | null;
+  isExternal?: boolean;
 }
 
 interface InfluencerProfileCardProps {
@@ -29,7 +31,6 @@ interface InfluencerProfileCardProps {
   nicheName?: string | null;
   isSelected?: boolean;
   isActionLoading?: boolean;
-  /** Rótulo de meta exibido acima das ações, ex: "Enviado em: 01/01/2024" */
   metaLabel?: string;
   /** Badge de status no lugar dos botões de ação primários */
   statusBadge?: "approved" | "rejected" | "invited";
@@ -92,6 +93,7 @@ export function InfluencerProfileCard({
   onPreSelection,
   onViewProfile,
 }: InfluencerProfileCardProps) {
+  console.log(data)
   const rawFollowers =
     data.profileFollowers != null && data.profileFollowers > 0
       ? data.profileFollowers
@@ -148,6 +150,7 @@ export function InfluencerProfileCard({
               {data.influencerName.charAt(0).toUpperCase()}
             </div>
           )}
+
           {selectable && (
             <button
               type="button"
@@ -174,16 +177,25 @@ export function InfluencerProfileCard({
             <Icon name="Bookmark" size={24} color="#171717" />
           </button>
         </div>
+
       </div>
 
       {/* Nome + @username */}
-      <div className="flex min-w-0 flex-col">
-        <p className="truncate text-xl font-medium leading-6 text-neutral-950">
-          {data.influencerName}
-        </p>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-xl font-medium leading-6 text-neutral-950">
+            {data.influencerName}
+          </p>
+
+        </div>
         <p className="truncate text-sm leading-6 text-neutral-600">
           @{data.profileUsername}
         </p>
+        {data.isExternal && (
+          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 w-max ">
+            Externo
+          </span>
+        )}
       </div>
 
       {/* Stats */}
@@ -214,8 +226,12 @@ export function InfluencerProfileCard({
 
       {/* Ações */}
       <div className="mt-auto flex flex-col gap-3">
-        {metaLabel && (
-          <p className="text-base font-medium text-neutral-500 leading-5">{metaLabel}</p>
+        {data.updatedAt && (
+          <p className="text-base font-medium text-neutral-500 leading-5">Enviado em: {new Date(data.updatedAt).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })}</p>
         )}
 
         {statusBadge === "invited" ? (

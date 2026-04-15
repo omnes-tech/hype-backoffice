@@ -98,6 +98,8 @@ interface ApplicationWithProfile {
   profileFollowers: number;
   profileKey: string;
   sentAt?: string | null;
+  updatedAt?: string | null;
+  isExternal?: boolean;
 }
 
 function buildInscriptionsProfiles(
@@ -133,6 +135,8 @@ function buildInscriptionsProfiles(
           profileUsername: inf.username,
           profileFollowers: inf.followers,
           profileKey: `${inf.id}-general`,
+          updatedAt: inf.updated_at,
+          isExternal: inf.is_external,
         });
       }
     } else {
@@ -156,6 +160,8 @@ function buildInscriptionsProfiles(
           profileUsername: profile.username || inf.username,
           profileFollowers: profile.members || inf.followers,
           profileKey: `${inf.id}-${profile.id}`,
+          updatedAt: inf.updated_at,
+          isExternal: inf.is_external,
         });
       });
     }

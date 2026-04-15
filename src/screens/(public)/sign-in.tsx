@@ -86,8 +86,8 @@ function RouteComponent() {
         />
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Button type="submit" disabled={isSigningIn}>
+      <div className="flex flex-col gap-3 w-full">
+        <Button type="submit" disabled={isSigningIn} className="min-w-full w-full">
           {isSigningIn ? "Entrando..." : "Entrar"}
         </Button>
 

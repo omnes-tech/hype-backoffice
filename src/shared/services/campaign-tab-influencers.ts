@@ -40,6 +40,8 @@ export interface InscriptionApiRow {
   niche_id?: string | number | null;
   niche_name?: string | null;
   engagement?: number | null;
+  updated_at?: string | null;
+  is_external?: boolean | null;
 }
 
 export interface InscriptionsListResponse {
@@ -120,6 +122,8 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
       row.campaign_user_id != null && row.campaign_user_id !== ""
         ? String(row.campaign_user_id)
         : undefined,
+    updated_at: row.updated_at ?? undefined,
+    is_external: row.is_external ?? undefined,
     social_networks: sn
       ? [
           {
