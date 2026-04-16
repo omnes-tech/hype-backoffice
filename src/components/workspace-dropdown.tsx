@@ -13,6 +13,11 @@ const ROLE_LABEL: Record<WorkspaceRole, string> = {
   owner: "Proprietário",
   admin: "Administrador",
   member: "Membro",
+  aprovador: "Aprovador",
+  observador: "Observador",
+  juridico: "Jurídico",
+  financeiro: "Financeiro",
+  analista: "Analista",
 };
 
 interface WorkspaceDropdownProps

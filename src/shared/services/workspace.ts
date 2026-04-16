@@ -21,10 +21,11 @@ function normalizeWorkspaceRow(row: unknown): Workspace | null {
     permissions = perms as WorkspacePermissions;
   }
   const roleRaw = o.role != null ? String(o.role).toLowerCase() : "";
-  const role: WorkspaceRole | undefined =
-    roleRaw === "owner" || roleRaw === "admin" || roleRaw === "member"
-      ? roleRaw
-      : undefined;
+  const VALID_ROLES: WorkspaceRole[] = ["owner", "admin", "member", "aprovador", "observador", "juridico", "financeiro", "analista"];
+  const role: WorkspaceRole | undefined = VALID_ROLES.includes(roleRaw as WorkspaceRole)
+    ? (roleRaw as WorkspaceRole)
+    : undefined;
+  const str = (v: unknown) => (v != null && v !== "" ? String(v) : null);
   return {
     id,
     name: String(o.name ?? ""),
@@ -34,6 +35,15 @@ function normalizeWorkspaceRow(row: unknown): Workspace | null {
       o.niche_id != null && !Number.isNaN(Number(o.niche_id))
         ? Number(o.niche_id)
         : undefined,
+    legal_name: str(o.legal_name),
+    tax_id: str(o.tax_id),
+    postal_code: str(o.postal_code),
+    street: str(o.street),
+    street_number: str(o.street_number),
+    unit: str(o.unit),
+    neighborhood: str(o.neighborhood),
+    city: str(o.city),
+    state: str(o.state),
     created_at: o.created_at != null ? String(o.created_at) : undefined,
     updated_at: o.updated_at != null ? String(o.updated_at) : undefined,
     role,
@@ -119,6 +129,15 @@ export interface CreateWorkspaceData {
   name: string;
   niche_id?: number;
   description?: string;
+  legal_name?: string;
+  tax_id?: string;
+  postal_code?: string;
+  street?: string;
+  street_number?: string;
+  unit?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
 }
 
 export async function createWorkspace(data: CreateWorkspaceData): Promise<Workspace> {
@@ -155,6 +174,15 @@ export interface UpdateWorkspaceInput {
   name: string;
   description?: string | null;
   niche_id?: number | null;
+  legal_name?: string | null;
+  tax_id?: string | null;
+  postal_code?: string | null;
+  street?: string | null;
+  street_number?: string | null;
+  unit?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
 }
 
 export async function updateWorkspace(
@@ -164,6 +192,15 @@ export async function updateWorkspace(
   const body: Record<string, unknown> = { name: data.name };
   if (data.description !== undefined) body.description = data.description;
   if (data.niche_id !== undefined) body.niche_id = data.niche_id;
+  if (data.legal_name !== undefined) body.legal_name = data.legal_name;
+  if (data.tax_id !== undefined) body.tax_id = data.tax_id;
+  if (data.postal_code !== undefined) body.postal_code = data.postal_code;
+  if (data.street !== undefined) body.street = data.street;
+  if (data.street_number !== undefined) body.street_number = data.street_number;
+  if (data.unit !== undefined) body.unit = data.unit;
+  if (data.neighborhood !== undefined) body.neighborhood = data.neighborhood;
+  if (data.city !== undefined) body.city = data.city;
+  if (data.state !== undefined) body.state = data.state;
 
   const request = await fetch(getApiUrl(`/workspaces/${workspaceId}`), {
     method: "PUT",
@@ -203,10 +240,10 @@ function normalizeWorkspaceMember(row: unknown): WorkspaceMember | null {
         : NaN;
   if (Number.isNaN(userId)) return null;
   const roleRaw = o.role != null ? String(o.role).toLowerCase() : "";
-  const role: WorkspaceRole =
-    roleRaw === "owner" || roleRaw === "admin" || roleRaw === "member"
-      ? roleRaw
-      : "member";
+  const VALID_ROLES_MEMBER: WorkspaceRole[] = ["owner", "admin", "member", "aprovador", "observador", "juridico", "financeiro", "analista"];
+  const role: WorkspaceRole = VALID_ROLES_MEMBER.includes(roleRaw as WorkspaceRole)
+    ? (roleRaw as WorkspaceRole)
+    : "member";
   let permissions: string[] | undefined;
   const permsRaw = o.permissions;
   if (Array.isArray(permsRaw)) {
@@ -263,7 +300,7 @@ export async function listWorkspaceMembers(
 
 export interface InviteWorkspaceMemberInput {
   email: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "aprovador" | "observador" | "juridico" | "financeiro" | "analista";
   /**
    * Obrigatório na API se o e-mail ainda não tiver cadastro no backoffice.
    * @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md seção 4.8

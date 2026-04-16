@@ -11,7 +11,15 @@ export interface User {
 }
 
 /** Papéis em `GET /backoffice/me/workspaces` — @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md */
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole =
+  | "owner"
+  | "admin"
+  | "member"
+  | "aprovador"
+  | "observador"
+  | "juridico"
+  | "financeiro"
+  | "analista";
 
 /** Permissões calculadas no servidor por workspace (UX; mutações ainda validam 403). */
 export interface WorkspacePermissions {
@@ -69,6 +77,16 @@ export interface Workspace {
   photo?: string;
   description?: string | null;
   niche_id?: number | null;
+  // Company / legal data
+  legal_name?: string | null;
+  tax_id?: string | null;
+  postal_code?: string | null;
+  street?: string | null;
+  street_number?: string | null;
+  unit?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
   created_at?: string;
   updated_at?: string;
   role?: WorkspaceRole;

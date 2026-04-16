@@ -82,7 +82,6 @@ export function InfluencerProfileCard({
   nicheName,
   isSelected = false,
   isActionLoading = false,
-  metaLabel,
   statusBadge,
   selectable = false,
   onSelect,

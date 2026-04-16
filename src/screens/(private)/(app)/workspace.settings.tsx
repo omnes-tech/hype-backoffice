@@ -40,10 +40,84 @@ export const Route = createFileRoute("/(private)/(app)/workspace/settings")({
   component: WorkspaceSettingsScreen,
 });
 
+const BR_STATES = [
+  { value: "AC", label: "AC – Acre" },
+  { value: "AL", label: "AL – Alagoas" },
+  { value: "AP", label: "AP – Amapá" },
+  { value: "AM", label: "AM – Amazonas" },
+  { value: "BA", label: "BA – Bahia" },
+  { value: "CE", label: "CE – Ceará" },
+  { value: "DF", label: "DF – Distrito Federal" },
+  { value: "ES", label: "ES – Espírito Santo" },
+  { value: "GO", label: "GO – Goiás" },
+  { value: "MA", label: "MA – Maranhão" },
+  { value: "MT", label: "MT – Mato Grosso" },
+  { value: "MS", label: "MS – Mato Grosso do Sul" },
+  { value: "MG", label: "MG – Minas Gerais" },
+  { value: "PA", label: "PA – Pará" },
+  { value: "PB", label: "PB – Paraíba" },
+  { value: "PR", label: "PR – Paraná" },
+  { value: "PE", label: "PE – Pernambuco" },
+  { value: "PI", label: "PI – Piauí" },
+  { value: "RJ", label: "RJ – Rio de Janeiro" },
+  { value: "RN", label: "RN – Rio Grande do Norte" },
+  { value: "RS", label: "RS – Rio Grande do Sul" },
+  { value: "RO", label: "RO – Rondônia" },
+  { value: "RR", label: "RR – Roraima" },
+  { value: "SC", label: "SC – Santa Catarina" },
+  { value: "SP", label: "SP – São Paulo" },
+  { value: "SE", label: "SE – Sergipe" },
+  { value: "TO", label: "TO – Tocantins" },
+];
+
+interface ViaCepResponse {
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
+}
+
+async function lookupPostalCode(raw: string): Promise<ViaCepResponse | null> {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 8) return null;
+  const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+  if (!res.ok) return null;
+  const data: ViaCepResponse = await res.json();
+  if (data.erro) return null;
+  return data;
+}
+
+const companyFormSchema = z.object({
+  legalName: z.string().trim().max(200, "Máximo 200 caracteres"),
+  taxId: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || v.replace(/\D/g, "").length === 14, "CNPJ deve ter 14 dígitos"),
+  postalCode: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || v.replace(/\D/g, "").length === 8, "CEP deve ter 8 dígitos"),
+  street: z.string().trim(),
+  streetNumber: z.string().trim().regex(/^\d*$/, "Apenas números"),
+  unit: z.string().trim(),
+  neighborhood: z.string().trim(),
+  city: z.string().trim(),
+  state: z.string().trim(),
+});
+
+type CompanyFormValues = z.infer<typeof companyFormSchema>;
+
 const ROLE_LABEL: Record<WorkspaceRole, string> = {
   owner: "Proprietário",
   admin: "Administrador",
   member: "Membro",
+  aprovador: "Aprovador",
+  observador: "Observador",
+  juridico: "Jurídico",
+  financeiro: "Financeiro",
+  analista: "Analista",
 };
 
 const PERMISSION_GROUPS: Array<{
@@ -150,7 +224,6 @@ function PermissionsSelector({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {PERMISSION_GROUPS.map((group) => {
         const allChecked = group.items.every((i) => value.includes(i.key));
-        const someChecked = group.items.some((i) => value.includes(i.key));
         return (
           <div
             key={group.label}
@@ -166,7 +239,7 @@ function PermissionsSelector({
                   className="text-xs text-primary-600 hover:text-primary-700"
                   onClick={() => toggleGroup(group)}
                 >
-                  {allChecked ? "Desmarcar" : someChecked ? "Todos" : "Todos"}
+                  {allChecked ? "Desmarcar todos" : "Selecionar todos"}
                 </button>
               )}
             </div>
@@ -208,7 +281,7 @@ type WorkspaceFormValues = z.infer<typeof workspaceFormSchema>;
 /** Usuário já tem conta no backoffice — só vincular ao workspace. */
 const inviteExistingSchema = z.object({
   email: z.string().trim().email("E-mail inválido"),
-  role: z.enum(["admin", "member"]),
+  role: z.enum(["admin", "member", "aprovador", "observador", "juridico", "financeiro", "analista"]),
 });
 
 type InviteExistingFormValues = z.infer<typeof inviteExistingSchema>;
@@ -217,7 +290,7 @@ type InviteExistingFormValues = z.infer<typeof inviteExistingSchema>;
 const createMemberSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome").max(120),
   email: z.string().trim().email("E-mail inválido"),
-  role: z.enum(["admin", "member"]),
+  role: z.enum(["admin", "member", "aprovador", "observador", "juridico", "financeiro", "analista"]),
 });
 
 type CreateMemberFormValues = z.infer<typeof createMemberSchema>;
@@ -426,6 +499,105 @@ function WorkspaceSettingsScreen() {
 
   const createMemberRole = watchCreateMember("role") ?? "member";
 
+  const [addressVisible, setAddressVisible] = useState(false);
+  const [postalCodeLoading, setPostalCodeLoading] = useState(false);
+
+  const {
+    register: registerCompany,
+    handleSubmit: handleSubmitCompany,
+    reset: resetCompany,
+    setValue: setCompanyValue,
+    setError: setCompanyError,
+    clearErrors: clearCompanyErrors,
+    watch: watchCompany,
+    formState: { errors: companyErrors, isDirty: isCompanyDirty },
+  } = useForm<CompanyFormValues>({
+    resolver: zodResolver(companyFormSchema),
+    defaultValues: {
+      legalName: "",
+      taxId: "",
+      postalCode: "",
+      street: "",
+      streetNumber: "",
+      unit: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+    },
+  });
+
+  const companyState = watchCompany("state") ?? "";
+
+  useEffect(() => {
+    if (!selectedWorkspace) return;
+    const ws = selectedWorkspace;
+    const hasAddress = !!(ws.postal_code || ws.street);
+    resetCompany({
+      legalName: ws.legal_name ?? "",
+      taxId: ws.tax_id ?? "",
+      postalCode: ws.postal_code ?? "",
+      street: ws.street ?? "",
+      streetNumber: ws.street_number ?? "",
+      unit: ws.unit ?? "",
+      neighborhood: ws.neighborhood ?? "",
+      city: ws.city ?? "",
+      state: ws.state ?? "",
+    });
+    setAddressVisible(hasAddress);
+  }, [selectedWorkspace, resetCompany]);
+
+  const updateCompanyMutation = useMutation({
+    mutationFn: (values: CompanyFormValues) => {
+      if (!workspaceId || !selectedWorkspace) throw new Error("Sem workspace");
+      return updateWorkspace(workspaceId, {
+        name: selectedWorkspace.name,
+        legal_name: values.legalName || null,
+        tax_id: values.taxId ? values.taxId.replace(/\D/g, "") : null,
+        postal_code: values.postalCode ? values.postalCode.replace(/\D/g, "") : null,
+        street: values.street || null,
+        street_number: values.streetNumber || null,
+        unit: values.unit || null,
+        neighborhood: values.neighborhood || null,
+        city: values.city || null,
+        state: values.state || null,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Dados da empresa atualizados.");
+      await syncWorkspaceFromServer();
+    },
+    onError: (e) => toast.error(apiErr(e)),
+  });
+
+  const handlePostalCodeBlur = async (e: { target: HTMLInputElement }) => {
+    const digits = e.target.value.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setAddressVisible(false);
+      return;
+    }
+    setPostalCodeLoading(true);
+    clearCompanyErrors("postalCode");
+    try {
+      const result = await lookupPostalCode(digits);
+      if (!result) {
+        setCompanyError("postalCode", { message: "CEP não encontrado" });
+        setAddressVisible(false);
+      } else {
+        setCompanyValue("street", result.logradouro, { shouldValidate: true, shouldDirty: true });
+        setCompanyValue("neighborhood", result.bairro, { shouldValidate: true, shouldDirty: true });
+        setCompanyValue("city", result.localidade, { shouldValidate: true, shouldDirty: true });
+        setCompanyValue("state", result.uf, { shouldValidate: true, shouldDirty: true });
+        if (result.complemento) setCompanyValue("unit", result.complemento, { shouldDirty: true });
+        setAddressVisible(true);
+      }
+    } catch {
+      setCompanyError("postalCode", { message: "Erro ao buscar CEP. Tente novamente." });
+      setAddressVisible(false);
+    } finally {
+      setPostalCodeLoading(false);
+    }
+  };
+
   const canRead = perms?.workspace_read !== false;
   const canEditSettings = perms?.workspace_settings_write === true;
   const canPhoto = perms?.workspace_photo_write === true;
@@ -438,9 +610,11 @@ function WorkspaceSettingsScreen() {
   /** Pode definir/editar permissões de outros membros. */
   const canManagePermissions = canRoleWrite;
 
+  const NON_PRIVILEGED_ROLES: WorkspaceRole[] = ["member", "aprovador", "observador", "juridico", "financeiro", "analista"];
+
   const canRemoveMember = (m: WorkspaceMember) => {
     if (!canRemove) return false;
-    if (removeOnlyMember) return m.role === "member";
+    if (removeOnlyMember) return NON_PRIVILEGED_ROLES.includes(m.role);
     return true;
   };
 
@@ -551,6 +725,124 @@ function WorkspaceSettingsScreen() {
         </form>
       </section>
 
+      {/* Company / legal data — owner only */}
+      {selectedWorkspace.role === "owner" && (
+        <section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-950">Dados da empresa</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Razão social, CNPJ e endereço do workspace. Visível apenas para o proprietário.
+            </p>
+          </div>
+
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={handleSubmitCompany((values) => updateCompanyMutation.mutate(values))}
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="Razão social"
+                placeholder="Ex.: Empresa Exemplo Ltda."
+                disabled={updateCompanyMutation.isPending}
+                error={companyErrors.legalName?.message}
+                {...registerCompany("legalName")}
+              />
+              <Input
+                label="CNPJ"
+                placeholder="00.000.000/0000-00"
+                disabled={updateCompanyMutation.isPending}
+                error={companyErrors.taxId?.message}
+                {...registerCompany("taxId")}
+              />
+            </div>
+
+            <div className="relative">
+              <Input
+                label="CEP"
+                placeholder="00000-000"
+                disabled={updateCompanyMutation.isPending}
+                error={companyErrors.postalCode?.message}
+                {...registerCompany("postalCode", { onBlur: handlePostalCodeBlur })}
+              />
+              {postalCodeLoading && (
+                <span className="absolute right-3 top-9 text-xs text-neutral-400">
+                  Buscando…
+                </span>
+              )}
+            </div>
+
+            {addressVisible && (
+              <>
+                <Input
+                  label="Rua / Avenida"
+                  placeholder="Nome da rua"
+                  disabled={updateCompanyMutation.isPending}
+                  error={companyErrors.street?.message}
+                  {...registerCompany("street")}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Número"
+                    placeholder="Ex.: 123"
+                    inputMode="numeric"
+                    disabled={updateCompanyMutation.isPending}
+                    error={companyErrors.streetNumber?.message}
+                    {...registerCompany("streetNumber", {
+                      onChange: (e) => {
+                        e.target.value = e.target.value.replace(/\D/g, "");
+                      },
+                    })}
+                  />
+                  <Input
+                    label="Complemento"
+                    placeholder="Apto, sala… (opcional)"
+                    disabled={updateCompanyMutation.isPending}
+                    error={companyErrors.unit?.message}
+                    {...registerCompany("unit")}
+                  />
+                </div>
+
+                <Input
+                  label="Bairro"
+                  placeholder="Nome do bairro"
+                  disabled={updateCompanyMutation.isPending}
+                  error={companyErrors.neighborhood?.message}
+                  {...registerCompany("neighborhood")}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Cidade"
+                    placeholder="Nome da cidade"
+                    disabled={updateCompanyMutation.isPending}
+                    error={companyErrors.city?.message}
+                    {...registerCompany("city")}
+                  />
+                  <Select
+                    label="Estado"
+                    placeholder="Selecione"
+                    options={BR_STATES}
+                    value={companyState}
+                    disabled={updateCompanyMutation.isPending}
+                    onChange={(v) => setCompanyValue("state", v, { shouldDirty: true, shouldValidate: true })}
+                    error={companyErrors.state?.message}
+                  />
+                </div>
+              </>
+            )}
+
+            <Button
+              type="submit"
+              disabled={!isCompanyDirty || updateCompanyMutation.isPending}
+              className="w-full sm:w-auto"
+            >
+              {updateCompanyMutation.isPending ? "Salvando…" : "Salvar dados da empresa"}
+            </Button>
+          </form>
+        </section>
+      )}
+
       {canListMembers ? (
         <section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-neutral-950">Equipe</h2>
@@ -578,11 +870,16 @@ function WorkspaceSettingsScreen() {
                 <tbody>
                   {members.map((m) => {
                     const isSelf = user?.id === m.user_id;
-                    const roleOptions: { value: string; label: string }[] = [
-                      { value: "owner", label: ROLE_LABEL.owner },
+                    const assignableRoleOptions: { value: string; label: string }[] = [
                       { value: "admin", label: ROLE_LABEL.admin },
+                      { value: "analista", label: ROLE_LABEL.analista },
+                      { value: "aprovador", label: ROLE_LABEL.aprovador },
+                      { value: "financeiro", label: ROLE_LABEL.financeiro },
+                      { value: "juridico", label: ROLE_LABEL.juridico },
+                      { value: "observador", label: ROLE_LABEL.observador },
                       { value: "member", label: ROLE_LABEL.member },
                     ];
+                    const isOwner = m.role === "owner";
                     return (
                       <tr
                         key={m.user_id}
@@ -600,10 +897,10 @@ function WorkspaceSettingsScreen() {
                           {m.email}
                         </td>
                         <td className="px-3 py-2.5">
-                          {canRoleWrite ? (
+                          {canRoleWrite && !isOwner ? (
                             <div className="max-w-[200px]">
                               <Select
-                                options={roleOptions}
+                                options={assignableRoleOptions}
                                 value={m.role}
                                 disabled={roleMutation.isPending}
                                 onChange={(v) => {
@@ -767,8 +1064,13 @@ function WorkspaceSettingsScreen() {
                   <Select
                     label="Papel"
                     options={[
-                      { value: "member", label: ROLE_LABEL.member },
                       { value: "admin", label: ROLE_LABEL.admin },
+                      { value: "analista", label: ROLE_LABEL.analista },
+                      { value: "aprovador", label: ROLE_LABEL.aprovador },
+                      { value: "financeiro", label: ROLE_LABEL.financeiro },
+                      { value: "juridico", label: ROLE_LABEL.juridico },
+                      { value: "observador", label: ROLE_LABEL.observador },
+                      { value: "member", label: ROLE_LABEL.member },
                     ]}
                     value={inviteExistingRole}
                     openUp
@@ -878,8 +1180,13 @@ function WorkspaceSettingsScreen() {
                 <Select
                   label="Papel inicial"
                   options={[
-                    { value: "member", label: ROLE_LABEL.member },
                     { value: "admin", label: ROLE_LABEL.admin },
+                    { value: "analista", label: ROLE_LABEL.analista },
+                    { value: "aprovador", label: ROLE_LABEL.aprovador },
+                    { value: "financeiro", label: ROLE_LABEL.financeiro },
+                    { value: "juridico", label: ROLE_LABEL.juridico },
+                    { value: "observador", label: ROLE_LABEL.observador },
+                    { value: "member", label: ROLE_LABEL.member },
                   ]}
                   value={createMemberRole}
                   openUp
