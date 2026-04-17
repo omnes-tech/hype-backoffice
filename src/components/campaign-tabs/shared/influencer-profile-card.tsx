@@ -46,6 +46,7 @@ interface InfluencerProfileCardProps {
   onPreSelection?: () => void;
   // Ação universal
   onViewProfile?: () => void;
+  onSaveToList?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ export function InfluencerProfileCard({
   onInvite,
   onPreSelection,
   onViewProfile,
+  onSaveToList,
 }: InfluencerProfileCardProps) {
   console.log(data)
   const rawFollowers =
@@ -291,16 +293,26 @@ export function InfluencerProfileCard({
             )}
 
             {/* Links secundários */}
-            {(onViewProfile || onMoveToCuration) && (
+            {(onViewProfile || onMoveToCuration || onSaveToList) && (
               <div className="flex flex-wrap items-center justify-center gap-3">
                 {onViewProfile && (
                   <button
                     type="button"
                     onClick={onViewProfile}
-                    className="mx-auto flex cursor-pointer items-center gap-1 text-center text-base font-medium text-neutral-600 underline decoration-solid hover:text-neutral-800"
+                    className="flex cursor-pointer items-center gap-1 text-base font-medium text-neutral-600 underline decoration-solid hover:text-neutral-800"
                   >
                     <Icon name="ExternalLink" size={20} color="#4d4d4d" />
                     Ver perfil
+                  </button>
+                )}
+                {onSaveToList && (
+                  <button
+                    type="button"
+                    onClick={onSaveToList}
+                    className="flex cursor-pointer items-center gap-1 text-base font-medium text-primary-600 underline decoration-solid hover:text-primary-800"
+                  >
+                    <Icon name="BookmarkPlus" size={20} color="var(--color-primary-600)" />
+                    Adicionar à lista
                   </button>
                 )}
                 {onMoveToCuration && (

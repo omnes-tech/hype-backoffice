@@ -38,6 +38,12 @@ export function Sidebar() {
       href: "/campaigns",
       visible: permissions.campaigns_read,
     },
+    {
+      label: "Criadores",
+      icon: "Users" as keyof typeof icons,
+      href: "/creators",
+      visible: permissions.catalog_read,
+    },
   ];
 
   const visibleMenus = menus.filter((m) => m.visible);
