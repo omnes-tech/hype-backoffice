@@ -183,7 +183,7 @@ function AddToListModal({ userId, influencerName, onClose }: AddToListModalProps
               onClick={() => setShowCreateForm(true)}
               className="flex items-center gap-2 w-full rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 hover:border-primary-400 hover:text-primary-600 transition-colors"
             >
-              <Icon name="Plus" size={16} />
+              <Icon name="Plus" size={16} color="currentColor" />
               Criar nova lista
             </button>
           </div>
@@ -519,7 +519,7 @@ function ListDetailModal({ listId, listName, onClose }: ListDetailModalProps) {
                     className="flex size-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 transition-colors"
                     title="Ver perfil"
                   >
-                    <Icon name="ExternalLink" size={15} />
+                    <Icon name="ExternalLink" size={15} color="currentColor" />
                   </button>
                   <button
                     type="button"
@@ -528,7 +528,7 @@ function ListDetailModal({ listId, listName, onClose }: ListDetailModalProps) {
                     className="flex size-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-50"
                     title="Remover da lista"
                   >
-                    <Icon name="Trash2" size={15} />
+                    <Icon name="Trash2" size={15} color="currentColor" />
                   </button>
                 </div>
               </div>
@@ -627,14 +627,14 @@ function ListsTab() {
                     onClick={(e) => { e.stopPropagation(); setEditingList({ id: list.id, name: list.name }); }}
                     className="flex size-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
                   >
-                    <Icon name="Pencil" size={14} />
+                    <Icon name="Pencil" size={14} color="currentColor" />
                   </button>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setDeletingListId(list.id); }}
                     className="flex size-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                   >
-                    <Icon name="Trash2" size={14} />
+                    <Icon name="Trash2" size={14} color="currentColor" />
                   </button>
                 </div>
               </div>

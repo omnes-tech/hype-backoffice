@@ -164,7 +164,7 @@ export async function getCreatorsCatalog(
 
   // API returns: { data: [...], meta: { page, per_page, total, total_pages } }
   const rawItems = Array.isArray(response.data) ? response.data : [];
-  const items = rawItems.map(normalizeItem).filter((x): x is CatalogItem => x != null);
+  const items = rawItems.map(normalizeItem).filter((x: CatalogItem | null): x is CatalogItem => x != null);
 
   const meta = readRecord(response.meta);
   const page = Number(meta?.page ?? 1);
