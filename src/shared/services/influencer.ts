@@ -9,6 +9,45 @@ export interface MetricsByNetwork {
   likes?: number;
   average_reach?: number;
   engagement_percent?: number;
+  total_posts_in_hypeapp?: number;
+  campaigns_participated_in_hypeapp?: number;
+
+  // Instagram — posts normais (IMAGE / CAROUSEL_ALBUM)
+  posts_likes_sum?: number;
+  posts_likes_avg?: number;
+  posts_views_sum?: number;
+  posts_views_avg?: number;
+  posts_fetched?: number;
+
+  // Instagram — reels (REELS / VIDEO)
+  reels_likes_sum?: number;
+  reels_likes_avg?: number;
+  reels_views_sum?: number;
+  reels_views_avg?: number;
+  reels_reach_sum?: number;
+  reels_reach_avg?: number;
+  reels_fetched?: number;
+
+  // TikTok
+  tiktok_likes_sum?: number;
+  tiktok_likes_avg?: number;
+  tiktok_views_sum?: number;
+  tiktok_views_avg?: number;
+  tiktok_fetched?: number;
+
+  // YouTube — Shorts (duração ≤ 60s)
+  yt_shorts_likes_sum?: number;
+  yt_shorts_likes_avg?: number;
+  yt_shorts_views_sum?: number;
+  yt_shorts_views_avg?: number;
+  yt_shorts_fetched?: number;
+
+  // YouTube — Vídeos longos (duração > 60s)
+  yt_videos_likes_sum?: number;
+  yt_videos_likes_avg?: number;
+  yt_videos_views_sum?: number;
+  yt_videos_views_avg?: number;
+  yt_videos_fetched?: number;
 }
 
 /** Item de top conteúdos */
@@ -63,6 +102,11 @@ export interface CampaignInfluencerProfileResponse {
       members?: number;
       status?: string;
     }>;
+    is_external?: boolean;
+    pre_registered_social_profiles?: Array<{
+      network: string;
+      profile_url: string;
+    }>;
     location?: { state?: string; city?: string };
     bio?: string | null;
     rating?: number | null;
@@ -89,7 +133,8 @@ export interface CampaignInfluencerProfileResponse {
  * O identificador deve ser o mesmo usado nas navegações “Ver perfil” (alinhar com o backend).
  */
 export async function getInfluencerProfile(
-  influencerId: string
+  influencerId: string,
+  metricsPosts = 10
 ): Promise<CampaignInfluencerProfileResponse> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -97,7 +142,7 @@ export async function getInfluencerProfile(
   }
 
   const request = await fetch(
-    getApiUrl(`/influencers/${influencerId}/profile`),
+    getApiUrl(`/influencers/${influencerId}/profile?metrics_posts=${metricsPosts}`),
     {
       method: "GET",
       headers: {
@@ -292,7 +337,7 @@ export async function getCampaignInfluencers(
       errorData = { message: "Failed to get campaign influencers" };
     }
     throw errorData || "Failed to get campaign influencers";
-    }
+  }
 
   const response = await request.json();
   // Normalizar status de todos os influenciadores para inglês
@@ -341,7 +386,7 @@ export async function updateInfluencerStatus(
       errorData = { message: "Failed to update influencer status" };
     }
     throw errorData || "Failed to update influencer status";
-    }
+  }
 }
 
 /**
@@ -376,7 +421,7 @@ export async function getInfluencerProfiles(
       errorData = { message: "Failed to get influencer profiles" };
     }
     throw errorData || "Failed to get influencer profiles";
-    }
+  }
 
   const response = await request.json();
   const profiles = response.data?.profiles;
@@ -486,7 +531,7 @@ export async function inviteInfluencer(
       errorData = { message: "Failed to invite influencer" };
     }
     throw errorData || "Failed to invite influencer";
-    }
+  }
 }
 
 /**
@@ -525,7 +570,7 @@ export async function addToPreSelection(
       errorData = { message: "Failed to add influencer to pre-selection" };
     }
     throw errorData || "Failed to add influencer to pre-selection";
-    }
+  }
 }
 
 /** Body para mover da pré-seleção para curadoria da pré-seleção (MoveToCurationDto) */
@@ -571,7 +616,7 @@ export async function moveToPreSelectionCuration(
       errorData = { message: "Failed to move to pre-selection curation" };
     }
     throw errorData || "Failed to move to pre-selection curation";
-    }
+  }
 }
 
 /**
@@ -616,7 +661,7 @@ export async function getInfluencerHistory(
       errorData = { message: "Failed to get influencer history" };
     }
     throw errorData || "Failed to get influencer history";
-    }
+  }
 
   const response = await request.json();
   return response.data;
@@ -663,7 +708,7 @@ export async function bulkApproveInfluencers(
       errorData = { message: "Failed to bulk approve influencers" };
     }
     throw errorData || "Failed to bulk approve influencers";
-    }
+  }
 }
 
 /**
@@ -707,6 +752,6 @@ export async function bulkRejectInfluencers(
       errorData = { message: "Failed to bulk reject influencers" };
     }
     throw errorData || "Failed to bulk reject influencers";
-    }
+  }
 }
 

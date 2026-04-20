@@ -5,14 +5,14 @@ import {
   withWorkspaceKey,
 } from "@/hooks/use-workspace-query-key";
 
-export function useInfluencerProfile(influencerId: string) {
+export function useInfluencerProfile(influencerId: string, metricsPosts = 10) {
   const workspaceId = useWorkspaceQueryKey();
   return useQuery({
     queryKey: withWorkspaceKey(
-      ["influencers", influencerId, "profile"],
+      ["influencers", influencerId, "profile", metricsPosts],
       workspaceId,
     ),
-    queryFn: () => getInfluencerProfile(influencerId),
+    queryFn: () => getInfluencerProfile(influencerId, metricsPosts),
     enabled: Boolean(influencerId) && !!workspaceId,
   });
 }

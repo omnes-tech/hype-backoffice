@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Select } from "@/components/ui/select";
 import { useInfluencerProfile } from "@/hooks/use-influencer-profile";
 import { getUploadUrl } from "@/lib/utils/api";
 import { AudienceByAgePanel } from "@/components/audience-by-age-panel";
@@ -16,6 +17,16 @@ function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
   return n.toLocaleString("pt-BR");
+}
+
+function socialNetworkUrl(type: string, username: string): string | null {
+  const u = username.replace(/^@/, "");
+  switch (type.toLowerCase()) {
+    case "instagram": return `https://www.instagram.com/${u}`;
+    case "tiktok": return `https://www.tiktok.com/@${u}`;
+    case "youtube": return `https://www.youtube.com/@${u}`;
+    default: return null;
+  }
 }
 
 function formatCampaignDate(dateStr: string | null | undefined): string {
@@ -44,13 +55,68 @@ function metricCardClassName(inGrid: boolean): string {
   ].join(" ");
 }
 
+interface GranularGroup {
+  label: string;
+  items: Array<{ label: string; value: string | number | undefined | null }>;
+}
+
+function GranularMetricSection({ groups }: { groups: GranularGroup[] }) {
+  const hasData = groups.some((g) => g.items.some((i) => i.value != null && i.value !== "—"));
+  if (!hasData) return null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((group) => (
+        <div key={group.label} className="flex flex-col gap-3">
+          <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">{group.label}</p>
+          <div className="flex flex-wrap gap-3">
+            {group.items.map((item) => (
+              <div
+                key={item.label}
+                className="bg-neutral-100 rounded-lg px-4 py-3 flex flex-col gap-1 min-w-[140px] flex-1"
+              >
+                <p className="text-xs text-neutral-500 leading-snug">{item.label}</p>
+                <p className="text-xl font-bold text-neutral-950">
+                  {item.value != null ? item.value : "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function fmt(n: number | undefined | null): string {
+  if (n == null) return "—";
+  return formatCompact(n);
+}
+
+function fmtAvg(n: number | undefined | null): string {
+  if (n == null) return "—";
+  if (n >= 1_000) return formatCompact(n);
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
 function InfluencerProfileScreen() {
   const navigate = useNavigate();
   const { influencerId } = useParams({
     from: "/(private)/(app)/influencer/$influencerId",
   });
-  const { data, isLoading, isError, error } = useInfluencerProfile(influencerId ?? "");
+  const [metricsPosts, setMetricsPosts] = useState(10);
+  const { data, isLoading, isError, error } = useInfluencerProfile(influencerId ?? "", metricsPosts);
   const [metricsTab, setMetricsTab] = useState<(typeof METRIC_NETWORKS)[number]>("Instagram");
+
+  const availableNetworks = METRIC_NETWORKS.filter(
+    (n) => data?.metrics_by_network?.[n.toLowerCase()] != null
+  );
+
+  useEffect(() => {
+    if (availableNetworks.length > 0 && !availableNetworks.includes(metricsTab)) {
+      setMetricsTab(availableNetworks[0]);
+    }
+  }, [availableNetworks.join(","), metricsTab]);
 
   const campaign = data?.campaign;
   const influencer = data?.influencer;
@@ -63,6 +129,9 @@ function InfluencerProfileScreen() {
       ? `${influencer.rating} / ${influencer.rating_max}`
       : "—";
 
+  const isExternal = influencer?.is_external === true;
+  const preRegisteredProfiles = influencer?.pre_registered_social_profiles ?? [];
+
   const totalPosts = data?.total_posts_in_hypeapp ?? 0;
   const campaignsParticipated = data?.campaigns_participated_in_hypeapp ?? 0;
   const trustIndex = data?.trust_index;
@@ -72,6 +141,74 @@ function InfluencerProfileScreen() {
   const networkKey = metricsTab.toLowerCase();
   const metrics = data?.metrics_by_network?.[networkKey];
   const showGenderSplit = hasGenderSplitData(metrics?.gender_split);
+
+  const granularGroups: GranularGroup[] = (() => {
+    if (!metrics) return [];
+    if (metricsTab === "Instagram") {
+      return [
+        {
+          label: "Posts",
+          items: [
+            { label: "Curtidas totais", value: fmt(metrics.posts_likes_sum) },
+            { label: "Curtidas médias", value: fmtAvg(metrics.posts_likes_avg) },
+            { label: "Views totais", value: fmt(metrics.posts_views_sum) },
+            { label: "Views médias", value: fmtAvg(metrics.posts_views_avg) },
+            { label: "Posts analisados", value: metrics.posts_fetched ?? "—" },
+          ],
+        },
+        {
+          label: "Reels",
+          items: [
+            { label: "Curtidas totais", value: fmt(metrics.reels_likes_sum) },
+            { label: "Curtidas médias", value: fmtAvg(metrics.reels_likes_avg) },
+            { label: "Views totais", value: fmt(metrics.reels_views_sum) },
+            { label: "Views médias", value: fmtAvg(metrics.reels_views_avg) },
+            { label: "Alcance total", value: fmt(metrics.reels_reach_sum) },
+            { label: "Alcance médio", value: fmtAvg(metrics.reels_reach_avg) },
+          ],
+        },
+      ];
+    }
+    if (metricsTab === "Tiktok") {
+      return [
+        {
+          label: "Vídeos",
+          items: [
+            { label: "Curtidas totais", value: fmt(metrics.tiktok_likes_sum) },
+            { label: "Curtidas médias", value: fmtAvg(metrics.tiktok_likes_avg) },
+            { label: "Views totais", value: fmt(metrics.tiktok_views_sum) },
+            { label: "Views médias", value: fmtAvg(metrics.tiktok_views_avg) },
+            { label: "Vídeos analisados", value: metrics.tiktok_fetched ?? "—" },
+          ],
+        },
+      ];
+    }
+    if (metricsTab === "Youtube") {
+      return [
+        {
+          label: "Shorts (≤ 60s)",
+          items: [
+            { label: "Curtidas totais", value: fmt(metrics.yt_shorts_likes_sum) },
+            { label: "Curtidas médias", value: fmtAvg(metrics.yt_shorts_likes_avg) },
+            { label: "Views totais", value: fmt(metrics.yt_shorts_views_sum) },
+            { label: "Views médias", value: fmtAvg(metrics.yt_shorts_views_avg) },
+            { label: "Shorts analisados", value: metrics.yt_shorts_fetched ?? "—" },
+          ],
+        },
+        {
+          label: "Vídeos (> 60s)",
+          items: [
+            { label: "Curtidas totais", value: fmt(metrics.yt_videos_likes_sum) },
+            { label: "Curtidas médias", value: fmtAvg(metrics.yt_videos_likes_avg) },
+            { label: "Views totais", value: fmt(metrics.yt_videos_views_sum) },
+            { label: "Views médias", value: fmtAvg(metrics.yt_videos_views_avg) },
+            { label: "Vídeos analisados", value: metrics.yt_videos_fetched ?? "—" },
+          ],
+        },
+      ];
+    }
+    return [];
+  })();
 
   const networkMetricCards = [
     {
@@ -221,8 +358,36 @@ function InfluencerProfileScreen() {
               <Icon name="Check" size={16} color="#fff" />
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-xl font-semibold text-neutral-950">{influencer.name}</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xl font-semibold text-neutral-950">{influencer.name}</p>
+              {isExternal && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                  <Icon name="UserX" size={12} color="currentColor" />
+                  Externo
+                </span>
+              )}
+            </div>
+            {(influencer.social_networks?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {influencer.social_networks!.map((sn) => {
+                  const url = sn.username ? socialNetworkUrl(sn.type, sn.username) : null;
+                  const label = sn.username ? `@${sn.username.replace(/^@/, "")}` : sn.name;
+                  const content = (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 transition-colors">
+                      {label}
+                    </span>
+                  );
+                  return url ? (
+                    <a key={sn.id} href={url} target="_blank" rel="noopener noreferrer">
+                      {content}
+                    </a>
+                  ) : (
+                    <span key={sn.id}>{content}</span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-16">
@@ -286,11 +451,42 @@ function InfluencerProfileScreen() {
         </div>
       </div>
 
+      {isExternal && preRegisteredProfiles.length > 0 && (
+        <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold text-neutral-950">Redes sociais</h2>
+          <div className="flex flex-wrap gap-3">
+            {preRegisteredProfiles.map((profile, i) => (
+              <a
+                key={i}
+                href={profile.profile_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 transition-colors text-sm font-medium text-neutral-950"
+              >
+                <Icon name="ExternalLink" size={14} color="#525252" />
+                <span className="capitalize">{profile.network}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isExternal && (
       <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-2xl font-semibold text-neutral-950">Métricas</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-neutral-500 whitespace-nowrap">Posts analisados</span>
+              <Select
+                value={String(metricsPosts)}
+                onChange={(v) => setMetricsPosts(Number(v))}
+                options={[5, 10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))}
+                className="!w-24"
+              />
+            </div>
           <div className="flex bg-neutral-100 rounded-full p-1">
-            {METRIC_NETWORKS.map((network) => (
+            {availableNetworks.map((network) => (
               <button
                 key={network}
                 type="button"
@@ -303,6 +499,7 @@ function InfluencerProfileScreen() {
                 {network}
               </button>
             ))}
+          </div>
           </div>
         </div>
         {showGenderSplit ? (
@@ -384,10 +581,18 @@ function InfluencerProfileScreen() {
             ))}
           </div>
         )}
+        {granularGroups.length > 0 && (
+          <>
+            <div className="border-t border-neutral-200" />
+            <GranularMetricSection groups={granularGroups} />
+          </>
+        )}
       </div>
+      )}
 
-      <AudienceByAgePanel networks={data?.audience_by_age?.networks} />
+      {!isExternal && <AudienceByAgePanel networks={data?.audience_by_age?.networks} />}
 
+      {!isExternal && (
       <div className="bg-[url('/banner-influencer.png')] bg-cover bg-center rounded-xl px-6 py-8 flex flex-col gap-6">
         <div className="flex items-center gap-2">
           <div className="size-8 flex items-center justify-center text-primary-200">
@@ -412,6 +617,7 @@ function InfluencerProfileScreen() {
           (Análise de bots e contas inativas baseada em amostragem)
         </p>
       </div>
+      )}
 
       <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">
         <h2 className="text-2xl font-semibold text-neutral-950">Top 4 conteúdos</h2>
