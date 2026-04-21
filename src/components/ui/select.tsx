@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   type ComponentProps,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -14,7 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { ErrorMessage } from "@/components/ui/error-message";
 
 interface SelectProps extends Omit<ComponentProps<"div">, "onChange"> {
-  label?: string;
+  label?: ReactNode;
   placeholder?: string;
   options: Array<{ value: string; label: string }>;
   value?: string;
