@@ -60,6 +60,7 @@ interface CreateCampaignStepThreeProps {
   onBack: () => void;
   onNext: () => void;
   hideBackButton?: boolean;
+  fieldErrors?: Set<string>;
 }
 
 export function CreateCampaignStepThree({
@@ -68,6 +69,7 @@ export function CreateCampaignStepThree({
   onBack,
   onNext,
   hideBackButton = false,
+  fieldErrors,
 }: CreateCampaignStepThreeProps) {
   const [includeBonus, setIncludeBonus] = useState(!!formData.benefitsBonus?.trim());
   const [benefitsItems, setBenefitsItems] = useState<string[]>(() => {
@@ -116,6 +118,15 @@ export function CreateCampaignStepThree({
   const inputClass =
     "w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none";
   const labelClass = "text-base font-medium leading-5 text-[#0A0A0A]";
+
+  const paymentTypeError = fieldErrors?.has("paymentType");
+
+  useEffect(() => {
+    if (!paymentTypeError) return;
+    const el = document.getElementById("campaign-payment-type");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [fieldErrors]);
 
   const renderPaymentFields = () => {
     switch (formData.paymentType) {
@@ -242,12 +253,13 @@ export function CreateCampaignStepThree({
       {/* Card único – Figma */}
       <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
         {/* Tipo de remuneração */}
-        <div className="flex flex-col gap-1">
+        <div id="campaign-payment-type" className="flex flex-col gap-1">
           <Select
-            label="Tipo de remuneração"
+            label={<>Tipo de remuneração <span className="text-red-500" aria-hidden>*</span></>}
             placeholder="Escolha como os influenciadores serão pagos"
             value={formData.paymentType}
             onChange={(value) => updateFormData("paymentType", value)}
+            error={paymentTypeError ? "Campo obrigatório" : undefined}
             options={[
               { label: "Valor fixo por influenciador", value: "fixed" },
               { label: "Preço definido pelo influenciador", value: "price" },

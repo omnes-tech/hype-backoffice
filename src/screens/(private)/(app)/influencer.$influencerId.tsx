@@ -13,6 +13,27 @@ export const Route = createFileRoute("/(private)/(app)/influencer/$influencerId"
 
 const METRIC_NETWORKS = ["Instagram", "Tiktok", "Youtube"] as const;
 
+const NETWORK_CONFIG: Record<string, { icon: string; bg: string; iconColor: string; label: string }> = {
+  instagram: { icon: "Instagram", bg: "bg-gradient-to-br from-pink-100 to-purple-100", iconColor: "#e1306c", label: "Instagram" },
+  tiktok: { icon: "Music2", bg: "bg-neutral-800", iconColor: "#ffffff", label: "TikTok" },
+  youtube: { icon: "Youtube", bg: "bg-red-100", iconColor: "#ff0000", label: "YouTube" },
+};
+
+const NETWORK_AVATAR_BG: Record<string, string> = {
+  instagram: "bg-gradient-to-br from-amber-400 via-rose-500 to-purple-600",
+  tiktok: "bg-black",
+  youtube: "bg-red-600",
+};
+
+function networkTypeToMetricsTab(type: string): (typeof METRIC_NETWORKS)[number] | null {
+  switch (type.toLowerCase()) {
+    case "instagram": return "Instagram";
+    case "tiktok": return "Tiktok";
+    case "youtube": return "Youtube";
+    default: return null;
+  }
+}
+
 function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
@@ -368,26 +389,6 @@ function InfluencerProfileScreen() {
                 </span>
               )}
             </div>
-            {(influencer.social_networks?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {influencer.social_networks!.map((sn) => {
-                  const url = sn.username ? socialNetworkUrl(sn.type, sn.username) : null;
-                  const label = sn.username ? `@${sn.username.replace(/^@/, "")}` : sn.name;
-                  const content = (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 transition-colors">
-                      {label}
-                    </span>
-                  );
-                  return url ? (
-                    <a key={sn.id} href={url} target="_blank" rel="noopener noreferrer">
-                      {content}
-                    </a>
-                  ) : (
-                    <span key={sn.id}>{content}</span>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-16">
@@ -451,95 +452,219 @@ function InfluencerProfileScreen() {
         </div>
       </div>
 
-      {isExternal && preRegisteredProfiles.length > 0 && (
-        <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-4">
-          <h2 className="text-2xl font-semibold text-neutral-950">Redes sociais</h2>
-          <div className="flex flex-wrap gap-3">
-            {preRegisteredProfiles.map((profile, i) => (
-              <a
-                key={i}
-                href={profile.profile_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 transition-colors text-sm font-medium text-neutral-950"
+      {(() => {
+        const TAB_ORDER = ["instagram", "tiktok", "youtube"] as const;
+
+        const socialTypes = new Set<string>();
+        if (!isExternal) {
+          (influencer.social_networks ?? []).forEach((sn) => {
+            if (sn.type) socialTypes.add(sn.type.toLowerCase());
+          });
+        } else {
+          preRegisteredProfiles.forEach((p) => {
+            if (p.network) socialTypes.add(p.network.toLowerCase());
+          });
+        }
+        availableNetworks.forEach((n) => socialTypes.add(n.toLowerCase()));
+
+        const tabs = TAB_ORDER.filter((t) => socialTypes.has(t));
+        if (tabs.length === 0) return null;
+
+        const activeTab = tabs.includes(metricsTab.toLowerCase() as typeof TAB_ORDER[number])
+          ? (metricsTab.toLowerCase() as typeof TAB_ORDER[number])
+          : tabs[0];
+
+        const activeSN = !isExternal
+          ? (influencer.social_networks ?? []).find((sn) => sn.type?.toLowerCase() === activeTab)
+          : null;
+        const activeExtProfile = isExternal
+          ? preRegisteredProfiles.find((p) => (p.network ?? "").toLowerCase() === activeTab)
+          : null;
+
+        const username = activeSN?.username?.replace(/^@/, "") ?? null;
+        const profileUrl = username
+          ? socialNetworkUrl(activeTab, username)
+          : (activeExtProfile?.profile_url ?? null);
+
+        const activeMetricsKey = networkTypeToMetricsTab(activeTab);
+        const tabMetrics = activeMetricsKey
+          ? data?.metrics_by_network?.[activeMetricsKey.toLowerCase()]
+          : null;
+
+        const followers = tabMetrics?.followers != null ? formatCompact(tabMetrics.followers) : "—";
+        const engagement = tabMetrics?.engagement_percent != null
+          ? `${tabMetrics.engagement_percent}%`
+          : "—";
+        const followersLabel = activeTab === "youtube" ? "Inscritos" : "Seguidores";
+
+        const BUTTON_LABEL: Record<string, string> = {
+          instagram: "Ver no Instagram",
+          tiktok: "Ver no TikTok",
+          youtube: "Ver no YouTube",
+        };
+
+        return (
+          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-neutral-200">
+              {tabs.map((tab) => {
+                const cfg = NETWORK_CONFIG[tab];
+                const isActive = tab === activeTab;
+                const tabMTab = networkTypeToMetricsTab(tab);
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => { if (tabMTab) setMetricsTab(tabMTab); }}
+                    className={[
+                      "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-600",
+                      isActive
+                        ? "text-primary-600 border-primary-600"
+                        : "text-neutral-500 border-transparent hover:text-neutral-700",
+                    ].join(" ")}
+                  >
+                    {tab === "tiktok" ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M19.6 6.7c-1.3-.3-2.4-1.1-3-2.2-.3-.5-.5-1-.5-1.6V2.5h-3.3v13.3c0 1.6-1.3 2.9-2.9 2.9s-2.9-1.3-2.9-2.9 1.3-2.9 2.9-2.9c.3 0 .6 0 .9.1v-3.4c-.3 0-.6-.1-.9-.1-3.5 0-6.3 2.8-6.3 6.3s2.8 6.3 6.3 6.3 6.3-2.8 6.3-6.3V9.3c1.3.9 2.9 1.4 4.5 1.4V7.4c-.4 0-.7 0-1.1-.1-.4-.1-.7-.2-1-.6z" />
+                      </svg>
+                    ) : (
+                      <Icon name={cfg.icon as Parameters<typeof Icon>[0]["name"]} size={15} color="currentColor" />
+                    )}
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content */}
+            <div className="flex flex-wrap items-start gap-5 p-5">
+              {/* Network-branded avatar */}
+              <div
+                className={`size-[96px] rounded-full shrink-0 overflow-hidden flex items-center justify-center ${NETWORK_AVATAR_BG[activeTab] ?? "bg-neutral-800"}`}
               >
-                <Icon name="ExternalLink" size={14} color="#525252" />
-                <span className="capitalize">{profile.network}</span>
-              </a>
-            ))}
+                {activeSN?.photo ? (
+                  <img
+                    src={activeSN.photo}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <span className="text-white text-2xl font-medium">
+                    {influencer.name?.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex flex-col flex-1 min-w-0">
+                <p className="text-base font-semibold text-neutral-950">{influencer.name}</p>
+                {username && (
+                  <p className="text-sm text-neutral-500 mb-2">@{username}</p>
+                )}
+                <div className="flex gap-6 mt-1">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-lg font-semibold text-neutral-950 leading-tight">{followers}</span>
+                    <span className="text-[11px] font-medium text-neutral-500 uppercase tracking-wide">{followersLabel}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-lg font-semibold text-neutral-950 leading-tight">{engagement}</span>
+                    <span className="text-[11px] font-medium text-neutral-500 uppercase tracking-wide">Engajamento</span>
+                  </div>
+                </div>
+                {activeSN?.bio && (
+                  <p className="text-sm text-neutral-600 leading-relaxed line-clamp-3 mt-1 max-w-lg whitespace-pre-line">
+                    {activeSN.bio}
+                  </p>
+                )}
+              </div>
+
+              {/* Action */}
+              {profileUrl && (
+                <div className="shrink-0 flex flex-col items-end gap-2 self-start">
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors whitespace-nowrap"
+                  >
+                    {BUTTON_LABEL[activeTab] ?? "Ver perfil"}
+                    <Icon name="ArrowUpRight" size={14} color="currentColor" />
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {!isExternal && (
-      <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-2xl font-semibold text-neutral-950">Métricas</h2>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-neutral-500 whitespace-nowrap">Posts analisados</span>
-              <Select
-                value={String(metricsPosts)}
-                onChange={(v) => setMetricsPosts(Number(v))}
-                options={[5, 10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))}
-                className="!w-24"
-              />
+        <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-neutral-950">Métricas</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-500 whitespace-nowrap">Posts analisados</span>
+                <Select
+                  value={String(metricsPosts)}
+                  onChange={(v) => setMetricsPosts(Number(v))}
+                  options={[5, 10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))}
+                  className="!w-24"
+                />
+              </div>
             </div>
-          <div className="flex bg-neutral-100 rounded-full p-1">
-            {availableNetworks.map((network) => (
-              <button
-                key={network}
-                type="button"
-                onClick={() => setMetricsTab(network)}
-                className={`px-4 py-2.5 rounded-full text-sm font-medium transition-colors ${metricsTab === network
-                  ? "bg-primary-600 text-white"
-                  : "text-neutral-600 hover:bg-neutral-200"
-                  }`}
-              >
-                {network}
-              </button>
-            ))}
           </div>
-          </div>
-        </div>
-        {showGenderSplit ? (
-          <>
-            <div className="flex flex-wrap gap-4">
-              <div className="bg-neutral-100 rounded-lg p-4 flex flex-col gap-6 min-w-[256px] w-full max-w-[320px]">
-                <div className="flex items-center gap-2">
-                  <div className="size-9 rounded-lg bg-neutral-200 flex items-center justify-center">
-                    <Icon name="ChartPie" size={20} color="#525252" />
-                  </div>
-                  <span className="text-base font-medium text-neutral-950">Divisão por gênero</span>
-                </div>
-                <div className="flex justify-center">
-                  <div className="size-[143px] rounded-full border-8 border-neutral-300 border-t-neutral-600" style={{ transform: "rotate(-45deg)" }} />
-                </div>
-                <div className="flex flex-wrap gap-6 justify-center">
+          {showGenderSplit ? (
+            <>
+              <div className="flex flex-wrap gap-4">
+                <div className="bg-neutral-100 rounded-lg p-4 flex flex-col gap-6 min-w-[256px] w-full max-w-[320px]">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded bg-neutral-600" />
-                    <span className="text-base font-medium text-neutral-950">
-                      Mulheres (
-                      {metrics?.gender_split?.women_percent != null
-                        ? `${metrics.gender_split.women_percent}%`
-                        : "—"}
-                      )
-                    </span>
+                    <div className="size-9 rounded-lg bg-neutral-200 flex items-center justify-center">
+                      <Icon name="ChartPie" size={20} color="#525252" />
+                    </div>
+                    <span className="text-base font-medium text-neutral-950">Divisão por gênero</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded bg-neutral-400" />
-                    <span className="text-base font-medium text-neutral-950">
-                      Homens (
-                      {metrics?.gender_split?.men_percent != null
-                        ? `${metrics.gender_split.men_percent}%`
-                        : "—"}
-                      )
-                    </span>
+                  <div className="flex justify-center">
+                    <div className="size-[143px] rounded-full border-8 border-neutral-300 border-t-neutral-600" style={{ transform: "rotate(-45deg)" }} />
                   </div>
+                  <div className="flex flex-wrap gap-6 justify-center">
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded bg-neutral-600" />
+                      <span className="text-base font-medium text-neutral-950">
+                        Mulheres (
+                        {metrics?.gender_split?.women_percent != null
+                          ? `${metrics.gender_split.women_percent}%`
+                          : "—"}
+                        )
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded bg-neutral-400" />
+                      <span className="text-base font-medium text-neutral-950">
+                        Homens (
+                        {metrics?.gender_split?.men_percent != null
+                          ? `${metrics.gender_split.men_percent}%`
+                          : "—"}
+                        )
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-4 flex-1 min-w-0">
+                  {networkMetricCards.map((item) => (
+                    <div key={item.key} className={metricCardClassName(false)}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`size-9 rounded-lg shrink-0 flex items-center justify-center ${item.iconBg}`}>
+                          <Icon name={item.icon} size={20} color="#525252" />
+                        </div>
+                        <span className="text-base font-medium text-neutral-950">{item.label}</span>
+                      </div>
+                      <p className="text-2xl font-bold text-neutral-950">{item.value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4 flex-1 min-w-0">
-                {networkMetricCards.map((item) => (
+              <div className="flex flex-wrap gap-4">
+                {hypeappMetricCards.map((item) => (
                   <div key={item.key} className={metricCardClassName(false)}>
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={`size-9 rounded-lg shrink-0 flex items-center justify-center ${item.iconBg}`}>
@@ -551,72 +676,68 @@ function InfluencerProfileScreen() {
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              {hypeappMetricCards.map((item) => (
-                <div key={item.key} className={metricCardClassName(false)}>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+              {[...networkMetricCards, ...hypeappMetricCards].map((item) => (
+                <div key={item.key} className={metricCardClassName(true)}>
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`size-9 rounded-lg shrink-0 flex items-center justify-center ${item.iconBg}`}>
                       <Icon name={item.icon} size={20} color="#525252" />
                     </div>
-                    <span className="text-base font-medium text-neutral-950">{item.label}</span>
+                    <span className="text-base font-medium text-neutral-950 leading-snug">{item.label}</span>
                   </div>
                   <p className="text-2xl font-bold text-neutral-950">{item.value}</p>
                 </div>
               ))}
             </div>
-          </>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-            {[...networkMetricCards, ...hypeappMetricCards].map((item) => (
-              <div key={item.key} className={metricCardClassName(true)}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`size-9 rounded-lg shrink-0 flex items-center justify-center ${item.iconBg}`}>
-                    <Icon name={item.icon} size={20} color="#525252" />
-                  </div>
-                  <span className="text-base font-medium text-neutral-950 leading-snug">{item.label}</span>
-                </div>
-                <p className="text-2xl font-bold text-neutral-950">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {granularGroups.length > 0 && (
-          <>
-            <div className="border-t border-neutral-200" />
-            <GranularMetricSection groups={granularGroups} />
-          </>
-        )}
-      </div>
+          )}
+          {granularGroups.length > 0 && (
+            <>
+              <div className="border-t border-neutral-200" />
+              <GranularMetricSection groups={granularGroups} />
+            </>
+          )}
+        </div>
       )}
 
-      {!isExternal && <AudienceByAgePanel networks={data?.audience_by_age?.networks} />}
+      {!isExternal && (() => {
+        const audienceNetworks = data?.audience_by_age?.networks ?? (() => {
+          const built: Record<string, { has_data: boolean; age_buckets: { label: string; percent: number }[] }> = {};
+          for (const net of ["instagram", "tiktok", "youtube"] as const) {
+            const split = data?.metrics_by_network?.[net]?.age_split;
+            if (split?.length) built[net] = { has_data: true, age_buckets: split };
+          }
+          return Object.keys(built).length ? built : undefined;
+        })();
+        return <AudienceByAgePanel networks={audienceNetworks} />;
+      })()}
 
       {!isExternal && (
-      <div className="bg-[url('/banner-influencer.png')] bg-cover bg-center rounded-xl px-6 py-8 flex flex-col gap-6">
-        <div className="flex items-center gap-2">
-          <div className="size-8 flex items-center justify-center text-primary-200">
-            <Icon name="ShieldCheck" size={32} color="currentColor" />
+        <div className="bg-[url('/banner-influencer.png')] bg-cover bg-center rounded-xl px-6 py-8 flex flex-col gap-6">
+          <div className="flex items-center gap-2">
+            <div className="size-8 flex items-center justify-center text-primary-200">
+              <Icon name="ShieldCheck" size={32} color="currentColor" />
+            </div>
+            <span className="text-2xl font-semibold text-primary-200">Selo de Segurança Hypeapp</span>
           </div>
-          <span className="text-2xl font-semibold text-primary-200">Selo de Segurança Hypeapp</span>
-        </div>
-        <div className="flex flex-col gap-2">
-          <p className="text-lg font-medium text-white">Índice de Confiança:</p>
-          <p className="text-white">
-            {trustIndex != null ? (
-              <>
-                <span className="text-4xl font-bold text-primary-200">{trustIndex}%</span>
-                <span className="text-xl font-medium ml-1">de audiência real</span>
-              </>
-            ) : (
-              <span className="text-xl font-medium text-white/80">Em análise</span>
-            )}
+          <div className="flex flex-col gap-2">
+            <p className="text-lg font-medium text-white">Índice de Confiança:</p>
+            <p className="text-white">
+              {trustIndex != null ? (
+                <>
+                  <span className="text-4xl font-bold text-primary-200">{trustIndex}%</span>
+                  <span className="text-xl font-medium ml-1">de audiência real</span>
+                </>
+              ) : (
+                <span className="text-xl font-medium text-white/80">Em análise</span>
+              )}
+            </p>
+          </div>
+          <p className="text-base font-medium text-white/90">
+            (Análise de bots e contas inativas baseada em amostragem)
           </p>
         </div>
-        <p className="text-base font-medium text-white/90">
-          (Análise de bots e contas inativas baseada em amostragem)
-        </p>
-      </div>
       )}
 
       <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">

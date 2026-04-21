@@ -81,12 +81,19 @@ function CreateCampaignPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [formData, setFormData] = useState<CampaignFormData>(initialFormData);
+  const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
 
   const createCampaignMutation = useCreateCampaign();
   const totalSteps = 6;
 
   const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => {
+      if (!prev.has(field as string)) return prev;
+      const next = new Set(prev);
+      next.delete(field as string);
+      return next;
+    });
   };
 
   const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
@@ -242,8 +249,39 @@ function CreateCampaignPage() {
   const handleSubmitCampaign = async () => {
     try {
       setIsCreatingCampaign(true);
-      if (!formData.title || !formData.description) {
-        toast.error("Por favor, preencha todos os campos obrigatórios");
+
+      const missing: { step: number; field: string; label: string }[] = [];
+
+      // Step 1
+      if (!formData.title?.trim()) missing.push({ step: 1, field: "title", label: "Título da campanha" });
+      if (!formData.description?.trim()) missing.push({ step: 1, field: "description", label: "Descrição da campanha" });
+      const whatToDoArr = Array.isArray(formData.whatToDo) ? formData.whatToDo.filter((s) => s.trim()) : (formData.whatToDo ? [formData.whatToDo] : []);
+      if (!whatToDoArr.length) missing.push({ step: 1, field: "whatToDo", label: "O que fazer" });
+      const whatNotToDoArr = Array.isArray(formData.whatNotToDo) ? formData.whatNotToDo.filter((s) => s.trim()) : (formData.whatNotToDo ? [formData.whatNotToDo] : []);
+      if (!whatNotToDoArr.length) missing.push({ step: 1, field: "whatNotToDo", label: "O que não fazer" });
+
+      // Step 2
+      if (!formData.influencersCount?.trim()) missing.push({ step: 2, field: "influencersCount", label: "Quantidade de influenciadores" });
+
+      // Step 3
+      if (!formData.paymentType?.trim()) missing.push({ step: 3, field: "paymentType", label: "Tipo de remuneração" });
+
+      // Step 4
+      if (!formData.banner?.trim()) missing.push({ step: 4, field: "banner", label: "Banner da campanha" });
+
+      // Step 5
+      const phases = formData.phases ?? [];
+      if (!phases.length || phases.some((p) => !p.objective?.trim() || !p.postDate?.trim() || !p.formats?.length)) {
+        missing.push({ step: 5, field: "phases", label: "Fases da campanha" });
+      }
+
+      if (missing.length > 0) {
+        setFieldErrors(new Set(missing.map((m) => m.field)));
+        setCurrentStep(missing[0].step);
+        const labels = missing.map((m) => m.label);
+        toast.error(`Campos obrigatórios não preenchidos: ${labels.length <= 3
+          ? labels.join(", ")
+          : `${labels.slice(0, 3).join(", ")} e mais ${labels.length - 3}`}`);
         setIsCreatingCampaign(false);
         return;
       }
@@ -353,16 +391,14 @@ function CreateCampaignPage() {
           return (
             <div key={`step-${stepNum}`} className="flex gap-4 items-center shrink-0">
               <div
-                className={`flex gap-2 items-center justify-center pb-3 shrink-0 ${
-                  isActive ? "border-b-[3px] border-tertiary-500" : ""
-                }`}
+                className={`flex gap-2 items-center justify-center pb-3 shrink-0 ${isActive ? "border-b-[3px] border-tertiary-500" : ""
+                  }`}
               >
                 <div
-                  className={`flex items-center justify-center rounded-full size-7 text-sm font-bold shrink-0 ${
-                    isActive
-                      ? "bg-tertiary-500 text-white"
-                      : "border border-[#e5e5e5] text-[#7c7c7c]"
-                  }`}
+                  className={`flex items-center justify-center rounded-full size-7 text-sm font-bold shrink-0 ${isActive
+                    ? "bg-tertiary-500 text-white"
+                    : "border border-[#e5e5e5] text-[#7c7c7c]"
+                    }`}
                 >
                   {stepNum}
                 </div>
@@ -387,6 +423,7 @@ function CreateCampaignPage() {
           <CreateCampaignStepOne
             formData={formData}
             updateFormData={updateFormData}
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 2 && (
@@ -396,6 +433,7 @@ function CreateCampaignPage() {
             onBack={() => setCurrentStep(1)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 3 && (
@@ -405,6 +443,7 @@ function CreateCampaignPage() {
             onBack={() => setCurrentStep(2)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 4 && (
@@ -414,6 +453,7 @@ function CreateCampaignPage() {
             onBack={() => setCurrentStep(3)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 5 && (

@@ -55,6 +55,7 @@ function RouteComponent() {
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId/edit" });
   const [currentStep, setCurrentStep] = useState(6);
   const [focusPhaseId, setFocusPhaseId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const formInitializedRef = useRef(false);
   /** Snapshot campanha (sem substituir fases) + fases — para diff alinhado à API de PUT. */
@@ -267,6 +268,12 @@ function RouteComponent() {
 
   const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => {
+      if (!prev.has(field as string)) return prev;
+      const next = new Set(prev);
+      next.delete(field as string);
+      return next;
+    });
   };
 
   // Handler para submissão do formulário
@@ -276,18 +283,42 @@ function RouteComponent() {
         toast.error("Campanha não carregada. Atualize a página e tente de novo.");
         return;
       }
-      if (!formData.title || !formData.description) {
-        toast.error("Por favor, preencha todos os campos obrigatórios");
-        return;
+      const missing: { step: number; field: string; label: string }[] = [];
+
+      // Step 1
+      if (!formData.title?.trim()) missing.push({ step: 1, field: "title", label: "Título da campanha" });
+      if (!formData.description?.trim()) missing.push({ step: 1, field: "description", label: "Descrição da campanha" });
+      const whatToDoArr = Array.isArray(formData.whatToDo)
+        ? formData.whatToDo.filter((s) => s.trim())
+        : formData.whatToDo?.trim() ? [formData.whatToDo] : [];
+      if (!whatToDoArr.length) missing.push({ step: 1, field: "whatToDo", label: "O que fazer" });
+      const whatNotToDoArr = Array.isArray(formData.whatNotToDo)
+        ? formData.whatNotToDo.filter((s) => s.trim())
+        : formData.whatNotToDo?.trim() ? [formData.whatNotToDo] : [];
+      if (!whatNotToDoArr.length) missing.push({ step: 1, field: "whatNotToDo", label: "O que não fazer" });
+
+      // Step 2
+      if (!formData.influencersCount?.trim()) missing.push({ step: 2, field: "influencersCount", label: "Quantidade de influenciadores" });
+
+      // Step 3
+      if (!formData.paymentType?.trim()) missing.push({ step: 3, field: "paymentType", label: "Tipo de remuneração" });
+
+      // Step 4
+      if (!formData.banner?.trim()) missing.push({ step: 4, field: "banner", label: "Banner da campanha" });
+
+      // Step 5
+      const phasesArr = formData.phases ?? [];
+      if (!phasesArr.length || phasesArr.some((p) => !p.objective?.trim() || !p.postDate?.trim() || !p.formats?.length)) {
+        missing.push({ step: 5, field: "phases", label: "Fases da campanha" });
       }
 
-      const incompletePhases = formData.phases.some(
-        (p) => !p.objective || !p.postDate
-      );
-      if (incompletePhases) {
-        toast.warning(
-          "Algumas fases estão incompletas (objetivo e data obrigatórios). Ajuste antes de salvar."
-        );
+      if (missing.length > 0) {
+        setFieldErrors(new Set(missing.map((m) => m.field)));
+        setCurrentStep(missing[0].step);
+        const labels = missing.map((m) => m.label);
+        const description =
+          labels.length <= 3 ? labels.join(", ") : `${labels.slice(0, 3).join(", ")} e mais ${labels.length - 3}`;
+        toast.error("Campos obrigatórios não preenchidos", { description });
         return;
       }
 
@@ -460,7 +491,7 @@ function RouteComponent() {
 
       <div className="bg-white rounded-[12px] p-6 flex-1">
         {currentStep === 1 && (
-          <CreateCampaignStepOne formData={formData} updateFormData={updateFormData} />
+          <CreateCampaignStepOne formData={formData} updateFormData={updateFormData} fieldErrors={fieldErrors} />
         )}
         {currentStep === 2 && (
           <CreateCampaignStepTwo
@@ -469,6 +500,7 @@ function RouteComponent() {
             onBack={() => setCurrentStep(1)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 3 && (
@@ -478,6 +510,7 @@ function RouteComponent() {
             onBack={() => setCurrentStep(2)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 4 && (
@@ -487,6 +520,7 @@ function RouteComponent() {
             onBack={() => setCurrentStep(3)}
             onNext={handleContinue}
             hideBackButton
+            fieldErrors={fieldErrors}
           />
         )}
         {currentStep === 5 && (

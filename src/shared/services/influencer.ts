@@ -48,6 +48,9 @@ export interface MetricsByNetwork {
   yt_videos_views_sum?: number;
   yt_videos_views_avg?: number;
   yt_videos_fetched?: number;
+
+  // Distribuição etária da audiência (retornada dentro de metrics_by_network)
+  age_split?: Array<{ label: string; percent: number }>;
 }
 
 /** Item de top conteúdos */
@@ -101,6 +104,8 @@ export interface CampaignInfluencerProfileResponse {
       username?: string;
       members?: number;
       status?: string;
+      photo?: string | null;
+      bio?: string | null;
     }>;
     is_external?: boolean;
     pre_registered_social_profiles?: Array<{

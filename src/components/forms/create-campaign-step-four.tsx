@@ -10,6 +10,7 @@ interface CreateCampaignStepFourProps {
   onBack: () => void;
   onNext: () => void;
   hideBackButton?: boolean;
+  fieldErrors?: Set<string>;
 }
 
 export function CreateCampaignStepFour({
@@ -18,6 +19,7 @@ export function CreateCampaignStepFour({
   onBack,
   onNext,
   hideBackButton = false,
+  fieldErrors,
 }: CreateCampaignStepFourProps) {
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +41,15 @@ export function CreateCampaignStepFour({
       setBannerPreview(formData.banner);
     }
   }, [formData.banner, bannerPreview]);
+
+  const bannerError = fieldErrors?.has("banner");
+
+  useEffect(() => {
+    if (!bannerError) return;
+    const el = document.getElementById("campaign-banner");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [fieldErrors]);
 
   const handleBannerSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
@@ -199,9 +210,10 @@ export function CreateCampaignStepFour({
       {/* Card – Figma: bg #fafafa, rounded-12, p-6, gap-28 → gap-7 */}
       <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
         {/* Banner da campanha (1280X512 px) */}
-        <div className="flex flex-col gap-2">
+        <div id="campaign-banner" className="flex flex-col gap-2">
           <label className="text-base font-medium leading-5 text-[#0A0A0A]">
             Banner da campanha (1280X512 px)
+            <span className="text-red-500 ml-1" aria-hidden>*</span>
           </label>
           {bannerPreview ? (
             <div className="flex gap-2 flex-wrap items-center rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] p-6">
@@ -263,7 +275,7 @@ export function CreateCampaignStepFour({
               tabIndex={0}
               onClick={() => bannerInputRef.current?.click()}
               onKeyDown={(e) => e.key === "Enter" && bannerInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-1 rounded-[16px] border-2 border-dashed border-primary-900 bg-[#F5F5F5] px-5 py-10 cursor-pointer transition-colors hover:bg-[#ebebeb]"
+              className={`flex flex-col items-center justify-center gap-1 rounded-[16px] border-2 border-dashed px-5 py-10 cursor-pointer transition-colors ${bannerError ? "border-red-400 bg-red-50 hover:bg-red-100" : "border-primary-900 bg-[#F5F5F5] hover:bg-[#ebebeb]"}`}
             >
               <input
                 ref={bannerInputRef}
@@ -285,6 +297,12 @@ export function CreateCampaignStepFour({
             <Icon name="Sparkles" size={16} color="#5d1390" />
             Gerar banner com IA
           </button>
+          {bannerError && (
+            <p className="flex items-center gap-1 text-sm text-red-500">
+              <Icon name="CircleAlert" size={14} color="currentColor" />
+              Faça o upload do banner antes de continuar
+            </p>
+          )}
         </div>
 
         {/* Arquivos da marca */}

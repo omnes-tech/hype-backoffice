@@ -511,35 +511,7 @@ export function CreateCampaignStepSeven({
           </div>
         </div>
 
-        {/* Sidebar - Análise e sugestões da IA */}
-        <aside className="w-[296px] shrink-0">
-          <div className="rounded-[24px] border border-primary-200 bg-primary-50 px-5 py-6">
-            <div className="mb-6 flex items-center gap-2">
-              <Icon name="Sparkles" size={20} color="#5D1390" />
-              <h3 className="text-lg font-medium text-primary-900">
-                Análise e sugestões da IA
-              </h3>
-            </div>
-            <div className="flex flex-col gap-5">
-              <p className="flex gap-2 text-base leading-5 text-primary-900">
-                <span className="mt-0.5 shrink-0 text-primary-900">•</span>
-                <span>
-                  Para potencializar os resultados da campanha, recomendamos
-                  aumentar o número de influenciadores para pelo menos 3, de
-                  acordo com o seu objetivo.
-                </span>
-              </p>
-              <p className="flex gap-2 text-base leading-5 text-primary-900">
-                <span className="mt-0.5 shrink-0 text-primary-900">•</span>
-                <span>
-                  O cronograma da Fase 2 está muito próximo da Fase 1.
-                  Recomendamos aumentar o intervalo entre elas para permitir a
-                  análise dos dados e a otimização da campanha.
-                </span>
-              </p>
-            </div>
-          </div>
-        </aside>
+
       </div>
 
       {/* Footer */}

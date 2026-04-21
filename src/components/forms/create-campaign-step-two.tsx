@@ -25,6 +25,7 @@ interface CreateCampaignStepTwoProps {
   onNext: () => void;
   /** Quando true, o rodapé global da página mostra Voltar (ex.: fluxo /campaigns/new) */
   hideBackButton?: boolean;
+  fieldErrors?: Set<string>;
 }
 
 /** Toggle no estilo Figma: 37×20px, pill, verde (on) / cinza (off), knob cinza escuro */
@@ -84,6 +85,7 @@ export function CreateCampaignStepTwo({
   onBack,
   onNext,
   hideBackButton = false,
+  fieldErrors,
 }: CreateCampaignStepTwoProps) {
   const [selectedStates, setSelectedStates] = useState<string[]>(
     formData.state ? formData.state.split(",").filter(Boolean) : []
@@ -99,6 +101,16 @@ export function CreateCampaignStepTwo({
   );
 
   const { data: niches = [] } = useNiches();
+
+  const influencersError = fieldErrors?.has("influencersCount");
+
+  useEffect(() => {
+    if (!influencersError) return;
+    const el = document.getElementById("campaign-influencers-count");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el as HTMLInputElement).focus();
+  }, [fieldErrors]);
 
   useEffect(() => {
     if (formData.state) {
@@ -279,8 +291,12 @@ export function CreateCampaignStepTwo({
       {/* Card 1: Quantos influenciadores + segmentar seguidores */}
       <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
         <div className="flex flex-col gap-1">
-          <label className={labelClass}>Quantos influenciadores?</label>
+          <label htmlFor="campaign-influencers-count" className={labelClass}>
+            Quantos influenciadores?
+            <span className="text-red-500 ml-1" aria-hidden>*</span>
+          </label>
           <input
+            id="campaign-influencers-count"
             type="text"
             inputMode="numeric"
             placeholder="Ex.: 10"
@@ -290,8 +306,16 @@ export function CreateCampaignStepTwo({
                 updateFormData("influencersCount", value)
               )
             }
-            className={inputClass}
+            className={influencersError
+              ? "w-full rounded-[24px] bg-red-50 border border-red-400 px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none transition-colors"
+              : inputClass}
           />
+          {influencersError && (
+            <p className="flex items-center gap-1 text-sm text-red-500 mt-0.5">
+              <Icon name="CircleAlert" size={14} color="currentColor" />
+              Campo obrigatório
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">

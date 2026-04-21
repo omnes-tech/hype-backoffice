@@ -10,11 +10,13 @@ const OBJECTIVE_MAX = 1000;
 interface CreateCampaignStepOneProps {
   formData: CampaignFormData;
   updateFormData: (field: keyof CampaignFormData, value: string | string[]) => void;
+  fieldErrors?: Set<string>;
 }
 
 export function CreateCampaignStepOne({
   formData,
   updateFormData,
+  fieldErrors,
 }: CreateCampaignStepOneProps) {
   const [whatToDoItems, setWhatToDoItems] = useState<string[]>(() => {
     if (Array.isArray(formData.whatToDo)) return formData.whatToDo.filter(Boolean);
@@ -66,6 +68,28 @@ export function CreateCampaignStepOne({
   const descCount = (formData.description?.length ?? 0);
   const objCount = (formData.generalObjective?.length ?? 0);
 
+  const titleError = fieldErrors?.has("title");
+  const descError = fieldErrors?.has("description");
+  const whatToDoError = fieldErrors?.has("whatToDo");
+  const whatNotToDoError = fieldErrors?.has("whatNotToDo");
+
+  useEffect(() => {
+    if (!fieldErrors?.size) return;
+    const order = [
+      { field: "title", id: "campaign-title" },
+      { field: "description", id: "campaign-description" },
+      { field: "whatToDo", id: "campaign-whatToDo" },
+      { field: "whatNotToDo", id: "campaign-whatNotToDo" },
+    ];
+    const first = order.find(({ field }) => fieldErrors.has(field));
+    if (!first) return;
+    const el = document.getElementById(first.id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const focusable = el.querySelector<HTMLElement>("input, textarea");
+    (focusable ?? el).focus?.();
+  }, [fieldErrors]);
+
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
@@ -81,27 +105,55 @@ export function CreateCampaignStepOne({
       {/* Card 1: Título, Descrição, Objetivo */}
       <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
         <div className="flex flex-col gap-1">
-          <label className="text-base font-medium text-[#0A0A0A]">Título da campanha</label>
+          <label htmlFor="campaign-title" className="text-base font-medium text-[#0A0A0A]">
+            Título da campanha
+            <span className="text-red-500 ml-1" aria-hidden>*</span>
+          </label>
           <input
+            id="campaign-title"
             type="text"
             placeholder="Escolha um nome claro e descritivo para sua campanha"
             value={formData.title}
             onChange={(e) => updateFormData("title", e.target.value)}
-            className="w-full rounded-[24px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none"
+            className={`w-full rounded-[24px] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none transition-colors ${
+              titleError
+                ? "bg-red-50 border border-red-400 focus:border-red-500"
+                : "bg-[#F5F5F5]"
+            }`}
           />
+          {titleError && (
+            <p className="flex items-center gap-1 text-sm text-red-500 mt-0.5">
+              <Icon name="CircleAlert" size={14} color="currentColor" />
+              Campo obrigatório
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-base font-medium text-[#0A0A0A]">Descrição da campanha</label>
+            <label htmlFor="campaign-description" className="text-base font-medium text-[#0A0A0A]">
+              Descrição da campanha
+              <span className="text-red-500 ml-1" aria-hidden>*</span>
+            </label>
             <textarea
+              id="campaign-description"
               placeholder="Digite aqui sua descrição..."
               value={formData.description}
               onChange={(e) => updateFormData("description", e.target.value.slice(0, DESCRIPTION_MAX))}
               maxLength={DESCRIPTION_MAX}
               rows={6}
-              className="min-h-[120px] w-full rounded-[12px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none resize-y"
+              className={`min-h-[120px] w-full rounded-[12px] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none resize-y transition-colors ${
+                descError
+                  ? "bg-red-50 border border-red-400 focus:border-red-500"
+                  : "bg-[#F5F5F5]"
+              }`}
             />
+            {descError && (
+              <p className="flex items-center gap-1 text-sm text-red-500 mt-0.5">
+                <Icon name="CircleAlert" size={14} color="currentColor" />
+                Campo obrigatório
+              </p>
+            )}
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
@@ -133,7 +185,7 @@ export function CreateCampaignStepOne({
       </div>
 
       {/* Card 2: O que fazer */}
-      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+      <div id="campaign-whatToDo" className={`flex flex-col gap-7 rounded-[12px] p-6 ${whatToDoError ? "bg-red-50 ring-1 ring-red-400" : "bg-[#FAFAFA]"}`}>
         <div className="flex flex-col gap-4">
           <h3 className="text-xl font-bold text-[#0A0A0A]">O que fazer</h3>
           <p className="text-base text-[#404040]">Itens obrigatórios que devem aparecer no conteúdo</p>
@@ -179,10 +231,16 @@ export function CreateCampaignStepOne({
             </div>
           ))}
         </div>
+        {whatToDoError && (
+          <p className="flex items-center gap-1 text-sm text-red-500">
+            <Icon name="CircleAlert" size={14} color="currentColor" />
+            Adicione pelo menos um item obrigatório
+          </p>
+        )}
       </div>
 
       {/* Card 3: O que não fazer */}
-      <div className="flex flex-col gap-7 rounded-[12px] bg-[#FAFAFA] p-6">
+      <div id="campaign-whatNotToDo" className={`flex flex-col gap-7 rounded-[12px] p-6 ${whatNotToDoError ? "bg-red-50 ring-1 ring-red-400" : "bg-[#FAFAFA]"}`}>
         <div className="flex flex-col gap-4">
           <h3 className="text-xl font-bold text-[#0A0A0A]">O que não fazer</h3>
           <p className="text-base text-[#404040]">
@@ -230,6 +288,12 @@ export function CreateCampaignStepOne({
             </div>
           ))}
         </div>
+        {whatNotToDoError && (
+          <p className="flex items-center gap-1 text-sm text-red-500">
+            <Icon name="CircleAlert" size={14} color="currentColor" />
+            Adicione pelo menos um item obrigatório
+          </p>
+        )}
       </div>
     </div>
   );
