@@ -57,6 +57,7 @@ export interface MetricsByNetwork {
 export interface TopContentItem {
   id: string;
   image_url?: string | null;
+  is_video?: boolean;
   views?: number;
   likes?: number;
   post_url?: string | null;

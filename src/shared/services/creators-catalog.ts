@@ -11,6 +11,7 @@ export interface CatalogSocialNetwork {
   username: string;
   members: number;
   photo: string | null;
+  engagement_percent: number | null;
 }
 
 export interface CatalogUser {
@@ -73,6 +74,9 @@ function normalizeSocialNetwork(raw: unknown): CatalogSocialNetwork | null {
     username: String(o.username ?? ""),
     members: Number(o.members ?? 0) || 0,
     photo: o.photo != null && o.photo !== "" ? String(o.photo) : null,
+    engagement_percent: o.engagement_percent != null && Number.isFinite(Number(o.engagement_percent))
+      ? Number(o.engagement_percent)
+      : null,
   };
 }
 

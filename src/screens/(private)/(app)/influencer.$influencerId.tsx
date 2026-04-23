@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
+import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { useInfluencerProfile } from "@/hooks/use-influencer-profile";
 import { getUploadUrl } from "@/lib/utils/api";
 import { AudienceByAgePanel } from "@/components/audience-by-age-panel";
@@ -49,6 +50,20 @@ function socialNetworkUrl(type: string, username: string): string | null {
     default: return null;
   }
 }
+
+function detectNetworkFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/youtube\.com|youtu\.be/i.test(url)) return "youtube";
+  if (/instagram\.com/i.test(url)) return "instagram";
+  if (/tiktok\.com/i.test(url)) return "tiktok";
+  return null;
+}
+
+const NETWORK_BADGE_STYLE: Record<string, string> = {
+  youtube: "bg-red-600",
+  instagram: "bg-gradient-to-br from-amber-400 via-rose-500 to-purple-600",
+  tiktok: "bg-black",
+};
 
 function formatCampaignDate(dateStr: string | null | undefined): string {
   if (!dateStr || !dateStr.trim()) return "—";
@@ -744,51 +759,99 @@ function InfluencerProfileScreen() {
         <h2 className="text-2xl font-semibold text-neutral-950">Top 4 conteúdos</h2>
         {topContents.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {topContents.slice(0, 4).map((content) => (
-              <div
-                key={content.id}
-                className="bg-neutral-100 rounded-xl overflow-hidden flex flex-col min-w-0"
-              >
-                <div className="h-[222px] bg-neutral-300 relative">
-                  {content.image_url ? (
-                    <img
-                      src={getUploadUrl(content.image_url) ?? content.image_url}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : null}
-                  <div className="absolute inset-0 bg-linear-to-t from-black/80 to-transparent" />
-                  <div className="absolute bottom-3 left-3 right-3 flex justify-between text-white">
-                    <div>
-                      <p className="text-sm font-normal">Visualizações</p>
-                      <p className="text-lg font-medium">
-                        {content.views != null ? formatCompact(content.views) : "—"}
-                      </p>
+            {topContents.slice(0, 4).map((content) => {
+              const network = detectNetworkFromUrl(content.post_url);
+              const isVideo = content.is_video === true;
+              const thumbnail = content.image_url
+                ? (content.image_url.startsWith("http") ? content.image_url : (getUploadUrl(content.image_url) ?? content.image_url))
+                : null;
+
+              return (
+                <div
+                  key={content.id}
+                  className="bg-neutral-100 rounded-xl overflow-hidden flex flex-col min-w-0"
+                >
+                  {/* Thumbnail / preview */}
+                  <a
+                    href={content.post_url ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative block h-[222px] bg-neutral-300 shrink-0 group"
+                    aria-label="Abrir postagem"
+                    tabIndex={content.post_url ? 0 : -1}
+                    onClick={(e) => !content.post_url && e.preventDefault()}
+                  >
+                    {thumbnail && (
+                      <img
+                        src={thumbnail}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
+
+                    {/* Gradiente inferior */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+
+                    {/* Badge de rede social — canto superior esquerdo */}
+                    {network && (
+                      <div className={`absolute top-2.5 left-2.5 size-7 rounded-lg flex items-center justify-center ${NETWORK_BADGE_STYLE[network] ?? "bg-neutral-700"}`}>
+                        <SocialNetworkIcon networkType={network} size={16} color="#ffffff" />
+                      </div>
+                    )}
+
+                    {/* Indicador de vídeo — canto superior direito */}
+                    {isVideo && (
+                      <div className="absolute top-2.5 right-2.5 size-7 rounded-lg bg-black/60 flex items-center justify-center">
+                        <Icon name="Play" size={14} color="#ffffff" />
+                      </div>
+                    )}
+
+                    {/* Play central ao hover (vídeos) */}
+                    {isVideo && (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="size-14 rounded-full bg-black/60 flex items-center justify-center">
+                          <Icon name="Play" size={28} color="#ffffff" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Stats — bottom */}
+                    <div className="absolute bottom-3 left-3 right-3 flex justify-between text-white">
+                      <div>
+                        <p className="text-sm font-normal">Visualizações</p>
+                        <p className="text-lg font-medium">
+                          {content.views != null ? formatCompact(content.views) : "—"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-normal">Curtidas</p>
+                        <p className="text-lg font-medium">
+                          {content.likes != null ? formatCompact(content.likes) : "—"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-normal">Curtidas</p>
-                      <p className="text-lg font-medium">
-                        {content.likes != null ? formatCompact(content.likes) : "—"}
-                      </p>
-                    </div>
+                  </a>
+
+                  {/* Footer */}
+                  <div className="p-4">
+                    {content.post_url ? (
+                      <a
+                        href={content.post_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-base font-medium text-primary-600 underline hover:no-underline"
+                      >
+                        {isVideo ? "Assistir vídeo" : "Visualizar postagem"}
+                      </a>
+                    ) : (
+                      <span className="text-base font-medium text-neutral-500">
+                        {isVideo ? "Assistir vídeo" : "Visualizar postagem"}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="p-4">
-                  {content.post_url ? (
-                    <a
-                      href={content.post_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-base font-medium text-primary-600 underline hover:no-underline"
-                    >
-                      Visualizar postagem
-                    </a>
-                  ) : (
-                    <span className="text-base font-medium text-neutral-500">Visualizar postagem</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-neutral-500 py-6">Nenhum conteúdo no momento.</p>

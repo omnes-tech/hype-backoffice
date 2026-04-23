@@ -47,6 +47,8 @@ interface InfluencerProfileCardProps {
   // Ação universal
   onViewProfile?: () => void;
   onSaveToList?: () => void;
+  /** Listas em que esse influenciador já está — controla o visual do bookmark */
+  inLists?: Array<{ id: string; name: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,13 +95,14 @@ export function InfluencerProfileCard({
   onPreSelection,
   onViewProfile,
   onSaveToList,
+  inLists,
 }: InfluencerProfileCardProps) {
-  console.log(data)
   const rawFollowers =
     data.profileFollowers != null && data.profileFollowers > 0
       ? data.profileFollowers
       : data.influencerFollowers;
   const followers = Number(rawFollowers ?? 0);
+  console.log(data)
   const engagementDisplay = formatEngagement(data.influencerEngagement);
   const avatarSrc = data.influencerAvatar ? getUploadUrl(data.influencerAvatar) : undefined;
   const networkLabel = getNetworkLabel(data.profileType, data.profileTypeLabel || "Rede social");
@@ -170,13 +173,25 @@ export function InfluencerProfileCard({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {networkIconEl}
-          <button
-            type="button"
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#ffdf2a]"
-            aria-label="Salvar"
-          >
-            <Icon name="Bookmark" size={24} color="#171717" />
-          </button>
+          {onSaveToList && (
+            <button
+              type="button"
+              onClick={onSaveToList}
+              className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                (inLists?.length ?? 0) > 0
+                  ? "bg-[#ffdf2a] hover:bg-[#f5d400]"
+                  : "border border-neutral-200 bg-white hover:bg-neutral-50"
+              }`}
+              aria-label={(inLists?.length ?? 0) > 0 ? "Gerenciar listas" : "Adicionar à lista"}
+              title={(inLists?.length ?? 0) > 0 ? `Em ${inLists!.length} lista${inLists!.length > 1 ? "s" : ""}` : "Adicionar à lista"}
+            >
+              <Icon
+                name={(inLists?.length ?? 0) > 0 ? "BookmarkCheck" : "Bookmark"}
+                size={22}
+                color="#171717"
+              />
+            </button>
+          )}
         </div>
 
       </div>

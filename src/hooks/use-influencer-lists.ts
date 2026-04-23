@@ -1,8 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getInfluencerLists,
   getInfluencerList,
   bulkAddInfluencersToCampaign,
+  type InfluencerList,
   type BulkAddInfluencersRequest,
 } from "@/shared/services/influencer-lists";
 import { toast } from "sonner";
@@ -18,6 +20,35 @@ export function useInfluencerLists() {
     queryFn: getInfluencerLists,
     enabled: !!workspaceId,
   });
+}
+
+/** Retorna um Map<userId, InfluencerList[]> com todas as listas que cada influenciador pertence. */
+export function useInfluencerMembershipMap(): Map<number, InfluencerList[]> {
+  const { data: lists = [] } = useInfluencerLists();
+  const workspaceId = useWorkspaceQueryKey();
+
+  const detailQueries = useQueries({
+    queries: lists.map((list) => ({
+      queryKey: withWorkspaceKey(["influencer-list", list.id], workspaceId),
+      queryFn: () => getInfluencerList(list.id),
+      enabled: !!workspaceId,
+    })),
+  });
+
+  return useMemo(() => {
+    const map = new Map<number, InfluencerList[]>();
+    detailQueries.forEach((q, i) => {
+      const list = lists[i];
+      if (!q.data || !list) return;
+      for (const inf of q.data.influencers) {
+        const existing = map.get(inf.id) ?? [];
+        existing.push(list);
+        map.set(inf.id, existing);
+      }
+    });
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailQueries, lists]);
 }
 
 export function useInfluencerList(listId: string | null) {
