@@ -16,6 +16,7 @@ import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-
 import { ScriptApprovalTab } from "@/components/campaign-tabs/script-approval-tab";
 import { ContractsTab } from "@/components/campaign-tabs/contracts-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
+import { PricingTab } from "@/components/campaign-tabs/pricing-tab";
 import { ShareCampaignModal } from "@/components/share-campaign-modal";
 import { Modal } from "@/components/ui/modal";
 import { InputDate } from "@/components/ui/input-date";
@@ -77,6 +78,11 @@ const CAMPAIGN_TAB_DEFS: Array<{
       id: "metrics",
       label: "Métricas e conteúdos",
       visible: (p) => p.campaigns_read,
+    },
+    {
+      id: "pricing",
+      label: "Pricing (HYPE)",
+      visible: (p) => p.financial_read,
     },
   ];
 
@@ -611,6 +617,8 @@ function RouteComponent() {
             tabAnalyticsLoading={tabAnalyticsLoading}
           />
         );
+      case "pricing":
+        return <PricingTab />;
       default:
         return null;
     }
