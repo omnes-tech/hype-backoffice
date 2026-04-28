@@ -13,7 +13,8 @@
       "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data.get\\('lockfileVersion', 'no version'\\)\\)\")",
       "Bash(pnpm run:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n%{url_effective}\\\\n\" -H \"User-Agent: facebookexternalhit/1.1 \\(+http://www.facebook.com/externalhit_uatext.php\\)\" -I https://backoffice-v2.hypeapp.com.br/)"
     ]
   }
 }
