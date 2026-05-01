@@ -190,11 +190,29 @@ export interface Meta {
   total: number;
 }
 
+export interface CampaignProductDraft {
+  /** ID gerado no cliente para controle da lista */
+  id: string;
+  name: string;
+  description?: string;
+  /** Valor de mercado formatado em BRL (ex: "1.500,00") — convertido p/ centavos no envio */
+  market_value?: string;
+  weight_grams?: string;
+  width_cm?: string;
+  height_cm?: string;
+  length_cm?: string;
+  brand?: string;
+  sku?: string;
+  notes?: string;
+}
+
 export interface SocialFormat {
   id: string;
   socialNetwork: string;
   contentType: string;
   quantity: string;
+  /** Preço do formato (BRL formatado, ex: "1.500,00") — obrigatório quando paymentType === "fixed" */
+  price?: string;
 }
 
 export interface CampaignPhase {
@@ -251,6 +269,8 @@ export interface CampaignFormData {
   phases: CampaignPhase[];
   /** Revisão: campanha pública ou privada */
   campaignVisibility?: "public" | "private";
+  /** Produtos da campanha — preenchido quando paymentType === "swap" */
+  products?: CampaignProductDraft[];
   /** Nome do nicho primário (API `primary_niche`) para exibição no dashboard */
   primaryNicheName?: string;
   /** Nomes dos nichos raízes vindos da API para exibição no dashboard. */
@@ -277,6 +297,8 @@ export interface Influencer {
     | "invited"
     | "contract_pending"
     | "approved"
+    | "awaiting_shipment"
+    | "awaiting_receipt"
     | "script_pending"
     | "content_pending"
     | "pending_approval"

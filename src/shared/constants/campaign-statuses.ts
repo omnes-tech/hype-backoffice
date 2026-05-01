@@ -29,6 +29,8 @@ export const INFLUENCER_STATUS = {
   INVITED: "invited",
   CONTRACT_PENDING: "contract_pending",
   APPROVED: "approved",
+  AWAITING_SHIPMENT: "awaiting_shipment",
+  AWAITING_RECEIPT: "awaiting_receipt",
   SCRIPT_PENDING: "script_pending",
   CONTENT_PENDING: "content_pending",
   PENDING_APPROVAL: "pending_approval",

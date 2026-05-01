@@ -1,5 +1,6 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type { CampaignPhase, Influencer, CampaignContent } from "../types";
+import { formatReais } from "@/shared/utils/masks";
 
 /**
  * Tipos retornados pela API do dashboard
@@ -226,6 +227,7 @@ export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
         socialNetwork: content.type,
         contentType: option.type,
         quantity: String(option.quantity ?? 1),
+        ...(option.price != null ? { price: formatReais(option.price / 100) } : {}),
       }))
     ),
     files: "", // Não vem na API do dashboard

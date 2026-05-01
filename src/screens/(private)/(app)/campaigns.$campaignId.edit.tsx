@@ -11,7 +11,7 @@ import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-
 import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
 import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
 
-import type { CampaignFormData } from "@/shared/types";
+import type { CampaignFormData, CampaignProductDraft } from "@/shared/types";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useUpdateCampaign } from "@/hooks/use-campaigns";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
@@ -31,7 +31,14 @@ import {
 } from "@/shared/utils/campaign-edit-request";
 import { activateMural } from "@/shared/services/mural";
 import { isNicheRoot } from "@/shared/utils/niche-tree";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getCampaignProducts,
+  createCampaignProduct,
+  updateCampaignProduct,
+  deleteCampaignProduct,
+  type CampaignProduct,
+} from "@/shared/services/campaign-products";
 import { getUploadUrl } from "@/lib/utils/api";
 import { useNiches } from "@/hooks/use-niches";
 import { getCampaignStatusValue } from "@/shared/utils/campaign-status";
@@ -63,6 +70,8 @@ function RouteComponent() {
     typeof buildCampaignUpdatePayloadFromForm
   > | null>(null);
   const initialPhasesApiPayloadRef = useRef<CampaignPhaseUpsertPayload[] | null>(null);
+  /** IDs dos produtos que vieram do servidor (para diff no save). */
+  const serverProductIdsRef = useRef<Set<string>>(new Set());
 
   // Buscar dados da campanha
   const {
@@ -92,6 +101,17 @@ function RouteComponent() {
   
   // Buscar nichos para determinar o nicho principal na edição
   const { data: niches = [] } = useNiches();
+
+  // Buscar produtos existentes da campanha (só necessário para swap)
+  const {
+    data: serverProducts = [],
+    isSuccess: productsLoaded,
+  } = useQuery({
+    queryKey: ["campaigns", campaignId, "products"],
+    queryFn: () => getCampaignProducts(campaignId),
+    enabled: !!campaignId,
+    staleTime: 60_000,
+  });
 
   // Inicializar formData com dados da campanha
   const [formData, setFormData] = useState<CampaignFormData>({
@@ -130,6 +150,8 @@ function RouteComponent() {
     if (!campaign || !phases) return;
     // Aguarda os nichos carregarem para poder separar raiz vs. filho corretamente
     if (niches.length === 0) return;
+    // Para campanhas de permuta, aguarda os produtos carregarem antes de inicializar
+    if (campaign.payment_method === "swap" && !productsLoaded) return;
 
     formInitializedRef.current = true;
 
@@ -253,7 +275,25 @@ function RouteComponent() {
         return m ? m[1].trim() : "";
       })(),
       campaignVisibility: campaign.status === "draft" ? "private" : "public",
+      products: campaign.payment_method === "swap"
+        ? serverProducts.map((p: CampaignProduct) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description ?? "",
+            market_value: p.market_value_cents ? (p.market_value_cents / 100).toFixed(2).replace(".", ",") : "",
+            weight_grams: p.weight_grams?.toString() ?? "",
+            width_cm: p.dimensions?.width_cm?.toString() ?? "",
+            height_cm: p.dimensions?.height_cm?.toString() ?? "",
+            length_cm: p.dimensions?.length_cm?.toString() ?? "",
+            brand: p.brand ?? "",
+            sku: p.sku ?? "",
+            notes: p.notes ?? "",
+          } satisfies CampaignProductDraft))
+        : undefined,
     };
+
+    // Registrar IDs dos produtos do servidor para diff no save
+    serverProductIdsRef.current = new Set(serverProducts.map((p: CampaignProduct) => p.id));
 
     const rawInitialPayload = buildCampaignUpdatePayloadFromForm(initialForm);
     initialCampaignApiPayloadRef.current = mergePaymentDetailsWithServer(
@@ -262,7 +302,7 @@ function RouteComponent() {
     );
     initialPhasesApiPayloadRef.current = buildPhasesPayloadFromForm(initialForm);
     setFormData(initialForm);
-  }, [campaign, phases, niches]);
+  }, [campaign, phases, niches, productsLoaded, serverProducts]);
 
   const totalSteps = 6;
 
@@ -341,6 +381,36 @@ function RouteComponent() {
         campaignId,
         data: putBody,
       });
+
+      // Sincronizar produtos (somente para campanhas de permuta)
+      if (formData.paymentType === "swap") {
+        try {
+          const currentProducts = (formData.products ?? []).filter((p) => p.name.trim());
+          const originalIds = serverProductIdsRef.current;
+          const currentIds = new Set(currentProducts.map((p) => p.id));
+
+          await Promise.all([
+            // Criar novos produtos (ID não existe no servidor)
+            ...currentProducts
+              .filter((p) => !originalIds.has(p.id))
+              .map((p) => createCampaignProduct(campaignId, p)),
+            // Atualizar produtos existentes
+            ...currentProducts
+              .filter((p) => originalIds.has(p.id))
+              .map((p) => updateCampaignProduct(campaignId, p.id, p)),
+            // Deletar produtos removidos
+            ...[...originalIds]
+              .filter((id) => !currentIds.has(id))
+              .map((id) => deleteCampaignProduct(campaignId, id)),
+          ]);
+
+          queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "products"] });
+        } catch (err) {
+          console.error("[edit] erro ao sincronizar produtos:", err);
+          const msg = err instanceof Error ? err.message : "Erro desconhecido";
+          toast.error(`Campanha salva, mas houve um erro ao salvar os produtos: ${msg}`);
+        }
+      }
 
       // Fazer upload do banner se houver novo arquivo
       const bannerFile = (formData as any).bannerFile;

@@ -11,7 +11,7 @@ import {
   validateSubsequentPhaseDate,
   getPhase1MinDate,
 } from "@/shared/utils/date-validations";
-import { handleNumberInput, unformatNumber } from "@/shared/utils/masks";
+import { handleNumberInput, unformatNumber, handleCurrencyInput } from "@/shared/utils/masks";
 
 interface CreateCampaignStepFiveProps {
   formData: CampaignFormData;
@@ -328,6 +328,18 @@ export function CreateCampaignStepFive({
         );
         return false;
       }
+      if (formData.paymentType === "fixed") {
+        const missingPrice = p.formats.filter((f) => {
+          const raw = (f.price || "").replace(/\D/g, "");
+          return !raw || parseInt(raw, 10) < 1;
+        });
+        if (missingPrice.length > 0) {
+          toast.error(
+            `A Fase ${i + 1} tem formato(s) sem preço definido. Informe o valor de cada formato.`
+          );
+          return false;
+        }
+      }
     }
     return true;
   };
@@ -602,6 +614,31 @@ export function CreateCampaignStepFive({
                               className="h-11 rounded-[24px] border-0 bg-neutral-100 px-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 disabled:opacity-60"
                             />
                           </div>
+                          {formData.paymentType === "fixed" && (
+                            <div className="flex min-w-[140px] flex-col gap-1">
+                              <span className="text-sm font-medium text-neutral-950">
+                                Preço (R$)
+                              </span>
+                              <div className="relative">
+                                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-neutral-500">
+                                  R$
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="0,00"
+                                  value={format.price ?? ""}
+                                  onChange={(e) =>
+                                    handleCurrencyInput(e, (v) =>
+                                      updateFormat(phase.id, format.id, "price", v)
+                                    )
+                                  }
+                                  disabled={!format.socialNetwork || !format.contentType}
+                                  className="h-11 w-full rounded-[24px] border-0 bg-neutral-100 pl-10 pr-4 py-3 text-base text-neutral-950 placeholder:text-neutral-400 disabled:opacity-60"
+                                />
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-end">
                             <button
                               type="button"

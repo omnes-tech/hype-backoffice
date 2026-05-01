@@ -24,6 +24,8 @@ export interface InfluencerCardData {
   recommendationReason?: string;
   updatedAt?: string | null;
   isExternal?: boolean;
+  /** Preços por formato (centavos) — exibido quando paymentMethod === "price" */
+  prices?: Record<string, number>;
 }
 
 interface InfluencerProfileCardProps {
@@ -66,6 +68,22 @@ function formatEngagement(value: number | null | undefined): string {
   const n = Number(value);
   return `${(n >= 10 ? n.toFixed(1) : n.toFixed(2)).replace(/\.?0+$/, "")}%`;
 }
+
+const FORMAT_LABELS: Record<string, string> = {
+  feed: "Feed",
+  reels: "Reels",
+  stories: "Stories",
+  video: "Vídeo",
+  live: "LIVE",
+  shorts: "Shorts",
+  image: "Imagem",
+  video_1min: "Vídeo 1min",
+  video_10min: "Vídeo 10min",
+  video_1hour: "Vídeo 1h",
+  insertion: "Inserção",
+  preroll_endroll: "Pre/End-roll",
+  video_dedicated: "Vídeo dedicado",
+};
 
 // ---------------------------------------------------------------------------
 // Componente
@@ -230,6 +248,24 @@ export function InfluencerProfileCard({
       {nicheName && (
         <div className="rounded-xl bg-[#f2e2ff] px-3 py-1">
           <span className="text-sm leading-6 text-primary-600">{nicheName}</span>
+        </div>
+      )}
+
+      {/* Preços por formato (payment_method === "price") */}
+      {data.prices && Object.keys(data.prices).length > 0 && (
+        <div className="flex flex-col gap-1 rounded-xl bg-neutral-200 px-3 py-2">
+          <p className="text-xs font-medium text-neutral-600">Preços do influenciador</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {Object.entries(data.prices).map(([format, cents]) => (
+              <span key={format} className="text-xs text-neutral-800">
+                <span className="capitalize">{FORMAT_LABELS[format] ?? format}</span>
+                {" · "}
+                <span className="font-semibold">
+                  {(cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

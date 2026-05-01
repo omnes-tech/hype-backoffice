@@ -4,6 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
 import type { CampaignFormData } from "@/shared/types";
 import { handleCurrencyInput } from "@/shared/utils/masks";
+import { CreateCampaignStepProducts } from "@/components/forms/create-campaign-step-products";
 
 /** Toggle no estilo Figma: 37×20px, pill, verde (on) / cinza (off), knob cinza escuro */
 function ToggleSwitch({
@@ -131,55 +132,11 @@ export function CreateCampaignStepThree({
   const renderPaymentFields = () => {
     switch (formData.paymentType) {
       case "fixed":
-        return (
-          <div className="flex flex-col gap-1">
-            <label className={labelClass}>
-              Valor a ser pago (independente de número de seguidores e métricas)
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: R$ 1.000,00"
-              value={formData.paymentFixedAmount ? `R$ ${formData.paymentFixedAmount}` : ""}
-              onChange={(e) =>
-                handleCurrencyInput(e, (value) =>
-                  updateFormData("paymentFixedAmount", value)
-                )
-              }
-              className={inputClass}
-            />
-          </div>
-        );
+        return null;
       case "price":
         return null;
       case "swap":
-        return (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label className={labelClass}>Item oferecido</label>
-              <input
-                type="text"
-                placeholder="Ex: Kit de produtos, Cupom de desconto"
-                value={formData.paymentSwapItem}
-                onChange={(e) => updateFormData("paymentSwapItem", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={labelClass}>Valor de mercado</label>
-              <input
-                type="text"
-                placeholder="Ex: R$ 500,00"
-                value={formData.paymentSwapMarketValue ? `R$ ${formData.paymentSwapMarketValue}` : ""}
-                onChange={(e) =>
-                  handleCurrencyInput(e, (value) =>
-                    updateFormData("paymentSwapMarketValue", value)
-                  )
-                }
-                className={inputClass}
-              />
-            </div>
-          </div>
-        );
+        return null;
       case "cpa":
         return (
           <div className="flex flex-col gap-4">
@@ -232,6 +189,7 @@ export function CreateCampaignStepThree({
   };
 
   return (
+    <>
     <form
       className="flex flex-col gap-8"
       onSubmit={(e) => {
@@ -261,7 +219,7 @@ export function CreateCampaignStepThree({
             onChange={(value) => updateFormData("paymentType", value)}
             error={paymentTypeError ? "Campo obrigatório" : undefined}
             options={[
-              { label: "Valor fixo por influenciador", value: "fixed" },
+              { label: "Valor fixo por conteúdo", value: "fixed" },
               { label: "Preço definido pelo influenciador", value: "price" },
               { label: "Permuta", value: "swap" },
               { label: "CPA (Custo Por Ação)", value: "cpa" },
@@ -372,5 +330,15 @@ export function CreateCampaignStepThree({
         </div>
       )}
     </form>
+
+    {formData.paymentType === "swap" && (
+      <CreateCampaignStepProducts
+        formData={formData}
+        updateFormData={updateFormData}
+        asSection
+        hideBackButton
+      />
+    )}
+    </>
   );
 }

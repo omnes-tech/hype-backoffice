@@ -8,6 +8,7 @@ import { CreateCampaignStepThree } from "@/components/forms/create-campaign-step
 import { CreateCampaignStepFour } from "@/components/forms/create-campaign-step-four";
 import { CreateCampaignStepFive } from "@/components/forms/create-campaign-step-five";
 import { CreateCampaignStepSeven } from "@/components/forms/create-campaign-step-seven";
+import { createAllCampaignProducts } from "@/shared/services/campaign-products";
 import type { CampaignFormData } from "@/shared/types";
 import { useCreateCampaign } from "@/hooks/use-campaigns";
 import type { CreateCampaignData } from "@/shared/services/campaign";
@@ -24,15 +25,7 @@ export const Route = createFileRoute("/(private)/(app)/campaigns/new" as "/(priv
   component: CreateCampaignPage,
 });
 
-/** Stepper labels – 6 steps: Briefing, Influenciadores, Remuneração, Materiais, Fases, Revisão */
-const STEP_LABELS = [
-  "Briefing",
-  "Influenciadores",
-  "Remuneração",
-  "Materiais",
-  "Fases",
-  "Revisão",
-];
+const STEP_LABELS = ["Briefing", "Influenciadores", "Remuneração", "Materiais", "Fases", "Revisão"];
 
 const initialFormData: CampaignFormData = {
   title: "",
@@ -84,7 +77,11 @@ function CreateCampaignPage() {
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
 
   const createCampaignMutation = useCreateCampaign();
-  const totalSteps = 6;
+  const isSwap = formData.paymentType === "swap";
+  const totalSteps = STEP_LABELS.length;
+  const STEP_MATERIAIS = 4;
+  const STEP_FASES     = 5;
+  const STEP_REVISAO   = 6;
 
   const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -220,16 +217,21 @@ function CreateCampaignPage() {
     return phases
       .filter((phase) => phase.objective && phase.postDate)
       .map((phase) => {
-        const formatsByNetwork: Record<string, { type: string; options: Array<{ type: string; quantity: number }> }> = {};
+        const formatsByNetwork: Record<string, { type: string; options: Array<{ type: string; quantity: number; price?: number }> }> = {};
         phase.formats.forEach((format) => {
           const network = format.socialNetwork || "instagram";
           if (!formatsByNetwork[network]) {
             formatsByNetwork[network] = { type: network, options: [] };
           }
-          formatsByNetwork[network].options.push({
+          const option: { type: string; quantity: number; price?: number } = {
             type: format.contentType || "post",
             quantity: parseInt(format.quantity, 10) || 1,
-          });
+          };
+          if (format.price) {
+            const priceNum = currencyToNumber(format.price);
+            if (priceNum > 0) option.price = Math.round(priceNum * 100);
+          }
+          formatsByNetwork[network].options.push(option);
         });
 
         const publish_time = toPublishTimeForApi(phase.postTime);
@@ -266,13 +268,13 @@ function CreateCampaignPage() {
       // Step 3
       if (!formData.paymentType?.trim()) missing.push({ step: 3, field: "paymentType", label: "Tipo de remuneração" });
 
-      // Step 4
-      if (!formData.banner?.trim()) missing.push({ step: 4, field: "banner", label: "Banner da campanha" });
+      // Step Materiais
+      if (!formData.banner?.trim()) missing.push({ step: STEP_MATERIAIS, field: "banner", label: "Banner da campanha" });
 
-      // Step 5
+      // Step Fases
       const phases = formData.phases ?? [];
       if (!phases.length || phases.some((p) => !p.objective?.trim() || !p.postDate?.trim() || !p.formats?.length)) {
-        missing.push({ step: 5, field: "phases", label: "Fases da campanha" });
+        missing.push({ step: STEP_FASES, field: "phases", label: "Fases da campanha" });
       }
 
       if (missing.length > 0) {
@@ -298,6 +300,19 @@ function CreateCampaignPage() {
         queryClient.invalidateQueries({
           queryKey: ["campaigns", createdCampaign.id, "dashboard"],
         });
+      }
+
+      if (isSwap) {
+        const validProducts = (formData.products ?? []).filter((p) => p.name.trim());
+        if (validProducts.length > 0) {
+          try {
+            await createAllCampaignProducts(createdCampaign.id, validProducts);
+          } catch (err) {
+            console.error("[campaigns] erro ao salvar produtos:", err);
+            const msg = err instanceof Error ? err.message : "Erro desconhecido";
+            toast.error(`Campanha criada, mas houve um erro ao salvar os produtos: ${msg}`);
+          }
+        }
       }
 
       const bannerFile = (formData as CampaignFormData & { bannerFile?: File }).bannerFile;
@@ -355,7 +370,7 @@ function CreateCampaignPage() {
       };
       localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ savedAt: new Date().toISOString(), step: 6, data: rest })
+        JSON.stringify({ savedAt: new Date().toISOString(), step: STEP_REVISAO, data: rest })
       );
       toast.success("Rascunho salvo", {
         description:
@@ -479,7 +494,7 @@ function CreateCampaignPage() {
       </div>
 
       {/* Barra fixa: Voltar + Continuar */}
-      {currentStep < 6 && (
+      {currentStep < STEP_REVISAO && (
         <div className="mt-10 flex items-center justify-between gap-4 rounded-xl border-t border-[#e5e5e5] bg-[#FAFAFA] p-6 z-10">
           <Button
             type="button"

@@ -57,6 +57,8 @@ interface ExtendedInfluencer extends Influencer {
   selectionSource?: "recommended" | "catalog";
   /** `niche_ids` crus da API de influencer-selection (resolver nome via GET /niches). */
   selectionNicheIds?: number[];
+  /** Preços por formato (centavos) do influenciador — presente quando payment_method === "price" */
+  prices?: Record<string, number>;
 }
 
 interface InfluencerSelectionTabProps {
@@ -65,6 +67,8 @@ interface InfluencerSelectionTabProps {
   maxInfluencers?: number;
   phasesWithFormats?: Array<{ formats?: Array<{ socialNetwork: string }> }>;
   onOpenMuralModal?: () => void;
+  /** Método de pagamento da campanha — controla exibição de preços nos cards */
+  paymentMethod?: string;
 }
 
 /** Skeleton — mesma hierarquia do Figma (título → recomendados → filtros → todos + loading) */
@@ -223,6 +227,7 @@ function selectionItemToExtended(
       source === "recommended" ? item.match_reason : undefined,
     socialNetworkId: String(sn.id),
     selectionSource: source,
+    prices: sn.prices,
   };
 }
 
@@ -321,6 +326,7 @@ function buildSelectionCardData(
       profileFollowers: 0,
       influencerEngagement: influencer.engagement ?? 0,
       recommendationReason: influencer.recommendationReason,
+      prices: influencer.prices,
     },
     nicheName: nicheName || null,
   };
@@ -332,6 +338,7 @@ export function InfluencerSelectionTab({
   maxInfluencers = 0,
   phasesWithFormats = [],
   onOpenMuralModal,
+  paymentMethod,
 }: InfluencerSelectionTabProps) {
   const navigate = useNavigate();
   const { campaignId } = useParams({ from: "/(private)/(app)/campaigns/$campaignId" });
@@ -929,7 +936,10 @@ export function InfluencerSelectionTab({
                       const inCuration = isInfluencerInCuration(influencer.id);
                       return (
                         <InfluencerProfileCard
-                          data={data}
+                          data={{
+                            ...data,
+                            prices: paymentMethod === "price" ? data.prices : undefined,
+                          }}
                           nicheName={nicheName}
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
@@ -1056,7 +1066,10 @@ export function InfluencerSelectionTab({
                       return (
                         <InfluencerProfileCard
                           key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
-                          data={data}
+                          data={{
+                            ...data,
+                            prices: paymentMethod === "price" ? data.prices : undefined,
+                          }}
                           nicheName={nicheName}
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}

@@ -9,6 +9,8 @@ export interface InfluencerSelectionSocialNetwork {
   username: string;
   members: number;
   photo: string | null;
+  /** Preços por formato definidos pelo influenciador (centavos). Presente quando payment_method === "price". */
+  prices?: Record<string, number>;
 }
 
 export interface InfluencerSelectionUser {
@@ -56,6 +58,17 @@ function normalizeSocialNetwork(
   if (!o) return null;
   const id = Number(o.id);
   if (!Number.isFinite(id)) return null;
+  let prices: Record<string, number> | undefined;
+  const rawPrices = o.prices;
+  if (rawPrices && typeof rawPrices === "object" && !Array.isArray(rawPrices)) {
+    const parsed: Record<string, number> = {};
+    for (const [k, v] of Object.entries(rawPrices as Record<string, unknown>)) {
+      const n = Number(v);
+      if (Number.isFinite(n)) parsed[k] = n;
+    }
+    if (Object.keys(parsed).length > 0) prices = parsed;
+  }
+
   return {
     id,
     type: String(o.type ?? ""),
@@ -63,6 +76,7 @@ function normalizeSocialNetwork(
     username: String(o.username ?? ""),
     members: Number(o.members ?? 0) || 0,
     photo: o.photo != null && o.photo !== "" ? String(o.photo) : null,
+    prices,
   };
 }
 

@@ -41,6 +41,8 @@ export const kanbanColumns = [
   { id: "contract_pending", label: "Contrato Pendente", color: "bg-[#f1fdfa]" },
   { id: "approved", label: "Aprovado / Em Andamento", color: "bg-[#f1fdf4]" },
   { id: "script_pending", label: "Aguardando Aprovação Roteiro", color: "bg-[#eff2ff]" },
+  { id: "awaiting_shipment", label: "Aguardando Envio", color: "bg-[#fff7ed]" },
+  { id: "awaiting_receipt", label: "Aguardando Recebimento", color: "bg-[#fef3c7]" },
   { id: "content_pending", label: "Aguardando Conteúdo", color: "bg-[#fefbeb]" },
   { id: "pending_approval", label: "Aguardando Aprovação Conteúdo", color: "bg-[#fef7ed]" },
   { id: "in_correction", label: "Em Correção", color: "bg-[#fcf9c3]" },

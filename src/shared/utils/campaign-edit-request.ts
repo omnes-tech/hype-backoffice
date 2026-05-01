@@ -53,7 +53,7 @@ export function formPhaseToCreatePhaseData(
   phase: CampaignFormData["phases"][number]
 ): CreatePhaseData {
   const formatsByNetwork: {
-    [key: string]: { type: string; options: Array<{ type: string; quantity: number }> };
+    [key: string]: { type: string; options: Array<{ type: string; quantity: number; price?: number }> };
   } = {};
 
   phase.formats.forEach((format) => {
@@ -64,10 +64,15 @@ export function formPhaseToCreatePhaseData(
         options: [],
       };
     }
-    formatsByNetwork[network].options.push({
+    const option: { type: string; quantity: number; price?: number } = {
       type: format.contentType || "post",
       quantity: parseInt(format.quantity, 10) || 1,
-    });
+    };
+    if (format.price) {
+      const priceNum = currencyToNumber(format.price);
+      if (priceNum > 0) option.price = Math.round(priceNum * 100);
+    }
+    formatsByNetwork[network].options.push(option);
   });
 
   const publish_time = toPublishTimeForApi(phase.postTime);

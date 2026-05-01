@@ -14,7 +14,9 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   invited: ["contract_pending", "rejected"],
   contract_pending: ["approved", "rejected"],
   approved: ["script_pending", "rejected"],
-  script_pending: ["content_pending", "rejected"],
+  script_pending: ["awaiting_shipment", "content_pending", "rejected"],
+  awaiting_shipment: ["awaiting_receipt", "rejected"],
+  awaiting_receipt: ["content_pending", "rejected"],
   content_pending: ["pending_approval", "rejected"],
   pending_approval: ["content_approved", "in_correction"],
   in_correction: ["pending_approval"],
@@ -46,7 +48,9 @@ const USER_VALID_TRANSITIONS: Record<string, string[]> = {
   invited: ["contract_pending", "rejected"],
   contract_pending: ["approved", "rejected"],
   approved: ["script_pending", "curation", "rejected"],
-  script_pending: ["content_pending", "rejected"],
+  script_pending: ["awaiting_shipment", "content_pending", "rejected"],
+  awaiting_shipment: ["awaiting_receipt", "rejected"],
+  awaiting_receipt: ["content_pending", "rejected"],
   content_pending: ["rejected"],
   rejected: ["applications", "curation"],
   // compatibilidade
@@ -86,8 +90,15 @@ const TRANSITION_NOTES: Record<string, string> = {
   "approved->rejected": "Removido da campanha",
   "approved->curation": "Movido para curadoria",
   // script_pending
+  "script_pending->awaiting_shipment": "Roteiro aprovado, produto sendo enviado ao influenciador",
   "script_pending->content_pending": "Roteiro aprovado, aguardando conteúdo",
   "script_pending->rejected": "Roteiro recusado",
+  // awaiting_shipment
+  "awaiting_shipment->awaiting_receipt": "Produto enviado, aguardando confirmação de recebimento",
+  "awaiting_shipment->rejected": "Removido da campanha",
+  // awaiting_receipt
+  "awaiting_receipt->content_pending": "Produto recebido, aguardando conteúdo",
+  "awaiting_receipt->rejected": "Removido da campanha",
   // content_pending
   "content_pending->pending_approval": "Conteúdo enviado para aprovação",
   "content_pending->rejected": "Recusado",

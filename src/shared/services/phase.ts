@@ -11,6 +11,7 @@ export interface CreatePhaseData {
     options: Array<{
       type: string;
       quantity: number;
+      price?: number;
     }>;
   }>;
   files?: string[];

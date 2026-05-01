@@ -44,6 +44,12 @@ export function Sidebar() {
       href: "/creators",
       visible: permissions.catalog_read,
     },
+    {
+      label: "Holds",
+      icon: "Wallet" as keyof typeof icons,
+      href: "/holds",
+      visible: permissions.financial_read,
+    },
   ];
 
   const visibleMenus = menus.filter((m) => m.visible);

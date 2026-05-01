@@ -12,10 +12,12 @@ import { ManagementTab } from "@/components/campaign-tabs/management-tab";
 import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-selection-tab";
 import { ApplicationsTab } from "@/components/campaign-tabs/applications-tab";
 import { CurationTab } from "@/components/campaign-tabs/curation-tab";
+import { ShipmentTab } from "@/components/campaign-tabs/shipment-tab";
 import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-tab";
 import { ScriptApprovalTab } from "@/components/campaign-tabs/script-approval-tab";
 import { ContractsTab } from "@/components/campaign-tabs/contracts-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
+import { PricingTab } from "@/components/campaign-tabs/pricing-tab";
 import { ShareCampaignModal } from "@/components/share-campaign-modal";
 import { Modal } from "@/components/ui/modal";
 import { InputDate } from "@/components/ui/input-date";
@@ -61,6 +63,7 @@ const CAMPAIGN_TAB_DEFS: Array<{
     },
     { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
     { id: "curation", label: "Curadoria", visible: (p) => p.influencers_approve || p.influencers_reject },
+    { id: "shipment", label: "Envios", visible: (p) => p.campaigns_read },
     { id: "management", label: "Gerenciamento", visible: (p) => p.campaigns_read },
     { id: "contracts", label: "Contratos", visible: (p) => p.contracts_read },
     {
@@ -77,6 +80,11 @@ const CAMPAIGN_TAB_DEFS: Array<{
       id: "metrics",
       label: "Métricas e conteúdos",
       visible: (p) => p.campaigns_read,
+    },
+    {
+      id: "pricing",
+      label: "Pricing (HYPE)",
+      visible: (p) => p.financial_read,
     },
   ];
 
@@ -109,12 +117,23 @@ function RouteComponent() {
 
   const permissions = useWorkspacePermissions();
 
+  // Query principal da campanha (dados básicos) — deve vir antes dos effects que dependem de visibleTabs
+  const queryClient = useQueryClient();
+  const {
+    data: campaign,
+    isLoading: isLoadingCampaign,
+    error: campaignError,
+  } = useCampaign(campaignId);
+
+  const isSwapCampaign = campaign?.payment_method === "swap";
+
   const visibleTabs = useMemo(
     () =>
-      CAMPAIGN_TAB_DEFS.filter((t) => t.visible(permissions)).map(
-        ({ id, label }) => ({ id, label }),
-      ),
-    [permissions],
+      CAMPAIGN_TAB_DEFS.filter((t) => {
+        if (t.id === "shipment" && !isSwapCampaign) return false;
+        return t.visible(permissions);
+      }).map(({ id, label }) => ({ id, label })),
+    [permissions, isSwapCampaign],
   );
 
   useEffect(() => {
@@ -175,13 +194,6 @@ function RouteComponent() {
     });
   }, [location.search, location.pathname, navigate, visibleTabs]);
 
-  // Query principal da campanha (dados básicos)
-  const queryClient = useQueryClient();
-  const {
-    data: campaign,
-    isLoading: isLoadingCampaign,
-    error: campaignError,
-  } = useCampaign(campaignId);
   const updateCampaignMutation = useUpdateCampaign();
   const checkPublicationTrackingMutation = useMutation({
     mutationFn: () => checkCampaignPublicationTracking(campaignId),
@@ -256,7 +268,7 @@ function RouteComponent() {
     isLoading: isLoadingManagement,
     error: managementError,
   } = useCampaignManagement(campaignId, {
-    enabled: activeTab === "management",
+    enabled: activeTab === "management" || activeTab === "shipment",
   });
 
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
@@ -560,6 +572,7 @@ function RouteComponent() {
             maxInfluencers={campaign?.max_influencers || 0}
             phasesWithFormats={phases}
             onOpenMuralModal={() => setShowMuralDateModal(true)}
+            paymentMethod={campaign?.payment_method}
           />
         );
       case "applications":
@@ -574,6 +587,14 @@ function RouteComponent() {
           <CurationTab
             focusCampaignUserId={pendingFocusCampaignUser}
             onFocusUserConsumed={handleFocusUserConsumed}
+          />
+        );
+      case "shipment":
+        return (
+          <ShipmentTab
+            campaignId={campaignId}
+            participants={managementData?.participants ?? []}
+            isLoading={isLoadingManagement}
           />
         );
       case "approval":
@@ -611,6 +632,8 @@ function RouteComponent() {
             tabAnalyticsLoading={tabAnalyticsLoading}
           />
         );
+      case "pricing":
+        return <PricingTab />;
       default:
         return null;
     }

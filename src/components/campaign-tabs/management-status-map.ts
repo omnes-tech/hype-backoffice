@@ -20,6 +20,8 @@ export function mapUserStatusToKanbanColumn(status: string): string {
     content_approved: "content_approved",
     contents_confirmed: "content_approved",
     awaiting_publication: "content_approved",
+    awaiting_shipment: "awaiting_shipment",
+    awaiting_receipt: "awaiting_receipt",
     awaiting_payment: "payment_pending",
     published: "published",
     completed: "published",
