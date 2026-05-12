@@ -90,6 +90,11 @@ export function CreateCampaignStepProducts({
         setExpandedId(products[i].id);
         return false;
       }
+      if (!products[i].market_value?.trim()) {
+        toast.error(`O produto ${i + 1} precisa ter um valor de mercado.`);
+        setExpandedId(products[i].id);
+        return false;
+      }
     }
     return true;
   };
@@ -222,7 +227,9 @@ export function CreateCampaignStepProducts({
 
                   {/* Valor de mercado */}
                   <div className="flex flex-col gap-1">
-                    <label className={labelClass}>Valor de mercado (opcional)</label>
+                    <label className={labelClass}>
+                      Valor de mercado <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-neutral-500">
                         R$

@@ -13,7 +13,7 @@ export interface StatusHistory {
   notes?: string;
 }
 
-export interface ExtendedInfluencer extends Omit<Influencer, "id"> {
+export interface ExtendedInfluencer extends Omit<Influencer, "id" | "user_id"> {
   id: string | number;
   /** ID do usuário na plataforma (rota /influencer/$influencerId) */
   user_id?: string | number;

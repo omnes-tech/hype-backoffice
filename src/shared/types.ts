@@ -280,7 +280,13 @@ export interface CampaignFormData {
 }
 
 export interface Influencer {
+  /** `campaign_users.id` quando vem do dashboard de campanha. */
   id: string;
+  /**
+   * `users.id` — id interno do usuário. Útil para casar contratos/itens cujo
+   * `influencer_id` no backend ainda referencia o user, e não o campaign_user.
+   */
+  user_id?: string;
   name: string;
   username: string;
   avatar: string;
@@ -581,28 +587,86 @@ export interface IdentifiedPost {
   metrics?: ContentMetrics;
 }
 
+export type ContractType = "platform" | "custom";
+
+export type ContractStatus =
+  | "pending"
+  | "sent"
+  | "viewed"
+  | "signed"
+  | "rejected"
+  | "expired";
+
+/**
+ * Item retornado por `GET /campaigns/:id/contracts`. Modelado em snake_case
+ * exatamente como o backend entrega — evita uma camada de normalização.
+ *
+ * IMPORTANTE: `id === null` significa "linha pending sintética" — um
+ * influenciador em `contract_pending` que ainda não teve contrato gerado.
+ * Use `campaign_user_id` como chave estável (sempre presente).
+ */
 export interface CampaignContract {
-  id: string;
-  campaign_id: string;
-  influencer_id: string;
-  influencerId: string;
-  influencer_name?: string;
-  influencerName: string;
-  influencer_avatar?: string;
-  influencerAvatar: string;
-  template_id?: string;
-  templateId?: string;
-  contract_url?: string;
-  contractUrl?: string;
-  status: "pending" | "sent" | "viewed" | "signed" | "rejected" | "expired";
-  sent_at?: string;
-  sentAt?: string;
-  viewed_at?: string;
-  viewedAt?: string;
-  signed_at?: string;
-  signedAt?: string;
-  expires_at?: string;
-  expiresAt?: string;
-  rejection_reason?: string;
-  rejectionReason?: string;
+  /** UUID do contrato. `null` para linhas pending sintéticas geradas pelo backend. */
+  id: string | null;
+  /** UUID público do `campaign_users` — chave para todas as ações (enviar/reenviar/baixar). */
+  campaign_user_id: string;
+
+  contract_type: ContractType | null;
+  status: ContractStatus;
+
+  /** Provedor de assinatura eletrônica (ex.: "docusign"). */
+  automation_provider: string | null;
+  automation_operation_id: string | null;
+
+  representative_email: string | null;
+  witness_1_email: string | null;
+  witness_2_email: string | null;
+
+  sent_at: string | null;
+  viewed_at: string | null;
+  signed_at: string | null;
+  rejected_at: string | null;
+  expiration_at: string | null;
+  created_at: string | null;
+
+  rejection_reason: string | null;
+  /** URL direta do PDF assinado quando `status === "signed"`. */
+  signed_file_url: string | null;
+
+  /** Status do influenciador no kanban — embutido no payload para UX. */
+  kanban_status: string | null;
+
+  /** Espelho do influenciador, para evitar lookup cruzado no front. */
+  influencer_id: number | string | null;
+  influencer_name: string;
+  influencer_photo: string | null;
+}
+
+/**
+ * Defaults de contrato salvos por workspace — pré-preenchem o modal de envio
+ * a partir do 2º contrato. Backend faz upsert após cada envio bem-sucedido.
+ */
+export interface WorkspaceContractDefaults {
+  representative_email?: string;
+  witness_1_email?: string;
+  witness_2_email?: string;
+  brand_legal_name?: string;
+  brand_cnpj?: string;
+  brand_address?: string;
+  representative_name?: string;
+  representative_cpf?: string;
+}
+
+/**
+ * Variável dinâmica de contrato (`{{nome_variavel}}`) — listada no painel
+ * lateral quando o usuário opta por upload de contrato próprio.
+ */
+export interface ContractVariable {
+  /** Tag literal sem chaves (ex.: "influencer_name"). */
+  key: string;
+  /** Tag completa renderizada (ex.: "{{influencer_name}}"). */
+  tag: string;
+  label: string;
+  description?: string;
+  group: "influencer" | "brand" | "campaign";
 }

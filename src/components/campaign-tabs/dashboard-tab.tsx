@@ -7,6 +7,8 @@ import { CheckIcon } from "../icons/CheckIcon";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "@/components/ui/modal";
+import { InfluencerEvaluationSection } from "./influencer-evaluation-section";
+import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
 
 /** Skeleton do layout da aba Dashboard — espelha a estrutura real para transição suave */
 export function DashboardTabSkeleton() {
@@ -135,6 +137,7 @@ export function DashboardTabSkeleton() {
 const MAX_NICHES_VISIBLE = 3;
 
 interface DashboardTabProps {
+  campaignId: string;
   campaign: CampaignFormData;
   metrics: {
     reach: number;
@@ -147,6 +150,7 @@ interface DashboardTabProps {
   nicheNames?: string[];
   /** Nomes dos subnichos (filhos) — vem direto da API, sem lookup. */
   subNicheNames?: string[];
+  participants?: CampaignManagementParticipant[];
 }
 
 
@@ -241,7 +245,7 @@ function timestampFromPhaseCreatedAt(iso: string): number {
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
 }
 
-export function DashboardTab({ campaign, metrics, progressPercentage, nicheNames: nicheNamesProp, subNicheNames: subNicheNamesProp }: DashboardTabProps) {
+export function DashboardTab({ campaignId, campaign, metrics, progressPercentage, nicheNames: nicheNamesProp, subNicheNames: subNicheNamesProp, participants = [] }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [nicheModalOpen, setNicheModalOpen] = useState(false);
   const [subNicheModalOpen, setSubNicheModalOpen] = useState(false);
@@ -281,7 +285,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage, nicheNames
   }, [campaign.phases]);
 
   const remunerationLabel = useMemo(() => {
-    if (campaign.paymentType === "fixed" && campaign.paymentFixedAmount) return campaign.paymentFixedAmount;
+    if (campaign.paymentType === "fixed") return "Por conteudo publicado";
     if (campaign.paymentType === "swap") return "Permuta";
     if (campaign.paymentType === "cpa") return "CPA";
     if (campaign.paymentType === "cpm") return "CPM";
@@ -412,7 +416,7 @@ export function DashboardTab({ campaign, metrics, progressPercentage, nicheNames
             </div>
             <div className="flex-1 min-w-[120px] pl-4 pr-5 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Remuneração</p>
-              <p className="text-base font-medium text-neutral-950">R${remunerationLabel}</p>
+              <p className="text-base font-medium text-neutral-950">{remunerationLabel === "Permuta" || "fixed" ? "" : "R$"}{remunerationLabel}</p>
             </div>
           </div>
 
@@ -624,6 +628,8 @@ export function DashboardTab({ campaign, metrics, progressPercentage, nicheNames
           </div>
         </div>
       </div>
+
+      <InfluencerEvaluationSection campaignId={campaignId} participants={participants} />
     </div>
   );
 }

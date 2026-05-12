@@ -22,6 +22,8 @@ export interface DashboardPhase {
     options: Array<{
       type: string;
       quantity: number;
+      /** Valor unitário do formato em centavos. Ausente em campanhas legadas/swap. */
+      price?: number | null;
     }>;
   }>;
   created_at: string;
@@ -29,7 +31,14 @@ export interface DashboardPhase {
 }
 
 export interface DashboardInfluencer {
+  /**
+   * `campaign_users.id` — relação influencer ↔ campanha.
+   * É o `campaign_user_id` exigido pelo backend de contratos.
+   * Distinto de `user_id` (id interno do usuário).
+   */
   id: string;
+  /** `users.id` — id interno do usuário. Em geral não é o que o backend espera nos endpoints da campanha. */
+  user_id?: string;
   name: string;
   username: string;
   avatar: string | null;
@@ -310,7 +319,10 @@ export function transformDashboardInfluencer(
   }));
   
   return {
+    // `dashboard.id` é o `campaign_users.id` (= campaign_user_id no backend).
     id: influencer.id,
+    campaign_user_id: influencer.id,
+    user_id: influencer.user_id,
     name: influencer.name,
     username: influencer.username,
     avatar: influencer.avatar || "",

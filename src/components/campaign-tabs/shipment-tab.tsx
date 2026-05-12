@@ -1,94 +1,63 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
-import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
-import { useUpdateShipment } from "@/hooks/use-campaign-shipment";
-import {
-  participantToExtended,
-  type ExtendedInfluencer,
-} from "./management-kanban-config";
-import { mapUserStatusToKanbanColumn } from "./management-status-map";
-import { getTransitionNote } from "./management-status-transitions";
-import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
+import { useCampaignShipments, useCreateShipment } from "@/hooks/use-campaign-shipment";
+import { useQuery } from "@tanstack/react-query";
 import { getCampaignProducts, type CampaignProduct } from "@/shared/services/campaign-products";
-import type { ShippingType, ShippingMethod, ShipmentPayload } from "@/shared/services/campaign-shipment";
+import type {
+  ShipmentKind,
+  ShipmentMethod,
+  CreateShipmentDto,
+  CampaignShipmentEntry,
+} from "@/shared/services/campaign-shipment";
 
 // ---------------------------------------------------------------------------
-// Tipos e helpers
+// Tipos e constantes
 // ---------------------------------------------------------------------------
 
-interface ShipmentTabProps {
-  campaignId: string;
-  participants: CampaignManagementParticipant[];
-  isLoading: boolean;
-}
-
-type ShipmentStage = "script_pending" | "awaiting_shipment" | "awaiting_receipt";
+type ShipmentStage = "awaiting_shipment" | "awaiting_receipt";
 
 const STAGE_CONFIG: Record<
   ShipmentStage,
-  { label: string; actionLabel: string; nextStatus: string; color: string; iconName: string }
+  { label: string; actionLabel: string; color: string; iconName: string }
 > = {
-  script_pending: {
-    label: "Prontos para envio",
-    actionLabel: "Marcar como enviado",
-    nextStatus: "awaiting_shipment",
+  awaiting_shipment: {
+    label: "Aguardando envio",
+    actionLabel: "Cadastrar envio",
     color: "bg-[#eff2ff] text-[#3730a3]",
     iconName: "Package",
   },
-  awaiting_shipment: {
-    label: "Produto enviado",
-    actionLabel: "Confirmar recebimento",
-    nextStatus: "awaiting_receipt",
-    color: "bg-[#fff7ed] text-[#9a3412]",
-    iconName: "Truck",
-  },
   awaiting_receipt: {
-    label: "Aguardando confirmação",
-    actionLabel: "Produto recebido",
-    nextStatus: "content_pending",
+    label: "Aguardando confirmação do influenciador",
+    actionLabel: "",
     color: "bg-[#fef3c7] text-[#92400e]",
     iconName: "PackageCheck",
   },
 };
 
-const SHIPMENT_STAGES: ShipmentStage[] = [
-  "script_pending",
-  "awaiting_shipment",
-  "awaiting_receipt",
-];
+const SHIPMENT_STAGES: ShipmentStage[] = ["awaiting_shipment", "awaiting_receipt"];
 
-const SHIPPING_TYPE_OPTIONS: { value: ShippingType; label: string }[] = [
+const KIND_OPTIONS: { value: ShipmentKind; label: string }[] = [
   { value: "physical", label: "Físico (produto)" },
   { value: "digital", label: "Digital (código, acesso, etc.)" },
 ];
 
-const SHIPPING_METHOD_OPTIONS: { value: ShippingMethod; label: string; onlyPhysical?: boolean }[] = [
-  { value: "carrier", label: "Transportadora", onlyPhysical: true },
-  { value: "mail", label: "Correios", onlyPhysical: true },
-  { value: "email", label: "E-mail" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "other", label: "Outro" },
-];
-
-function getCurrentStatus(inf: ExtendedInfluencer): string {
-  if (inf.status) {
-    const mapped = mapUserStatusToKanbanColumn(inf.status);
-    if (mapped !== "applications" || !inf.statusHistory?.length) return mapped;
-  }
-  if (inf.statusHistory?.length) {
-    const sorted = [...inf.statusHistory].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    return sorted[0].status;
-  }
-  return "applications";
-}
+const METHOD_OPTIONS: {
+  value: ShipmentMethod;
+  label: string;
+  onlyPhysical?: boolean;
+  requiresTarget?: boolean;
+}[] = [
+    { value: "correios", label: "Correios", onlyPhysical: true },
+    { value: "carrier", label: "Transportadora", onlyPhysical: true },
+    { value: "in_person", label: "Pessoalmente", onlyPhysical: true },
+    { value: "email", label: "E-mail", requiresTarget: true },
+    { value: "whatsapp", label: "WhatsApp", requiresTarget: true },
+  ];
 
 const inputClass =
   "h-10 w-full rounded-[24px] bg-[#F5F5F5] px-4 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none";
@@ -137,70 +106,110 @@ function ProductsBadge({ products }: { products: CampaignProduct[] }) {
 }
 
 interface ShipmentFormModalProps {
-  influencer: ExtendedInfluencer;
+  entry: CampaignShipmentEntry;
   products: CampaignProduct[];
   isPending: boolean;
-  onConfirm: (payload: ShipmentPayload) => void;
+  onConfirm: (dto: CreateShipmentDto) => void;
   onClose: () => void;
 }
 
 function ShipmentFormModal({
-  influencer,
+  entry,
   products,
   isPending,
   onConfirm,
   onClose,
 }: ShipmentFormModalProps) {
-  const [shippingType, setShippingType] = useState<ShippingType>("physical");
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("carrier");
-  const [trackingCode, setTrackingCode] = useState("");
+  const [kind, setKind] = useState<ShipmentKind>("physical");
+  const [method, setMethod] = useState<ShipmentMethod>("correios");
+  const [productName, setProductName] = useState("");
+  const [productDescription, setProductDescription] = useState("");
+  const [productMarketValue, setProductMarketValue] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [deliveryTarget, setDeliveryTarget] = useState("");
   const [notes, setNotes] = useState("");
-  const [productId, setProductId] = useState<string>(products[0]?.id ?? "");
+  const [productId, setProductId] = useState("");
 
-  const availableMethods = SHIPPING_METHOD_OPTIONS.filter(
-    (m) => !m.onlyPhysical || shippingType === "physical"
+  const availableMethods = METHOD_OPTIONS.filter(
+    (m) => !m.onlyPhysical || kind === "physical"
   );
 
-  // Redefine método se o atual ficou indisponível ao trocar tipo
+  const selectedMethod = METHOD_OPTIONS.find((m) => m.value === method);
+  const requiresAddress = kind === "physical";
+  const requiresTarget = !!selectedMethod?.requiresTarget;
+
+  // Redefine método se ficou indisponível ao trocar kind
   useEffect(() => {
-    const still = availableMethods.find((m) => m.value === shippingMethod);
-    if (!still) setShippingMethod(availableMethods[0]?.value ?? "other");
-  }, [shippingType]); // eslint-disable-line react-hooks/exhaustive-deps
+    const still = availableMethods.find((m) => m.value === method);
+    if (!still) setMethod(availableMethods[0]?.value ?? "email");
+  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pré-preenche nome/descrição/valor ao selecionar produto da campanha
+  const handleProductSelect = (id: string) => {
+    setProductId(id);
+    const p = products.find((x) => x.id === id);
+    if (p) {
+      setProductName(p.name);
+      if (p.description) setProductDescription(p.description);
+      if (p.market_value_cents != null) {
+        setProductMarketValue((p.market_value_cents / 100).toFixed(2).replace(".", ","));
+      }
+    }
+  };
 
   const handleSubmit = () => {
-    const payload: ShipmentPayload = {
-      shipping_type: shippingType,
-      shipping_method: shippingMethod,
-    };
-    if (shippingType === "physical" && trackingCode.trim()) {
-      payload.tracking_code = trackingCode.trim();
+    if (!productName.trim()) {
+      toast.error("O nome do produto é obrigatório.");
+      return;
     }
-    if (notes.trim()) payload.notes = notes.trim();
-    if (productId) payload.product_id = productId;
-    onConfirm(payload);
+    if (requiresAddress && !recipientAddress.trim()) {
+      toast.error("O endereço de entrega é obrigatório para envio físico.");
+      return;
+    }
+    if (requiresTarget && !deliveryTarget.trim()) {
+      toast.error("O contato de entrega é obrigatório para este método.");
+      return;
+    }
+
+    const rawValue = productMarketValue.replace(",", ".");
+    const parsedValue = parseFloat(rawValue);
+
+    const dto: CreateShipmentDto = {
+      kind,
+      method,
+      product_name: productName.trim(),
+    };
+    if (productDescription.trim()) dto.product_description = productDescription.trim();
+    if (!isNaN(parsedValue) && parsedValue > 0) dto.product_market_value_brl = parsedValue;
+    if (requiresAddress && recipientAddress.trim()) dto.recipient_address = recipientAddress.trim();
+    if (requiresTarget && deliveryTarget.trim()) dto.delivery_target = deliveryTarget.trim();
+    if (notes.trim()) dto.notes = notes.trim();
+    if (productId) dto.product_id = productId;
+
+    onConfirm(dto);
   };
 
   return (
     <Modal
-      title={`Registrar envio — ${influencer.name}`}
+      title={`Cadastrar envio — ${entry.name}`}
       onClose={onClose}
       panelClassName="max-w-lg"
     >
       <div className="flex flex-col gap-4">
+
         {/* Tipo de envio */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Tipo de envio <span className="text-red-500">*</span></label>
           <div className="flex gap-2">
-            {SHIPPING_TYPE_OPTIONS.map((opt) => (
+            {KIND_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setShippingType(opt.value)}
-                className={`flex-1 rounded-[24px] border px-4 py-2 text-sm font-medium transition-colors ${
-                  shippingType === opt.value
+                onClick={() => setKind(opt.value)}
+                className={`flex-1 rounded-[24px] border px-4 py-2 text-sm font-medium transition-colors ${kind === opt.value
                     ? "border-primary-500 bg-primary-50 text-primary-700"
                     : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-                }`}
+                  }`}
               >
                 {opt.label}
               </button>
@@ -216,12 +225,11 @@ function ShipmentFormModal({
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setShippingMethod(opt.value)}
-                className={`rounded-[24px] border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  shippingMethod === opt.value
+                onClick={() => setMethod(opt.value)}
+                className={`rounded-[24px] border px-3 py-1.5 text-sm font-medium transition-colors ${method === opt.value
                     ? "border-primary-500 bg-primary-50 text-primary-700"
                     : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-                }`}
+                  }`}
               >
                 {opt.label}
               </button>
@@ -229,27 +237,13 @@ function ShipmentFormModal({
           </div>
         </div>
 
-        {/* Código de rastreio (apenas envio físico) */}
-        {shippingType === "physical" && (
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Código de rastreio (opcional)</label>
-            <input
-              type="text"
-              placeholder="Ex: BR123456789"
-              value={trackingCode}
-              onChange={(e) => setTrackingCode(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        )}
-
-        {/* Produto enviado (se a campanha tiver produtos cadastrados) */}
+        {/* Produto da campanha (atalho para pré-preencher) */}
         {products.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Produto enviado (opcional)</label>
+            <label className={labelClass}>Produto da campanha (pré-preenche os campos abaixo)</label>
             <select
               value={productId}
-              onChange={(e) => setProductId(e.target.value)}
+              onChange={(e) => handleProductSelect(e.target.value)}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="">Selecionar produto...</option>
@@ -257,6 +251,78 @@ function ShipmentFormModal({
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Nome do produto */}
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Nome do produto <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            placeholder="Ex: Camiseta Hype XG"
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            className={`${inputClass} text-[#4b4b4b]`}
+            disabled
+          />
+        </div>
+
+        {/* Descrição do produto */}
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Descrição</label>
+          <textarea
+            placeholder="Ex: Camiseta cor branca, tamanho XG"
+            value={productDescription}
+            onChange={(e) => setProductDescription(e.target.value)}
+            rows={2}
+            disabled
+            className="w-full rounded-[12px] bg-[#F5F5F5] px-4 py-2.5 text-sm text-[#4b4b4b] outline-none resize-y"
+          />
+        </div>
+
+        {/* Valor de mercado */}
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Valor de mercado em R$ <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            placeholder="Ex: 149,90"
+            value={productMarketValue}
+            onChange={(e) => setProductMarketValue(e.target.value)}
+            className={`${inputClass} text-[#4b4b4b]`}
+            disabled
+          />
+        </div>
+
+        {/* Endereço de entrega — obrigatório para físico */}
+        {requiresAddress && (
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              Endereço de entrega <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              placeholder="Rua, número, bairro, cidade, CEP"
+              value={recipientAddress}
+              onChange={(e) => setRecipientAddress(e.target.value)}
+              rows={2}
+              className="w-full rounded-[12px] bg-[#F5F5F5] px-4 py-2.5 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none resize-y"
+            />
+          </div>
+        )}
+
+        {/* Contato de entrega — obrigatório para email/whatsapp */}
+        {requiresTarget && (
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              {method === "email" ? "E-mail de destino" : "WhatsApp de destino"}{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type={method === "email" ? "email" : "text"}
+              placeholder={method === "email" ? "email@exemplo.com" : "(11) 99999-9999"}
+              value={deliveryTarget}
+              onChange={(e) => setDeliveryTarget(e.target.value)}
+              className={inputClass}
+            />
           </div>
         )}
 
@@ -297,56 +363,44 @@ function ShipmentFormModal({
 }
 
 function InfluencerShipmentCard({
-  influencer,
-  stage,
-  onMarkSent,
-  onAdvance,
+  entry,
+  onRegister,
   isPending,
 }: {
-  influencer: ExtendedInfluencer;
-  stage: ShipmentStage;
-  onMarkSent: (influencer: ExtendedInfluencer) => void;
-  onAdvance: (id: string, nextStatus: string) => void;
+  entry: CampaignShipmentEntry;
+  onRegister: (entry: CampaignShipmentEntry) => void;
   isPending: boolean;
 }) {
+  const stage = entry.status as ShipmentStage;
   const config = STAGE_CONFIG[stage];
-  const network = influencer.socialNetwork || influencer.social_networks?.[0]?.type;
-  const needsShipmentForm = stage === "script_pending";
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-3">
       <div className="flex items-center gap-3 min-w-0">
-        <Avatar src={influencer.avatar} alt={influencer.name} size="sm" />
+        <Avatar src={entry.avatar ?? undefined} alt={entry.name} size="sm" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-neutral-900">{influencer.name}</p>
-          <p className="truncate text-xs text-neutral-500">
-            {influencer.username ? `@${influencer.username}` : "—"}
-            {network && (
-              <span className="ml-1.5 capitalize text-neutral-400">· {network}</span>
-            )}
-          </p>
+          <p className="truncate text-sm font-medium text-neutral-900">{entry.name}</p>
+          <p className="truncate text-xs text-neutral-500">{entry.email}</p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
           {config.label}
         </span>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending}
-          onClick={() =>
-            needsShipmentForm
-              ? onMarkSent(influencer)
-              : onAdvance(String(influencer.id), config.nextStatus)
-          }
-          className="h-8 rounded-[24px] px-3 text-xs font-semibold"
-        >
-          <span className="flex items-center gap-1.5">
-            <Icon name={config.iconName as "Package"} size={13} color="#404040" />
-            {config.actionLabel}
-          </span>
-        </Button>
+        {config.actionLabel && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => onRegister(entry)}
+            className="h-8 rounded-[24px] px-3 text-xs font-semibold"
+          >
+            <span className="flex items-center gap-1.5">
+              <Icon name={config.iconName as "Package"} size={13} color="#404040" />
+              {config.actionLabel}
+            </span>
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -356,17 +410,16 @@ function InfluencerShipmentCard({
 // Componente principal
 // ---------------------------------------------------------------------------
 
-export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTabProps) {
-  const [influencers, setInfluencers] = useState<ExtendedInfluencer[]>([]);
-  const [shipmentTarget, setShipmentTarget] = useState<ExtendedInfluencer | null>(null);
+interface ShipmentTabProps {
+  campaignId: string;
+}
 
-  const queryClient = useQueryClient();
+export function ShipmentTab({ campaignId }: ShipmentTabProps) {
+  const [shipmentTarget, setShipmentTarget] = useState<CampaignShipmentEntry | null>(null);
 
-  const { mutate: updateStatus, isPending: isUpdatingStatus } =
-    useUpdateInfluencerStatus(campaignId);
+  const { data: entries = [], isLoading } = useCampaignShipments(campaignId);
 
-  const { mutate: updateShipment, isPending: isUpdatingShipment } =
-    useUpdateShipment(campaignId);
+  const { mutate: createShipment, isPending } = useCreateShipment(campaignId);
 
   const { data: products = [] } = useQuery({
     queryKey: ["campaigns", campaignId, "products"],
@@ -374,71 +427,25 @@ export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTab
     staleTime: 60_000,
   });
 
-  useEffect(() => {
-    setInfluencers(participants.map(participantToExtended));
-  }, [participants]);
-
   const byStage = (stage: ShipmentStage) =>
-    influencers.filter((inf) => getCurrentStatus(inf) === stage);
+    entries.filter((e) => e.status === stage);
 
-  const isPending = isUpdatingStatus || isUpdatingShipment;
-
-  // Transições simples (sem formulário de envio)
-  const handleAdvance = (influencerId: string, nextStatus: string) => {
-    const inf = influencers.find((i) => String(i.id) === influencerId);
-    if (!inf) return;
-    const note = getTransitionNote(getCurrentStatus(inf), nextStatus);
-
-    updateStatus(
-      { influencer_id: influencerId, status: nextStatus, feedback: note },
-      {
-        onSuccess: () => toast.success("Status atualizado com sucesso."),
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Erro ao atualizar status.");
-        },
-      }
-    );
-  };
-
-  // Envio com registro de detalhes (script_pending → awaiting_shipment)
-  const handleConfirmShipment = (payload: ShipmentPayload) => {
+  const handleConfirm = (dto: CreateShipmentDto) => {
     if (!shipmentTarget) return;
-    const influencerId = String(shipmentTarget.id);
 
-    updateShipment(
-      { influencerId, payload },
+    createShipment(
+      { influencerId: String(shipmentTarget.campaign_user_id), dto },
       {
         onSuccess: () => {
-          // Após salvar detalhes de envio, avança o status
-          const note = getTransitionNote("script_pending", "awaiting_shipment");
-          updateStatus(
-            { influencer_id: influencerId, status: "awaiting_shipment", feedback: note },
-            {
-              onSuccess: () => {
-                toast.success("Envio registrado com sucesso.");
-                queryClient.invalidateQueries({
-                  queryKey: ["campaigns", campaignId, "management"],
-                });
-                setShipmentTarget(null);
-              },
-              onError: (err) => {
-                toast.error(err instanceof Error ? err.message : "Erro ao atualizar status.");
-                setShipmentTarget(null);
-              },
-            }
-          );
+          toast.success("Envio cadastrado com sucesso.");
+          setShipmentTarget(null);
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Erro ao registrar envio.");
+          toast.error(err instanceof Error ? err.message : "Erro ao cadastrar envio.");
         },
       }
     );
   };
-
-  const totalInFlow = SHIPMENT_STAGES.reduce(
-    (acc, stage) => acc + byStage(stage).length,
-    0
-  );
 
   if (isLoading) {
     return (
@@ -450,6 +457,8 @@ export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTab
     );
   }
 
+  const totalInFlow = entries.length;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -457,7 +466,7 @@ export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTab
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-neutral-900">Gerenciamento de Envios</h2>
           <p className="text-sm text-neutral-500">
-            Acompanhe e avance o envio dos produtos para cada influenciador.
+            Acompanhe e registre o envio dos produtos para cada influenciador.
           </p>
         </div>
         <ProductsBadge products={products} />
@@ -489,13 +498,11 @@ export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTab
                   </h3>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {list.map((inf) => (
+                  {list.map((entry) => (
                     <InfluencerShipmentCard
-                      key={String(inf.id)}
-                      influencer={inf}
-                      stage={stage}
-                      onMarkSent={setShipmentTarget}
-                      onAdvance={handleAdvance}
+                      key={entry.user_id}
+                      entry={entry}
+                      onRegister={setShipmentTarget}
                       isPending={isPending}
                     />
                   ))}
@@ -506,13 +513,12 @@ export function ShipmentTab({ campaignId, participants, isLoading }: ShipmentTab
         </div>
       )}
 
-      {/* Modal de detalhes de envio */}
       {shipmentTarget && (
         <ShipmentFormModal
-          influencer={shipmentTarget}
+          entry={shipmentTarget}
           products={products}
           isPending={isPending}
-          onConfirm={handleConfirmShipment}
+          onConfirm={handleConfirm}
           onClose={() => setShipmentTarget(null)}
         />
       )}

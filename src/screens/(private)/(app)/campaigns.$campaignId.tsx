@@ -543,11 +543,13 @@ function RouteComponent() {
       case "dashboard":
         return (
           <DashboardTab
+            campaignId={campaignId}
             campaign={campaignFormData}
             metrics={formattedMetrics}
             progressPercentage={progressPercentage}
             nicheNames={campaignFormData.nicheNames}
             subNicheNames={campaignFormData.subNicheNames}
+            participants={managementData?.participants ?? []}
           />
         );
       case "management":
@@ -591,11 +593,7 @@ function RouteComponent() {
         );
       case "shipment":
         return (
-          <ShipmentTab
-            campaignId={campaignId}
-            participants={managementData?.participants ?? []}
-            isLoading={isLoadingManagement}
-          />
+          <ShipmentTab campaignId={campaignId} />
         );
       case "approval":
         return (
@@ -615,9 +613,14 @@ function RouteComponent() {
         return (
           <ContractsTab
             influencers={influencers.map((inf: any) => ({
+              // `inf.id` é o `campaign_users.id` (= campaign_user_id no backend).
               id: inf.id,
+              // `user_id` casa com contratos legados cujo `influencer_id` ainda referencia o user.
+              user_id: inf.user_id,
               name: inf.name,
               avatar: inf.avatar,
+              username: inf.username,
+              status: inf.status,
             }))}
           />
         );

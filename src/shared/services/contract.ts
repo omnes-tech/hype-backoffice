@@ -1,11 +1,15 @@
+import { apiGet, apiPost, apiPut } from "@/lib/http-client";
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
-import type { CampaignContract } from "../types";
+import type {
+  CampaignContract,
+  ContractType,
+  ContractVariable,
+  WorkspaceContractDefaults,
+} from "../types";
 
-export interface SendContractTemplateData {
-  influencer_id: string;
-  template_id?: string;
-  expires_at?: string; // ISO 8601 timestamp
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface ContractTemplate {
   id: string;
@@ -16,202 +20,230 @@ export interface ContractTemplate {
 }
 
 /**
- * Lista contratos de uma campanha
+ * Payload do POST `/campaigns/:id/contracts/send`.
+ *
+ * Convenções do backend (DTO `SendContractDto`):
+ *  - `campaign_user_id`: public_id (UUID) de `campaign_users`, NÃO `users.id`.
+ *  - `expiration_at`: ISO 8601 (não `expires_at`).
+ *  - Campos da marca são FLAT (não aninhados em `brand`) e condicionais via
+ *    `@ValidateIf(contract_type === 'platform')` — só obrigatórios no modo padrão.
+ *  - `brand_cnpj`: aceita 14 dígitos (sem máscara) ou 18 com máscara.
+ *  - `representative_cpf`: aceita 11 dígitos (sem máscara) ou 14 com máscara.
  */
+export interface SendContractTemplateData {
+  campaign_user_id: string;
+  contract_type: ContractType;
+  template_id?: string;
+  expiration_at?: string;
+  representative_email: string;
+  witness_1_email: string;
+  witness_2_email: string;
+  /** Obrigatórios quando `contract_type === "platform"`. */
+  brand_legal_name?: string;
+  brand_cnpj?: string;
+  brand_address?: string;
+  representative_name?: string;
+  representative_cpf?: string;
+}
+
+/**
+ * Payload do upload próprio (multipart) — `contract_type` sempre `"custom"`.
+ * Os campos da marca NÃO são exigidos: substituição de variáveis é feita pelo
+ * próprio arquivo enviado.
+ */
+export interface UploadCustomContractData {
+  campaign_user_id: string;
+  file: File;
+  expiration_at?: string;
+  representative_email: string;
+  witness_1_email: string;
+  witness_2_email: string;
+}
+
+// ---------------------------------------------------------------------------
+// Listagem / status
+// ---------------------------------------------------------------------------
+
+/** GET /campaigns/:id/contracts — lista contratos da campanha (filtros opcionais). */
 export async function getCampaignContracts(
   campaignId: string,
-  filters?: {
-    status?: string;
-    influencer_id?: string;
-  }
+  filters?: { status?: string; influencer_id?: string },
 ): Promise<CampaignContract[]> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
-
   const params = new URLSearchParams();
   if (filters?.status) params.append("status", filters.status);
   if (filters?.influencer_id) params.append("influencer_id", filters.influencer_id);
-
-  const url = `/campaigns/${campaignId}/contracts${
-    params.toString() ? `?${params.toString()}` : ""
-  }`;
-
-  const request = await fetch(getApiUrl(url), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get campaign contracts" };
-    }
-    throw errorData || "Failed to get campaign contracts";
-    }
-
-  const response = await request.json();
-  return response.data;
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const data = await apiGet<CampaignContract[] | null>(
+    `/campaigns/${campaignId}/contracts${query}`,
+  );
+  return data ?? [];
 }
 
+/** GET /campaigns/:id/contracts/:cid — status detalhado de um contrato. */
+export async function getContractStatus(
+  campaignId: string,
+  contractId: string,
+): Promise<CampaignContract> {
+  return apiGet<CampaignContract>(
+    `/campaigns/${campaignId}/contracts/${contractId}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Templates da plataforma
+// ---------------------------------------------------------------------------
+
+/** GET /contracts/templates — templates padrão cadastrados na plataforma. */
+export async function getContractTemplates(): Promise<ContractTemplate[]> {
+  const data = await apiGet<ContractTemplate[] | null>("/contracts/templates");
+  return data ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// Envio / reenvio / upload
+// ---------------------------------------------------------------------------
+
 /**
- * Envia template de contrato para um influenciador
+ * POST /campaigns/:id/contracts/send — envia contrato padrão para o influenciador.
+ * O e-mail do influenciador é resolvido pelo backend (cadastro do app mobile),
+ * por isso não vai no payload.
  */
 export async function sendContractTemplate(
   campaignId: string,
-  data: SendContractTemplateData
+  data: SendContractTemplateData,
+): Promise<CampaignContract> {
+  return apiPost<CampaignContract>(
+    `/campaigns/${campaignId}/contracts/send`,
+    data,
+  );
+}
+
+/**
+ * POST /campaigns/:id/contracts/upload — upload de PDF/DOCX com substituição
+ * de variáveis. Multipart porque carrega o arquivo binário.
+ */
+export async function uploadCustomContract(
+  campaignId: string,
+  data: UploadCustomContractData,
 ): Promise<CampaignContract> {
   const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
+  if (!workspaceId) throw new Error("Workspace ID é obrigatório");
+
+  const formData = new FormData();
+  formData.append("file", data.file);
+  formData.append("campaign_user_id", data.campaign_user_id);
+  formData.append("contract_type", "custom");
+  formData.append("representative_email", data.representative_email);
+  formData.append("witness_1_email", data.witness_1_email);
+  formData.append("witness_2_email", data.witness_2_email);
+  if (data.expiration_at) formData.append("expiration_at", data.expiration_at);
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/contracts/send`),
+    getApiUrl(`/campaigns/${campaignId}/contracts/upload`),
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Accept: "application/json",
         "Client-Type": "backoffice",
         Authorization: `Bearer ${getAuthToken()}`,
         "Workspace-Id": workspaceId,
       },
-      body: JSON.stringify({
-        influencer_id: data.influencer_id,
-        template_id: data.template_id,
-        ...(data.expires_at && { expires_at: data.expires_at }),
-      }),
-    }
+      body: formData,
+    },
   );
 
   if (!request.ok) {
-    let errorData;
+    let message = "Falha no upload do contrato";
     try {
-      errorData = await request.json();
+      const body = await request.json();
+      message = body?.message ?? body?.error ?? message;
     } catch {
-      errorData = { message: "Failed to send contract template" };
+      // ignore parse error
     }
-    throw errorData || "Failed to send contract template";
-    }
-
-  const response = await request.json();
-  return response.data;
-}
-
-/**
- * Busca templates de contrato disponíveis
- */
-export async function getContractTemplates(): Promise<ContractTemplate[]> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
+    throw new Error(message);
   }
 
-  const request = await fetch(getApiUrl("/contracts/templates"), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get contract templates" };
-    }
-    throw errorData || "Failed to get contract templates";
-    }
-
-  const response = await request.json();
-  return response.data || [];
+  const json = await request.json();
+  return (json.data !== undefined ? json.data : json) as CampaignContract;
 }
 
-/**
- * Busca status de um contrato específico
- */
-export async function getContractStatus(
+/** POST /campaigns/:id/contracts/:cid/resend — reenvia envelope existente. */
+export async function resendContract(
   campaignId: string,
-  contractId: string
-): Promise<CampaignContract> {
+  contractId: string,
+): Promise<void> {
+  await apiPost<void>(
+    `/campaigns/${campaignId}/contracts/${contractId}/resend`,
+  );
+}
+
+/**
+ * GET /campaigns/:id/contracts/:cid/download — retorna o PDF combinado assinado.
+ * Dispara o download diretamente no browser (sem manter Blob em memória).
+ */
+export async function downloadSignedContract(
+  campaignId: string,
+  contractId: string,
+  filename?: string,
+): Promise<void> {
   const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
-  }
+  if (!workspaceId) throw new Error("Workspace ID é obrigatório");
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/contracts/${contractId}`),
+    getApiUrl(`/campaigns/${campaignId}/contracts/${contractId}/download`),
     {
       method: "GET",
       headers: {
-        Accept: "application/json",
+        Accept: "application/pdf",
         "Client-Type": "backoffice",
         Authorization: `Bearer ${getAuthToken()}`,
         "Workspace-Id": workspaceId,
       },
-    }
+    },
   );
 
   if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get contract status" };
-    }
-    throw errorData || "Failed to get contract status";
-    }
-
-  const response = await request.json();
-  return response.data;
-}
-
-/**
- * Reenvia contrato para um influenciador
- */
-export async function resendContract(
-  campaignId: string,
-  contractId: string
-): Promise<void> {
-  const workspaceId = getWorkspaceId();
-  if (!workspaceId) {
-    throw new Error("Workspace ID é obrigatório");
+    throw new Error(`Falha ao baixar contrato (${request.status})`);
   }
 
-  const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/contracts/${contractId}/resend`),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Client-Type": "backoffice",
-        Authorization: `Bearer ${getAuthToken()}`,
-        "Workspace-Id": workspaceId,
-      },
-    }
-  );
+  const blob = await request.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename ?? `contrato-${contractId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Libera o objeto URL no próximo tick — manter sincrono pode cancelar o download em alguns browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to resend contract" };
-    }
-    throw errorData || "Failed to resend contract";
-    }
+// ---------------------------------------------------------------------------
+// Variáveis e defaults do workspace
+// ---------------------------------------------------------------------------
+
+/** GET /contracts/variables — variáveis disponíveis para substituição no upload. */
+export async function getContractVariables(): Promise<ContractVariable[]> {
+  const data = await apiGet<ContractVariable[] | null>("/contracts/variables");
+  return data ?? [];
+}
+
+/** GET /workspaces/:id/contract-defaults — defaults pré-preenchidos no modal. */
+export async function getWorkspaceContractDefaults(
+  workspaceId: string,
+): Promise<WorkspaceContractDefaults> {
+  return apiGet<WorkspaceContractDefaults>(
+    `/workspaces/${workspaceId}/contract-defaults`,
+  );
+}
+
+/** PUT /workspaces/:id/contract-defaults — upsert dos defaults após envio bem-sucedido. */
+export async function upsertWorkspaceContractDefaults(
+  workspaceId: string,
+  payload: WorkspaceContractDefaults,
+): Promise<WorkspaceContractDefaults> {
+  return apiPut<WorkspaceContractDefaults>(
+    `/workspaces/${workspaceId}/contract-defaults`,
+    payload,
+  );
 }

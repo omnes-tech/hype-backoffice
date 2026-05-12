@@ -57,7 +57,12 @@ function ToggleSwitch({
 
 interface CreateCampaignStepThreeProps {
   formData: CampaignFormData;
-  updateFormData: (field: keyof CampaignFormData, value: string | string[]) => void;
+  /**
+   * Aceita `unknown` para casar com a assinatura do parent (campaigns.new/edit)
+   * e do filho `CreateCampaignStepProducts` — que grava arrays de objetos
+   * (`products`) e não apenas string/string[].
+   */
+  updateFormData: (field: keyof CampaignFormData, value: unknown) => void;
   onBack: () => void;
   onNext: () => void;
   hideBackButton?: boolean;
@@ -169,7 +174,7 @@ export function CreateCampaignStepThree({
       case "cpm":
         return (
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>Valor do CPM</label>
+            <label className={labelClass}>Valor do CPM - <span className="font-normal text-sm">As visualizações serão contabilizadas durante 7 dias após a publicação</span></label>
             <input
               type="text"
               placeholder="Ex: R$ 10,00"
@@ -190,155 +195,155 @@ export function CreateCampaignStepThree({
 
   return (
     <>
-    <form
-      className="flex flex-col gap-8"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onNext();
-      }}
-    >
-      {/* Header – Figma */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
-          Remuneração e benefícios
-        </h2>
-        <p className="text-lg leading-8 text-[#404040]">
-          Deixar claro como o influenciador será compensado (dinheiro e/ou
-          vantagens), sem travar quem ainda não quer definir valor exato agora
-        </p>
-      </div>
-
-      {/* Card único – Figma */}
-      <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
-        {/* Tipo de remuneração */}
-        <div id="campaign-payment-type" className="flex flex-col gap-1">
-          <Select
-            label={<>Tipo de remuneração <span className="text-red-500" aria-hidden>*</span></>}
-            placeholder="Escolha como os influenciadores serão pagos"
-            value={formData.paymentType}
-            onChange={(value) => updateFormData("paymentType", value)}
-            error={paymentTypeError ? "Campo obrigatório" : undefined}
-            options={[
-              { label: "Valor fixo por conteúdo", value: "fixed" },
-              { label: "Preço definido pelo influenciador", value: "price" },
-              { label: "Permuta", value: "swap" },
-              { label: "CPA (Custo Por Ação)", value: "cpa" },
-              { label: "CPM (Custo Por Mil)", value: "cpm" },
-            ]}
-          />
-        </div>
-
-        {renderPaymentFields()}
-
-        {/* Incluir bônus por performance? */}
+      <form
+        className="flex flex-col gap-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onNext();
+        }}
+      >
+        {/* Header – Figma */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
-            <div className="flex flex-1 flex-col gap-2">
-              <p className="text-lg font-medium text-black">
-                Incluir bônus por perfomance?{" "}
-                <span className="font-normal text-[#626262]">(opcional)</span>
-              </p>
-              <p className="text-base text-[#626262]">
-                Ative para oferecer vantagens extras além do cachê, ou caso a
-                campanha seja exclusivamente por permuta
-              </p>
-            </div>
-            <ToggleSwitch checked={includeBonus} onCheckedChange={setIncludeBonus} />
-          </div>
-
-          {includeBonus && (
-            <div className="flex flex-col gap-1">
-              <label className={labelClass}>Descrição do bônus (opcional)</label>
-              <input
-                type="text"
-                placeholder="Detalhe as regras ou condições para o uso do bônus"
-                value={formData.benefitsBonus ?? ""}
-                onChange={(e) => updateFormData("benefitsBonus", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          )}
+          <h2 className="text-[28px] font-medium leading-8 text-[#0A0A0A]">
+            Remuneração e benefícios
+          </h2>
+          <p className="text-lg leading-8 text-[#404040]">
+            Deixar claro como o influenciador será compensado (dinheiro e/ou
+            vantagens), sem travar quem ainda não quer definir valor exato agora
+          </p>
         </div>
 
-        {/* Listagem dos benefícios inclusos */}
-        <div className="flex flex-col gap-4 pt-4">
-          <div className="flex flex-col gap-0">
-            <h3 className="text-lg font-bold leading-8 text-[#0A0A0A]">
-              Listagem dos beneficios inclusos
-            </h3>
-            <p className="text-base leading-8 text-[#404040]">
-              Escreva o benefício e adicione à lista da campanha
-            </p>
+        {/* Card único – Figma */}
+        <div className="flex flex-col gap-4 rounded-[12px] bg-[#FAFAFA] p-6">
+          {/* Tipo de remuneração */}
+          <div id="campaign-payment-type" className="flex flex-col gap-1">
+            <Select
+              label={<>Tipo de remuneração <span className="text-red-500" aria-hidden>*</span></>}
+              placeholder="Escolha como os influenciadores serão pagos"
+              value={formData.paymentType}
+              onChange={(value) => updateFormData("paymentType", value)}
+              error={paymentTypeError ? "Campo obrigatório" : undefined}
+              options={[
+                { label: "Valor fixo por conteúdo", value: "fixed" },
+                { label: "Preço definido pelo influenciador", value: "price" },
+                { label: "Permuta", value: "swap" },
+                { label: "CPA (Custo Por Ação)", value: "cpa" },
+                { label: "CPM (Custo Por Mil)", value: "cpm" },
+              ]}
+            />
           </div>
-          <div className="flex gap-3 flex-wrap items-end">
-            <div className="flex-1 min-w-[200px]">
-              <input
-                type="text"
-                placeholder="Ex: Kit exclusivo com 3 produtos da marca"
-                value={newBenefit}
-                onChange={(e) => setNewBenefit(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
-                className={inputClass}
-              />
+
+          {renderPaymentFields()}
+
+          {/* Incluir bônus por performance? */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-6 rounded-[12px] bg-[#F5F5F5] px-4 py-3 min-h-[68px]">
+              <div className="flex flex-1 flex-col gap-2">
+                <p className="text-lg font-medium text-black">
+                  Incluir bônus por perfomance?{" "}
+                  <span className="font-normal text-[#626262]">(opcional)</span>
+                </p>
+                <p className="text-base text-[#626262]">
+                  Ative para oferecer vantagens extras além do cachê, ou caso a
+                  campanha seja exclusivamente por permuta
+                </p>
+              </div>
+              <ToggleSwitch checked={includeBonus} onCheckedChange={setIncludeBonus} />
             </div>
-            <Button
-              type="button"
-              onClick={addBenefit}
-              className="shrink-0 rounded-[24px] bg-primary-600 px-4 py-2.5 font-semibold text-white hover:bg-primary-700 w-min"
-            >
-              <span className="flex items-center gap-2">
-                Adicionar
-                <Icon name="Plus" size={16} color="#FAFAFA" />
-              </span>
-            </Button>
-          </div>
-          <div className="flex flex-col gap-2">
-            {benefitsItems.map(
-              (item, index) =>
-                item.trim() !== "" && (
-                  <div
-                    key={`${index}-${item.slice(0, 20)}`}
-                    className="flex items-center justify-between rounded-[12px] border border-[#EDEDED] p-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon name="CircleCheck" size={24} color="#22c55e" />
-                      <span className="text-base text-black">{item}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeBenefit(index)}
-                      className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-danger-500 transition-colors"
-                      aria-label="Remover benefício"
-                    >
-                      <Icon name="CircleX" size={24} color="currentColor" />
-                    </button>
-                  </div>
-                )
+
+            {includeBonus && (
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Descrição do bônus (opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Detalhe as regras ou condições para o uso do bônus"
+                  value={formData.benefitsBonus ?? ""}
+                  onChange={(e) => updateFormData("benefitsBonus", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {!hideBackButton && (
-        <div className="flex items-center justify-between">
-          <Button type="button" variant="outline" onClick={onBack} className="w-min">
-            <div className="flex items-center justify-center gap-2">
-              <Icon name="ArrowLeft" size={16} color="#404040" />
-              <p className="font-semibold text-neutral-700">Voltar</p>
+          {/* Listagem dos benefícios inclusos */}
+          <div className="flex flex-col gap-4 pt-4">
+            <div className="flex flex-col gap-0">
+              <h3 className="text-lg font-bold leading-8 text-[#0A0A0A]">
+                Listagem dos beneficios inclusos
+              </h3>
+              <p className="text-base leading-8 text-[#404040]">
+                Escreva o benefício e adicione à lista da campanha
+              </p>
             </div>
-          </Button>
+            <div className="flex gap-3 flex-wrap items-end">
+              <div className="flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder="Ex: Kit exclusivo com 3 produtos da marca"
+                  value={newBenefit}
+                  onChange={(e) => setNewBenefit(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                  className={inputClass}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={addBenefit}
+                className="shrink-0 rounded-[24px] bg-primary-600 px-4 py-2.5 font-semibold text-white hover:bg-primary-700 w-min"
+              >
+                <span className="flex items-center gap-2">
+                  Adicionar
+                  <Icon name="Plus" size={16} color="#FAFAFA" />
+                </span>
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {benefitsItems.map(
+                (item, index) =>
+                  item.trim() !== "" && (
+                    <div
+                      key={`${index}-${item.slice(0, 20)}`}
+                      className="flex items-center justify-between rounded-[12px] border border-[#EDEDED] p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon name="CircleCheck" size={24} color="#22c55e" />
+                        <span className="text-base text-black">{item}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeBenefit(index)}
+                        className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-danger-500 transition-colors"
+                        aria-label="Remover benefício"
+                      >
+                        <Icon name="CircleX" size={24} color="currentColor" />
+                      </button>
+                    </div>
+                  )
+              )}
+            </div>
+          </div>
         </div>
-      )}
-    </form>
 
-    {formData.paymentType === "swap" && (
-      <CreateCampaignStepProducts
-        formData={formData}
-        updateFormData={updateFormData}
-        asSection
-        hideBackButton
-      />
-    )}
+        {!hideBackButton && (
+          <div className="flex items-center justify-between">
+            <Button type="button" variant="outline" onClick={onBack} className="w-min">
+              <div className="flex items-center justify-center gap-2">
+                <Icon name="ArrowLeft" size={16} color="#404040" />
+                <p className="font-semibold text-neutral-700">Voltar</p>
+              </div>
+            </Button>
+          </div>
+        )}
+      </form>
+
+      {formData.paymentType === "swap" && (
+        <CreateCampaignStepProducts
+          formData={formData}
+          updateFormData={updateFormData}
+          asSection
+          hideBackButton
+        />
+      )}
     </>
   );
 }

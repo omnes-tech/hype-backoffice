@@ -1,36 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getShipment,
-  updateShipment,
-  type ShipmentPayload,
+  listCampaignShipments,
+  createShipment,
+  type CreateShipmentDto,
 } from "@/shared/services/campaign-shipment";
 
-export function useShipment(campaignId: string, influencerId: string) {
+export function useCampaignShipments(campaignId: string) {
   return useQuery({
-    queryKey: ["campaigns", campaignId, "shipment", influencerId],
-    queryFn: () => getShipment(campaignId, influencerId),
-    enabled: !!campaignId && !!influencerId,
+    queryKey: ["campaigns", campaignId, "shipments"],
+    queryFn: () => listCampaignShipments(campaignId),
+    enabled: !!campaignId,
     staleTime: 30_000,
   });
 }
 
-export function useUpdateShipment(campaignId: string) {
+export function useCreateShipment(campaignId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       influencerId,
-      payload,
+      dto,
     }: {
       influencerId: string;
-      payload: ShipmentPayload;
-    }) => updateShipment(campaignId, influencerId, payload),
-    onSuccess: (_data, { influencerId }) => {
-      // Recarrega o registro de envio do influenciador específico
+      dto: CreateShipmentDto;
+    }) => createShipment(campaignId, influencerId, dto),
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "shipment", influencerId],
+        queryKey: ["campaigns", campaignId, "shipments"],
       });
-      // Atualiza dados de gerenciamento para refletir o status novo
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "management"],
       });
