@@ -65,6 +65,17 @@ const NETWORK_BADGE_STYLE: Record<string, string> = {
   tiktok: "bg-black",
 };
 
+/**
+ * Tons de medalha por posição no Top 4: ouro, prata, bronze e neutro.
+ * Ordem corresponde ao índice 0..3 do `topContents.slice(0, 4)`.
+ */
+const RANK_BADGE_STYLE: Record<number, string> = {
+  0: "bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950",
+  1: "bg-gradient-to-br from-neutral-200 to-neutral-400 text-neutral-800",
+  2: "bg-gradient-to-br from-orange-300 to-orange-500 text-orange-950",
+  3: "bg-white/85 text-neutral-700",
+};
+
 function formatCampaignDate(dateStr: string | null | undefined): string {
   if (!dateStr || !dateStr.trim()) return "—";
   const d = new Date(dateStr);
@@ -756,105 +767,135 @@ function InfluencerProfileScreen() {
       )}
 
       <div className="bg-white rounded-xl p-5 border border-neutral-200 flex flex-col gap-6">
-        <h2 className="text-2xl font-semibold text-neutral-950">Top 4 conteúdos</h2>
+        <div className="flex items-end justify-between flex-wrap gap-2">
+          <h2 className="text-2xl font-semibold text-neutral-950">Top 4 conteúdos</h2>
+          {topContents.length > 0 && (
+            <p className="text-sm text-neutral-500">
+              Posts com maior alcance — atualizados periodicamente
+            </p>
+          )}
+        </div>
         {topContents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {topContents.slice(0, 4).map((content) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {topContents.slice(0, 4).map((content, idx) => {
               const network = detectNetworkFromUrl(content.post_url);
               const isVideo = content.is_video === true;
               const thumbnail = content.image_url
                 ? (content.image_url.startsWith("http") ? content.image_url : (getUploadUrl(content.image_url) ?? content.image_url))
                 : null;
+              const hasUrl = !!content.post_url;
+
+              const Wrapper: React.ElementType = hasUrl ? "a" : "div";
+              const wrapperProps = hasUrl
+                ? {
+                    href: content.post_url ?? undefined,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    "aria-label": isVideo ? "Assistir vídeo no app" : "Abrir postagem",
+                  }
+                : { "aria-disabled": true };
 
               return (
-                <div
+                <Wrapper
                   key={content.id}
-                  className="bg-neutral-100 rounded-xl overflow-hidden flex flex-col min-w-0"
+                  {...wrapperProps}
+                  className={`group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${
+                    hasUrl
+                      ? "hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                      : "opacity-90 grayscale-[0.2]"
+                  }`}
                 >
-                  {/* Thumbnail / preview */}
-                  <a
-                    href={content.post_url ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative block h-[222px] bg-neutral-300 shrink-0 group"
-                    aria-label="Abrir postagem"
-                    tabIndex={content.post_url ? 0 : -1}
-                    onClick={(e) => !content.post_url && e.preventDefault()}
-                  >
-                    {thumbnail && (
+                  {/* Thumbnail vertical (4/5) — formato natural de reel/post */}
+                  <div className="relative aspect-[4/5] bg-neutral-200 overflow-hidden">
+                    {thumbnail ? (
                       <img
                         src={thumbnail}
                         alt=""
-                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                    )}
-
-                    {/* Gradiente inferior */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-
-                    {/* Badge de rede social — canto superior esquerdo */}
-                    {network && (
-                      <div className={`absolute top-2.5 left-2.5 size-7 rounded-lg flex items-center justify-center ${NETWORK_BADGE_STYLE[network] ?? "bg-neutral-700"}`}>
-                        <SocialNetworkIcon networkType={network} size={16} color="#ffffff" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200">
+                        <Icon name="Image" size={32} color="#a3a3a3" />
                       </div>
                     )}
 
-                    {/* Indicador de vídeo — canto superior direito */}
-                    {isVideo && (
-                      <div className="absolute top-2.5 right-2.5 size-7 rounded-lg bg-black/60 flex items-center justify-center">
-                        <Icon name="Play" size={14} color="#ffffff" />
-                      </div>
-                    )}
+                    {/* Gradiente legibilidade */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-                    {/* Play central ao hover (vídeos) */}
-                    {isVideo && (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="size-14 rounded-full bg-black/60 flex items-center justify-center">
-                          <Icon name="Play" size={28} color="#ffffff" />
+                    {/* Top-left: ranking badge */}
+                    <div className={`absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold shadow-sm backdrop-blur-sm ${RANK_BADGE_STYLE[idx] ?? "bg-white/85 text-neutral-700"}`}>
+                      <span>#{idx + 1}</span>
+                    </div>
+
+                    {/* Top-right cluster: rede + vídeo + abrir externo */}
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                      {isVideo && (
+                        <div className="size-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center" title="Vídeo">
+                          <Icon name="Play" size={11} color="#ffffff" />
+                        </div>
+                      )}
+                      {network && (
+                        <div
+                          className={`size-6 rounded-md flex items-center justify-center shadow-sm ${
+                            NETWORK_BADGE_STYLE[network] ?? "bg-neutral-700"
+                          }`}
+                          title={network}
+                        >
+                          <SocialNetworkIcon networkType={network} size={13} color="#ffffff" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Play central só ao hover em vídeos */}
+                    {isVideo && hasUrl && (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="size-14 rounded-full bg-white/15 backdrop-blur-md ring-1 ring-white/30 flex items-center justify-center">
+                          <Icon name="Play" size={26} color="#ffffff" className="fill-white ml-1" />
                         </div>
                       </div>
                     )}
 
-                    {/* Stats — bottom */}
-                    <div className="absolute bottom-3 left-3 right-3 flex justify-between text-white">
-                      <div>
-                        <p className="text-sm font-normal">Visualizações</p>
-                        <p className="text-lg font-medium">
+                    {/* Stats inline com ícones — bottom */}
+                    <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between text-white">
+                      <div className="flex items-center gap-1.5">
+                        <Icon name="Eye" size={14} color="#ffffff" />
+                        <span className="text-base font-semibold tabular-nums leading-none">
                           {content.views != null ? formatCompact(content.views) : "—"}
-                        </p>
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-normal">Curtidas</p>
-                        <p className="text-lg font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <Icon name="Heart" size={14} color="#ffffff" className="fill-white/90" />
+                        <span className="text-base font-semibold tabular-nums leading-none">
                           {content.likes != null ? formatCompact(content.likes) : "—"}
-                        </p>
+                        </span>
                       </div>
                     </div>
-                  </a>
+                  </div>
 
-                  {/* Footer */}
-                  <div className="p-4">
-                    {content.post_url ? (
-                      <a
-                        href={content.post_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-base font-medium text-primary-600 underline hover:no-underline"
-                      >
-                        {isVideo ? "Assistir vídeo" : "Visualizar postagem"}
-                      </a>
-                    ) : (
-                      <span className="text-base font-medium text-neutral-500">
-                        {isVideo ? "Assistir vídeo" : "Visualizar postagem"}
-                      </span>
+                  {/* Footer: CTA discreto que reage ao hover do card inteiro */}
+                  <div className="flex items-center justify-between gap-2 px-4 py-3">
+                    <span className={`text-sm font-medium ${hasUrl ? "text-neutral-700 group-hover:text-primary-600 transition-colors" : "text-neutral-400"}`}>
+                      {hasUrl ? (isVideo ? "Assistir vídeo" : "Ver postagem") : "Sem link disponível"}
+                    </span>
+                    {hasUrl && (
+                      <Icon
+                        name="ArrowUpRight"
+                        size={16}
+                        color="currentColor"
+                        className="text-neutral-400 group-hover:text-primary-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
+                      />
                     )}
                   </div>
-                </div>
+                </Wrapper>
               );
             })}
           </div>
         ) : (
-          <p className="text-neutral-500 py-6">Nenhum conteúdo no momento.</p>
+          <div className="rounded-xl border border-dashed border-neutral-300 py-10 flex flex-col items-center gap-2 text-center">
+            <Icon name="ImageOff" size={24} color="#a3a3a3" />
+            <p className="text-sm text-neutral-500">Nenhum conteúdo identificado ainda.</p>
+          </div>
         )}
       </div>
 

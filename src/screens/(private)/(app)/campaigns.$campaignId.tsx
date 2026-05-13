@@ -390,65 +390,19 @@ function RouteComponent() {
     };
   }, [campaign, phases]);
 
-  // Calcular progresso
-  const progressPercentage = useMemo(() => {
-    if (!contents.length) return 0;
-    const published = contents.filter((c) => c.status === "published").length;
-    return Math.round((published / contents.length) * 100);
-  }, [contents]);
+  // `metrics` aqui já vem em camelCase — o hook `useCampaignDashboard` faz a
+  // transformação snake→camel dos campos do backend. Front só consome.
+  const progressPercentage = metrics?.progress ?? 0;
 
-  // Métricas calculadas conforme especificações
-  const formattedMetrics = useMemo(() => {
-    // Status que contam como "Aprovados/Em andamento" para frente
-    const activeStatuses = [
-      "approved",
-      "pending_approval",
-      "in_correction",
-      "content_approved",
-      "published",
-    ];
-
-    // Influenciadores ativos: somatória de influenciadores da etapa "Aprovados/Em andamento" para frente
-    const activeInfluencersCount = influencers.filter((inf) =>
-      activeStatuses.includes(inf.status || "")
-    ).length;
-
-    // Conteúdos publicados: conteúdos com status "published" (identificados via hashtag)
-    const publishedContents = contents.filter(
-      (content) => content.status === "published"
-    );
-    const publishedContentCount = publishedContents.length;
-
-    // Alcance total: somatória de visualizações dos conteúdos publicados
-    // Usa as métricas dos posts identificados quando disponíveis
-    const postsWithMetrics = identifiedPosts.filter(
-      (post) => post.metrics && post.metrics.views > 0
-    );
-    const totalReach =
-      postsWithMetrics.length > 0
-        ? postsWithMetrics.reduce((sum, post) => sum + (post.metrics?.views || 0), 0)
-        : metrics?.reach || 0;
-
-    // Engajamento: média dos engajamentos individuais dos conteúdos publicados
-    // Calcula a média dos engajamentos individuais que já estão calculados
-    const postsWithEngagement = identifiedPosts.filter(
-      (post) => post.metrics && post.metrics.engagement !== undefined
-    );
-    const averageEngagement =
-      postsWithEngagement.length > 0
-        ? postsWithEngagement.reduce(
-          (sum, post) => sum + (post.metrics?.engagement || 0),
-          0
-        ) / postsWithEngagement.length
-        : metrics?.engagement || 0;
-
-    return {
-      reach: totalReach,
-      engagement: averageEngagement,
-      publishedContent: publishedContentCount,
-      activeInfluencers: activeInfluencersCount,
-    };
-  }, [influencers, contents, identifiedPosts, metrics]);
+  const formattedMetrics = useMemo(
+    () => ({
+      reach: metrics?.reach ?? 0,
+      engagement: metrics?.engagement ?? 0,
+      publishedContent: metrics?.publishedContent ?? 0,
+      activeInfluencers: metrics?.activeInfluencers ?? 0,
+    }),
+    [metrics],
+  );
 
   // Loading state (agora só 2 queries: campaign e dashboard)
   const isLoading = isLoadingCampaign || isLoadingDashboard;
@@ -560,6 +514,7 @@ function RouteComponent() {
             error={managementError}
             openChatInfluencerId={pendingOpenChat ?? undefined}
             onOpenChatConsumed={handleOpenChatConsumed}
+            paymentType={campaign?.payment_method}
           />
         );
       case "selection":

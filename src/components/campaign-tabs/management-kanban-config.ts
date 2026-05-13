@@ -60,6 +60,27 @@ export type KanbanColumn = {
   highlight?: boolean;
 };
 
+/**
+ * Colunas exclusivas do fluxo de permuta (envio físico de produto).
+ * Devem ser ocultadas em campanhas com outras modalidades de pagamento.
+ */
+const SHIPMENT_COLUMN_IDS: ReadonlySet<string> = new Set([
+  "awaiting_shipment",
+  "awaiting_receipt",
+]);
+
+/**
+ * Retorna as colunas do Kanban aplicáveis à modalidade da campanha.
+ * Permuta (`swap` / `exchange`) → todas. Demais → sem etapas de envio.
+ */
+export function getKanbanColumnsForPaymentType(
+  paymentType?: string | null,
+): readonly KanbanColumn[] {
+  const isSwap = paymentType === "swap" || paymentType === "exchange";
+  if (isSwap) return kanbanColumns;
+  return kanbanColumns.filter((c) => !SHIPMENT_COLUMN_IDS.has(c.id));
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

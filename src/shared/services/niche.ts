@@ -195,16 +195,87 @@ function dedupeNicheRowsById(rows: unknown[]): unknown[] {
 }
 
 /**
- * Busca todos os nichos disponíveis (todas as páginas quando `meta.total_pages` vier na resposta).
+ * Busca todos os nichos disponíveis.
+ *
+ * Otimização: descobre `total_pages` na página 1 e dispara as demais páginas
+ * em paralelo via `Promise.all` — derruba latência de O(N) para ~O(1)
+ * (limitado pelo pool de conexões HTTP do browser).
  */
 export async function getNiches(): Promise<Niche[]> {
-  const { rows: firstRows, totalPages } = await fetchNichesRawPage(1);
-  const allRows: unknown[] = [...firstRows];
+  const first = await fetchNichesRawPage(1);
+  const { rows: firstRows, totalPages } = first;
 
-  for (let page = 2; page <= totalPages; page++) {
-    const { rows } = await fetchNichesRawPage(page);
-    allRows.push(...rows);
+  let restRows: unknown[] = [];
+  if (totalPages > 1) {
+    const remaining = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+    const pages = await Promise.all(
+      remaining.map((p) => fetchNichesRawPage(p).then((r) => r.rows)),
+    );
+    restRows = pages.flat();
   }
 
-  return extractNichesFromPayload(dedupeNicheRowsById(allRows));
+  return extractNichesFromPayload(
+    dedupeNicheRowsById([...firstRows, ...restRows]),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cache local persistente (localStorage)
+//
+// Nichos são quase imutáveis e independentes de workspace. Persistir entre
+// reloads elimina N round-trips em cold start sem custo perceptível de
+// memória (payload tipicamente < 30 KB JSON).
+//
+// `NICHES_CACHE_VERSION` invalida tudo automaticamente quando o tipo `Niche`
+// muda — basta incrementar.
+// ---------------------------------------------------------------------------
+
+const NICHES_CACHE_KEY = "hypeapp:niches:v1";
+const NICHES_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+interface PersistedNiches {
+  savedAt: number;
+  data: Niche[];
+}
+
+/** Lê do localStorage. Retorna null se ausente, corrompido ou expirado. */
+export function loadPersistedNiches(): Niche[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(NICHES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedNiches;
+    if (
+      !parsed ||
+      typeof parsed.savedAt !== "number" ||
+      !Array.isArray(parsed.data)
+    ) {
+      return null;
+    }
+    if (Date.now() - parsed.savedAt > NICHES_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+/** Salva no localStorage. Falhas silenciosas (quota, modo privado, etc.). */
+export function savePersistedNiches(data: Niche[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const payload: PersistedNiches = { savedAt: Date.now(), data };
+    window.localStorage.setItem(NICHES_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // quota cheia / storage indisponível — ignora
+  }
+}
+
+/** Limpa o cache (use após admin criar nichos no backend). */
+export function clearPersistedNiches(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(NICHES_CACHE_KEY);
+  } catch {
+    // ignore
+  }
 }

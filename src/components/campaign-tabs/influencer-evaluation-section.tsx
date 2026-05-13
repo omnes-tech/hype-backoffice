@@ -241,29 +241,95 @@ function EvaluationModal({
             )}
           </div>
 
-          {/* ---- Avaliação da marca pelo influenciador ---- */}
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">
-              O que o influenciador achou
-            </p>
-            {brandEval ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                <StarRating value={brandEval.rating} readonly />
-                <span className={`self-start rounded-full border px-2.5 py-0.5 text-xs font-medium ${brandEval.would_work_again ? "border-green-400 bg-green-50 text-green-700" : "border-red-400 bg-red-50 text-red-700"}`}>
-                  {brandEval.would_work_again ? "Trabalharia novamente" : "Não trabalharia novamente"}
-                </span>
-                <p className="text-sm text-neutral-700">{brandEval.feedback}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-400 italic">
-                O influenciador ainda não avaliou a marca.
-              </p>
-            )}
-          </div>
+          {/* ---- Avaliação da marca pelo influenciador ----
+              Regra: enquanto a marca não avaliou o influencer, a avaliação
+              recíproca fica oculta (blur + aviso). Evita viés mútuo. */}
+          <BrandEvaluationSection
+            brandEval={brandEval}
+            locked={!alreadyEvaluated && !!brandEval}
+          />
 
         </div>
       )}
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BrandEvaluationSection — avaliação que o influencer fez da marca
+// ---------------------------------------------------------------------------
+
+/**
+ * Renderiza a avaliação que o influencer deu à marca, com 3 estados:
+ *
+ *  1. Sem dado (`brandEval = null`)   → mensagem "ainda não avaliou"
+ *  2. Com dado + `locked=false`        → renderização normal
+ *  3. Com dado + `locked=true`         → blur + overlay com aviso. Marca
+ *     ainda não enviou sua avaliação e não pode ver a recíproca antes — evita
+ *     viés mútuo.
+ */
+function BrandEvaluationSection({
+  brandEval,
+  locked,
+}: {
+  brandEval: import("@/shared/services/influencer-evaluation").BrandEvaluationRecord | null | undefined;
+  locked: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">
+        O que o influenciador achou
+      </p>
+
+      {!brandEval ? (
+        <p className="text-sm text-neutral-400 italic">
+          O influenciador ainda não avaliou a marca.
+        </p>
+      ) : (
+        <div className="relative">
+          {/* Conteúdo (blurrado quando locked) */}
+          <div
+            aria-hidden={locked}
+            className={
+              locked
+                ? "flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 blur-md select-none pointer-events-none"
+                : "flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+            }
+          >
+            <StarRating value={brandEval.rating} readonly />
+            <span
+              className={`self-start rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                brandEval.would_work_again
+                  ? "border-green-400 bg-green-50 text-green-700"
+                  : "border-red-400 bg-red-50 text-red-700"
+              }`}
+            >
+              {brandEval.would_work_again
+                ? "Trabalharia novamente"
+                : "Não trabalharia novamente"}
+            </span>
+            <p className="text-sm text-neutral-700">{brandEval.feedback}</p>
+          </div>
+
+          {/* Overlay com aviso quando locked */}
+          {locked && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/30">
+              <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-5 py-4 shadow-lg border border-neutral-200 max-w-xs text-center">
+                <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center">
+                  <Icon name="Lock" size={16} color="#4f46e5" />
+                </div>
+                <p className="text-sm font-semibold text-neutral-950">
+                  Avaliação oculta
+                </p>
+                <p className="text-xs text-neutral-600 leading-relaxed">
+                  Envie sua avaliação primeiro para ver o que o influenciador achou da marca.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

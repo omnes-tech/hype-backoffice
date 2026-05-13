@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData, CampaignProductDraft } from "@/shared/types";
 import { handleCurrencyInput, handleNumberInput } from "@/shared/utils/masks";
+import {
+  PRODUCT_IMAGE_LIMITS,
+  validateProductImageFile,
+} from "@/shared/services/campaign-products";
 
 interface CreateCampaignStepProductsProps {
   formData: CampaignFormData;
@@ -19,7 +23,7 @@ interface CreateCampaignStepProductsProps {
 
 function emptyProduct(): CampaignProductDraft {
   return {
-    id: Date.now().toString(),
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
     description: "",
     market_value: "",
@@ -30,6 +34,8 @@ function emptyProduct(): CampaignProductDraft {
     brand: "",
     sku: "",
     notes: "",
+    images: [],
+    pendingImageFiles: [],
   };
 }
 
@@ -81,6 +87,11 @@ export function CreateCampaignStepProducts({
 
   const updateProduct = (id: string, field: keyof CampaignProductDraft, value: string) => {
     persist(products.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  };
+
+  /** Patch arbitrário (usado pelo uploader de imagens, que muda 2 campos juntos). */
+  const updateProductPartial = (id: string, patch: Partial<CampaignProductDraft>) => {
+    persist(products.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
 
   const validate = (): boolean => {
@@ -303,6 +314,17 @@ export function CreateCampaignStepProducts({
                       className="w-full rounded-[12px] bg-[#F5F5F5] px-4 py-3 text-base text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none resize-y"
                     />
                   </div>
+
+                  {/* Imagens do produto */}
+                  <div className="sm:col-span-2 flex flex-col gap-2">
+                    <label className={labelClass}>
+                      Imagens do produto (até {PRODUCT_IMAGE_LIMITS.maxPerProduct})
+                    </label>
+                    <ProductImagesUploader
+                      product={product}
+                      onChange={(patch) => updateProductPartial(product.id, patch)}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -335,5 +357,159 @@ export function CreateCampaignStepProducts({
         </div>
       )}
     </Wrapper>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProductImagesUploader
+// ---------------------------------------------------------------------------
+
+/**
+ * Uploader de até 5 imagens por produto.
+ *
+ * Estratégia: **sempre defere**. Adicionar/remover imagens só edita o estado
+ * local do draft — nenhuma request é disparada durante a interação. O envio
+ * acontece quando o usuário clica em "Continuar"/"Salvar":
+ *  - Criação: `createAllCampaignProducts` empacota tudo (URLs existentes +
+ *    base64 dos `pendingImageFiles`) no POST do produto.
+ *  - Edição: o save da campanha chama `updateCampaignProduct` que faz o
+ *    mesmo empacotamento no PUT.
+ *
+ * Validações cliente-side (espelham regras do backend):
+ *  - Total ≤ 5 imagens por produto
+ *  - 5 MB por arquivo
+ *  - mimes: jpeg/jpg/png/webp
+ */
+function ProductImagesUploader({
+  product,
+  onChange,
+}: {
+  product: CampaignProductDraft;
+  onChange: (patch: Partial<CampaignProductDraft>) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const existing = product.images ?? [];
+  const pending = product.pendingImageFiles ?? [];
+  const totalCount = existing.length + pending.length;
+  const remaining = PRODUCT_IMAGE_LIMITS.maxPerProduct - totalCount;
+  const canAdd = remaining > 0;
+
+  const handleSelect = (filesList: FileList | null) => {
+    if (!filesList || filesList.length === 0) return;
+    const files = Array.from(filesList);
+
+    if (files.length > remaining) {
+      toast.error(
+        `Limite de ${PRODUCT_IMAGE_LIMITS.maxPerProduct} imagens por produto. Você tem ${totalCount}, está tentando enviar ${files.length}.`,
+      );
+      return;
+    }
+
+    for (const f of files) {
+      const err = validateProductImageFile(f);
+      if (err) {
+        toast.error(err);
+        return;
+      }
+    }
+
+    onChange({ pendingImageFiles: [...pending, ...files] });
+
+    // permite re-selecionar o mesmo arquivo após remover
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleRemoveExisting = (url: string) => {
+    onChange({ images: existing.filter((u) => u !== url) });
+  };
+
+  const handleRemovePending = (idx: number) => {
+    onChange({ pendingImageFiles: pending.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div className="flex flex-wrap items-start gap-3">
+      {/* Thumbnails existentes (URLs hospedadas) */}
+      {existing.map((url) => (
+        <ImageThumbnail
+          key={url}
+          src={url}
+          onRemove={() => handleRemoveExisting(url)}
+          uploaded
+        />
+      ))}
+
+      {/* Thumbnails pendentes (Files locais) */}
+      {pending.map((file, idx) => (
+        <ImageThumbnail
+          key={`pending-${idx}-${file.name}-${file.size}`}
+          src={URL.createObjectURL(file)}
+          onRemove={() => handleRemovePending(idx)}
+        />
+      ))}
+
+      {/* Slot de adicionar */}
+      {canAdd && (
+        <>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="w-24 h-24 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 flex flex-col items-center justify-center gap-1 text-neutral-500 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600 transition-colors cursor-pointer"
+            aria-label="Adicionar imagens"
+          >
+            <Icon name="Plus" size={20} color="currentColor" />
+            <span className="text-[10px] font-medium leading-tight">
+              +{remaining} restante{remaining === 1 ? "" : "s"}
+            </span>
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={PRODUCT_IMAGE_LIMITS.acceptedMimes.join(",")}
+            multiple
+            className="hidden"
+            onChange={(e) => handleSelect(e.target.files)}
+          />
+        </>
+      )}
+
+      {/* Caption helper */}
+      {totalCount === 0 && (
+        <p className="basis-full text-xs text-neutral-500 mt-1">
+          JPEG, PNG ou WebP · até 5 MB cada · {PRODUCT_IMAGE_LIMITS.maxPerProduct}{" "}
+          imagens no total · enviadas ao salvar a campanha
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ImageThumbnail({
+  src,
+  onRemove,
+  uploaded = false,
+}: {
+  src: string;
+  onRemove: () => void;
+  uploaded?: boolean;
+}) {
+  return (
+    <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100 group">
+      <img src={src} alt="Imagem do produto" className="w-full h-full object-cover" />
+      {!uploaded && (
+        <span className="absolute bottom-1 left-1 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+          Pendente
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-danger-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        aria-label="Remover imagem"
+      >
+        <Icon name="X" size={14} color="#FFFFFF" />
+      </button>
+    </div>
   );
 }

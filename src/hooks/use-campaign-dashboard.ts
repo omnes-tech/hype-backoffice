@@ -21,6 +21,8 @@ export interface CampaignDashboardData {
     engagement: number;
     publishedContent: number;
     activeInfluencers: number;
+    /** Progresso da campanha (0–100) calculado pelo backend. */
+    progress: number;
   };
 }
 
@@ -38,6 +40,7 @@ export async function fetchCampaignDashboardData(
       engagement: data.metrics.engagement,
       publishedContent: data.metrics.published_content,
       activeInfluencers: data.metrics.active_influencers,
+      progress: data.metrics.progress,
     },
   };
 }

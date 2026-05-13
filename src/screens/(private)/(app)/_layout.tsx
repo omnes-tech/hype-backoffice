@@ -28,6 +28,10 @@ function RouteComponent() {
     title = "Configurações";
   } else if (pathname === "/workspace/settings") {
     title = "Gerenciar workspace";
+  } else if (pathname === "/financial") {
+    title = "Financeiro";
+  } else if (pathname === "/holds") {
+    title = "Holds";
   }
 
   return (

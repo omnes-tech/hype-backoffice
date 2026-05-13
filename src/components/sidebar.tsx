@@ -45,8 +45,14 @@ export function Sidebar() {
       visible: permissions.catalog_read,
     },
     {
-      label: "Holds",
+      label: "Financeiro",
       icon: "Wallet" as keyof typeof icons,
+      href: "/financial",
+      visible: permissions.financial_read,
+    },
+    {
+      label: "Holds",
+      icon: "Coins" as keyof typeof icons,
       href: "/holds",
       visible: permissions.financial_read,
     },

@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/text-area";
 import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
 import { mapUserStatusToKanbanColumn } from "./management-status-map";
 import {
-  kanbanColumns,
+  getKanbanColumnsForPaymentType,
   idToString,
   participantToExtended,
   type ExtendedInfluencer,
@@ -58,6 +58,11 @@ interface ManagementTabProps {
   openChatInfluencerId?: string;
   /** Chamado após tentar abrir o chat (sucesso ou usuário não encontrado). */
   onOpenChatConsumed?: () => void;
+  /**
+   * Modalidade de pagamento da campanha (`payment_method` do backend).
+   * Usado para ocultar colunas de envio em modalidades que não são permuta.
+   */
+  paymentType?: string | null;
 }
 
 // StatusHistory, ExtendedInfluencer, kanbanColumns, idToString e participantToExtended
@@ -320,7 +325,13 @@ export function ManagementTab({
   error = null,
   openChatInfluencerId,
   onOpenChatConsumed,
+  paymentType,
 }: ManagementTabProps) {
+  // Colunas aplicáveis: campanhas que não são permuta omitem etapas de envio.
+  const kanbanColumns = useMemo(
+    () => getKanbanColumnsForPaymentType(paymentType),
+    [paymentType],
+  );
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
   });
@@ -397,6 +408,18 @@ export function ManagementTab({
   const [selectedPhaseFilterIds, setSelectedPhaseFilterIds] = useState<
     string[]
   >(() => kanbanColumns.map((c) => c.id));
+
+  // Sincroniza o filtro quando o conjunto de colunas muda (ex.: paymentType
+  // mudou ou carregou tarde). Remove IDs órfãos; se ficar vazio, volta ao
+  // estado "Geral" (todas as colunas válidas).
+  useEffect(() => {
+    const validIds = new Set(kanbanColumns.map((c) => c.id));
+    setSelectedPhaseFilterIds((prev) => {
+      const filtered = prev.filter((id) => validIds.has(id));
+      if (filtered.length === prev.length) return prev;
+      return filtered.length > 0 ? filtered : [...validIds];
+    });
+  }, [kanbanColumns]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Hooks para mutations

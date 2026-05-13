@@ -193,6 +193,8 @@ export interface Meta {
 export interface CampaignProductDraft {
   /** ID gerado no cliente para controle da lista */
   id: string;
+  /** ID do produto no backend, presente quando carregado em modo edição */
+  serverId?: string;
   name: string;
   description?: string;
   /** Valor de mercado formatado em BRL (ex: "1.500,00") — convertido p/ centavos no envio */
@@ -204,6 +206,15 @@ export interface CampaignProductDraft {
   brand?: string;
   sku?: string;
   notes?: string;
+  /** URLs de imagens já hospedadas (pós-upload) */
+  images?: string[];
+  /**
+   * Arquivos selecionados localmente, ainda não enviados.
+   * - Fluxo de criação: ficam aqui até o produto ser criado; depois o
+   *   `createAllCampaignProducts` faz upload em batch.
+   * - Fluxo de edição: upload é imediato; este array fica vazio.
+   */
+  pendingImageFiles?: File[];
 }
 
 export interface SocialFormat {

@@ -278,6 +278,7 @@ function RouteComponent() {
       products: campaign.payment_method === "swap"
         ? serverProducts.map((p: CampaignProduct) => ({
             id: p.id,
+            serverId: p.id,
             name: p.name,
             description: p.description ?? "",
             market_value: p.market_value_cents ? (p.market_value_cents / 100).toFixed(2).replace(".", ",") : "",
@@ -288,6 +289,8 @@ function RouteComponent() {
             brand: p.brand ?? "",
             sku: p.sku ?? "",
             notes: p.notes ?? "",
+            images: p.images ?? [],
+            pendingImageFiles: [],
           } satisfies CampaignProductDraft))
         : undefined,
     };

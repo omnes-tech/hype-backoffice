@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { CampaignFormData, CampaignPhase, SocialFormat } from "@/shared/types";
 import {
   validatePhase1Date,
@@ -616,8 +617,18 @@ export function CreateCampaignStepFive({
                           </div>
                           {formData.paymentType === "fixed" && (
                             <div className="flex min-w-[140px] flex-col gap-1">
-                              <span className="text-sm font-medium text-neutral-950">
+                              <span className="text-sm font-medium text-neutral-950 inline-flex items-center gap-1.5">
                                 Preço (R$)
+                                <Tooltip
+                                  content={
+                                    <>
+                                      <strong>Valor do pacote</strong>, não por unidade. O influencer recebe esse valor pela quantidade total.
+                                      <br />
+                                      <br />
+                                      Ex.: 3 conteúdos por <strong>R$ 50,00</strong> → R$ 50,00 totais (e não R$ 150,00).
+                                    </>
+                                  }
+                                />
                               </span>
                               <div className="relative">
                                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-neutral-500">

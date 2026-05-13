@@ -81,6 +81,11 @@ export interface DashboardMetrics {
   engagement: number;
   published_content: number;
   active_influencers: number;
+  /**
+   * Progresso da campanha em % (0–100), calculado pelo backend.
+   * Substitui o cálculo local antigo (published / total contents).
+   */
+  progress: number;
 }
 
 export interface DashboardResponse {
