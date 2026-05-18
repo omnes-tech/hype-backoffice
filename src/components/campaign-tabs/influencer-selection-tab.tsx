@@ -65,7 +65,9 @@ interface InfluencerSelectionTabProps {
   influencers: Influencer[];
   campaignPhases?: Array<{ id: string; label: string; publish_date?: string }>;
   maxInfluencers?: number;
-  phasesWithFormats?: Array<{ formats?: Array<{ socialNetwork: string }> }>;
+  phasesWithFormats?: Array<{
+    formats?: Array<{ socialNetwork: string; contentType?: string }>;
+  }>;
   onOpenMuralModal?: () => void;
   /** Método de pagamento da campanha — controla exibição de preços nos cards */
   paymentMethod?: string;
@@ -420,6 +422,36 @@ export function InfluencerSelectionTab({
     });
     return Array.from(networks);
   }, [phasesWithFormats]);
+
+  // Mapa rede → formatos exigidos pela campanha. Usado pra filtrar o bloco
+  // de preços do influenciador a apenas os entregáveis que a marca pediu
+  // (ex: card de Instagram com "Feed" e "Reels"; Stories some se a campanha
+  // não usa Stories).
+  const allowedFormatsByNetwork = useMemo<Record<string, string[]>>(() => {
+    const map: Record<string, string[]> = {};
+    phasesWithFormats.forEach((phase) => {
+      phase.formats?.forEach((format) => {
+        const net = format.socialNetwork?.toLowerCase();
+        const ct = format.contentType?.toLowerCase();
+        if (!net || !ct) return;
+        if (!map[net]) map[net] = [];
+        if (!map[net].includes(ct)) map[net].push(ct);
+      });
+    });
+    return map;
+  }, [phasesWithFormats]);
+
+  const isPriceMode = paymentMethod === "price";
+
+  /** Resolve a lista de formatos permitidos para o card baseado em sua rede. */
+  const getAllowedPriceFormats = useCallback(
+    (profileType: string | undefined): string[] | undefined => {
+      if (!isPriceMode) return undefined;
+      const key = profileType?.toLowerCase() ?? "";
+      return allowedFormatsByNetwork[key] ?? [];
+    },
+    [isPriceMode, allowedFormatsByNetwork],
+  );
 
   // Curadoria: restringe aos perfis nas redes da campanha (avisos / validação)
   const curationProfilesFiltered = useMemo(() => {
@@ -938,9 +970,10 @@ export function InfluencerSelectionTab({
                         <InfluencerProfileCard
                           data={{
                             ...data,
-                            prices: paymentMethod === "price" ? data.prices : undefined,
+                            prices: isPriceMode ? data.prices : undefined,
                           }}
                           nicheName={nicheName}
+                          allowedPriceFormats={getAllowedPriceFormats(data.profileType)}
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
                           onPreSelection={() => handleAction(influencer, "preselection")}
@@ -1068,9 +1101,10 @@ export function InfluencerSelectionTab({
                           key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
                           data={{
                             ...data,
-                            prices: paymentMethod === "price" ? data.prices : undefined,
+                            prices: isPriceMode ? data.prices : undefined,
                           }}
                           nicheName={nicheName}
+                          allowedPriceFormats={getAllowedPriceFormats(data.profileType)}
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
                           onPreSelection={() => handleAction(influencer, "preselection")}

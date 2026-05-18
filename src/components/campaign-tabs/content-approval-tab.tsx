@@ -20,7 +20,6 @@ import { getContentEvaluation } from "@/shared/services/content";
 import { getUploadUrl } from "@/lib/utils/api";
 import {
   getSocialNetworkDisplayLabel,
-  SocialNetworkCornerBadge,
   SocialNetworkIcon,
 } from "@/components/social-network-icon";
 import { formatDateForInput } from "@/shared/utils/date-validations";
@@ -721,7 +720,7 @@ export function ContentApprovalTab({
               </p>
             </div>
           ) : (
-              <div className="flex flex-wrap gap-x-3 gap-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {filteredContents.map((content) => {
                   const resolvedSocialNetwork =
                     content.social_network ||
@@ -731,121 +730,141 @@ export function ContentApprovalTab({
                     content.content_format?.social_network ||
                     "";
 
+                  const networkLabel = getSocialNetworkDisplayLabel(resolvedSocialNetwork);
+                  const phaseNumber =
+                    content.phase?.order ??
+                    (campaignPhases.findIndex((p) => p.id === content.phase_id) + 1 || null);
+                  const formatLabel =
+                    content.content_format_type || content.contentType || null;
+                  const isPending =
+                    content.status === "pending" || content.status === "awaiting_approval";
+                  const isSelected = selectedContents.has(content.id);
+                  const isApprovedState =
+                    content.status === "approved" || content.status === "content_approved";
+                  const isFeedbackState =
+                    content.status === "correction" || content.status === "rejected";
+
                   return (
                     <div
                       key={content.id}
-                      className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
-                        selectedContents.has(content.id)
-                          ? "ring-2 ring-primary-600 ring-offset-2"
+                      className={`flex min-h-[320px] w-full min-w-0 flex-col gap-5 rounded-xl bg-neutral-100 p-3 border transition-colors ${
+                        isSelected && canSelectMultiple
+                          ? "border-primary-500 ring-1 ring-primary-200"
                           : "border-transparent"
                       }`}
                     >
-                      {canSelectMultiple && (
-                        <div className="absolute top-3 left-3 z-10">
-                          <Checkbox
-                            checked={selectedContents.has(content.id)}
-                            onCheckedChange={() => handleSelectContent(content.id)}
-                            className="rounded-[4px] border-[#c8c8c8] bg-white size-6"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between pl-8">
-                        <div className="relative w-[60px] h-[60px] rounded-[16px] overflow-visible shrink-0 flex items-center justify-center bg-neutral-200">
-                          <div className="size-full overflow-hidden rounded-[16px] flex items-center justify-center">
+                      {/* Topo: avatar (com checkbox circular) + network icon */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="relative shrink-0">
+                          <div className="size-[60px] overflow-hidden rounded-2xl bg-neutral-200">
                             <Avatar
                               src={getUploadUrl(content.influencerAvatar)}
                               alt={content.influencerName}
                               size="2xl"
                             />
                           </div>
-                          <SocialNetworkCornerBadge
-                            networkType={resolvedSocialNetwork}
-                            title={getSocialNetworkDisplayLabel(resolvedSocialNetwork)}
-                          />
+                          {canSelectMultiple && (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectContent(content.id)}
+                              aria-pressed={isSelected}
+                              className="absolute -left-2 -top-2 flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm"
+                            >
+                              {isSelected ? (
+                                <Icon name="Check" size={14} color="var(--color-primary-600)" />
+                              ) : (
+                                <div className="size-3 rounded-full border-2 border-neutral-300" />
+                              )}
+                            </button>
+                          )}
                         </div>
-                        {(content.phase || content.phase_id) && (
-                          <span className="bg-[#c4e3ff] px-4 py-2 rounded-[32px] text-base text-neutral-950">
-                            Fase{" "}
-                            {content.phase?.order ??
-                              ((campaignPhases.findIndex((p) => p.id === content.phase_id) + 1) || "?")}
-                            {campaignPhases.length > 0 ? `/${campaignPhases.length}` : ""}
-                          </span>
+
+                        {resolvedSocialNetwork && (
+                          <div
+                            className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200/90 bg-white shadow-sm"
+                            title={networkLabel}
+                            aria-label={`Rede: ${networkLabel}`}
+                          >
+                            <SocialNetworkIcon
+                              networkType={resolvedSocialNetwork}
+                              size={22}
+                              color="#404040"
+                            />
+                          </div>
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-3">
-                        <p className="text-lg font-medium text-neutral-950 truncate">
+                      {/* Nome do influenciador */}
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <p className="truncate text-xl font-medium leading-6 text-neutral-950">
                           {content.influencerName}
                         </p>
-                        <p className="text-sm text-[#4d4d4d] truncate">
-                          @{(content.influencerName || "").replace(/\s+/g, "_") || "username"}
-                        </p>
                       </div>
 
-                      <div className="flex flex-col gap-3">
-                        <p className="text-sm text-[#4d4d4d] leading-5 truncate">
-                          {content.caption || "Sem legenda"}
-                        </p>
-                        <div
-                          className="h-[137px] rounded-lg overflow-hidden bg-neutral-200 cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => handleOpenDetailModal(content)}
-                        >
-                          {renderPreviewGrid(content.previewUrl, content.previewUrls, content.contentType)}
+                      {/* Chips: Fase + Formato */}
+                      {(phaseNumber != null || formatLabel) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {phaseNumber != null && (
+                            <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium leading-tight text-primary-700">
+                              Fase {phaseNumber}
+                              {campaignPhases.length > 0 ? `/${campaignPhases.length}` : ""}
+                            </span>
+                          )}
+                          {formatLabel && (
+                            <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-medium leading-tight capitalize text-neutral-700">
+                              {formatLabel}
+                            </span>
+                          )}
                         </div>
-                      </div>
+                      )}
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-2.5 items-center min-w-0">
-                          {resolvedSocialNetwork ? (
-                            <SocialNetworkIcon
-                              networkType={resolvedSocialNetwork}
-                              color="#737373"
-                              size={20}
-                            />
-                          ) : null}
-                        </div>
-                        <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950 shrink-0">
-                          {content.content_format_type || content.contentType || "Conteúdo"}
-                        </span>
-                      </div>
+                      {/* Preview do conteúdo (clicável, abre modal de detalhe) */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDetailModal(content)}
+                        className="h-[137px] overflow-hidden rounded-lg bg-neutral-200 transition-opacity hover:opacity-90"
+                      >
+                        {renderPreviewGrid(content.previewUrl, content.previewUrls, content.contentType)}
+                      </button>
 
-                      <div className="flex flex-col gap-1 mt-auto">
-                        {(content.status === "pending" ||
-                          content.status === "awaiting_approval") && (
-                          <div className="flex gap-1">
+                      {/* Legenda truncada (1 linha) */}
+                      {content.caption && (
+                        <p className="-mt-2 truncate text-xs text-neutral-600">
+                          {content.caption}
+                        </p>
+                      )}
+
+                      {/* Ações por status */}
+                      <div className="mt-auto flex flex-col gap-2">
+                        {isPending && (
+                          <div className="flex flex-wrap gap-1">
                             <Button
                               onClick={() => handleApprove(content)}
                               disabled={isApproving || isRejecting}
-                              className="flex-1 h-11 rounded-[24px] bg-primary-600 text-white border-0 font-semibold hover:bg-primary-700"
+                              className="h-11 flex-1 rounded-full border-0 bg-primary-600 text-base font-semibold text-white hover:bg-primary-700"
                             >
-                              <div className="flex items-center gap-1">
-                                <Icon name="Check" color="#FAFAFA" size={24} />
-                                <span>Aprovar</span>
-                              </div>
+                              <Icon name="Check" size={20} color="#fafafa" />
+                              Aprovar
                             </Button>
                             <Button
                               variant="outline"
                               onClick={() => handleOpenDetailModal(content)}
-                              className="flex-1 h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                              className="h-11 flex-1 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50"
                             >
                               Avaliar
                             </Button>
                           </div>
                         )}
-                        {(content.status === "approved" ||
-                          content.status === "content_approved") && (
-                          <div className="flex items-center gap-1 h-11 px-4 rounded-[24px] border border-[#e5e5e5] bg-white text-[#585858] font-semibold text-base">
-                            <Icon name="Check" color="#585858" size={24} />
-                            <span>Aprovado</span>
-                          </div>
+                        {isApprovedState && (
+                          <p className="text-base font-medium text-neutral-600">
+                            Aprovado
+                          </p>
                         )}
-                        {(content.status === "correction" ||
-                          content.status === "rejected") && (
+                        {isFeedbackState && (
                           <Button
                             variant="outline"
                             onClick={() => handleOpenDetailModal(content)}
-                            className="h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                            className="h-11 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50"
                           >
                             Visualizar feedback
                           </Button>

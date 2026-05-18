@@ -15,6 +15,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
+import { useWorkspaceBalance } from "@/hooks/use-balance";
 
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
@@ -22,7 +23,15 @@ import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { InfluencerProfileCard } from "./shared/influencer-profile-card";
 import { RejectionModal } from "./shared/rejection-modal";
 import { BulkActionModal } from "./shared/bulk-action-modal";
+import { ApprovalCostBadge } from "./shared/approval-cost-badge";
+import {
+  computeApprovalCostCents,
+  fmtBRL,
+  type CampaignPhaseForCost,
+} from "./shared/prices-utils";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SHOW_APPROVAL_COST_METHODS = new Set(["fixed", "fixed_value", "price"]);
 
 /** Skeleton da aba Curadoria — espelha o layout real */
 export function CurationTabSkeleton() {
@@ -110,6 +119,8 @@ interface ApplicationWithProfile {
   profileStatus: CurationProfileStatus;
   updatedAt?: string | null;
   isExternal?: boolean;
+  /** Preços do influenciador para esse perfil (centavos BRL), quando disponíveis. */
+  prices?: Record<string, number>;
 }
 
 function profileMatchesCurationColumn(
@@ -207,6 +218,7 @@ function expandCurationProfiles(
         profileStatus,
         updatedAt: inf.updated_at,
         isExternal: inf.is_external,
+        prices: profile.prices,
       });
     });
   });
@@ -217,12 +229,24 @@ function expandCurationProfiles(
 interface CurationTabProps {
   focusCampaignUserId?: string | null;
   onFocusUserConsumed?: () => void;
+  /** payment_method da campanha — controla exibição do custo de aprovação */
+  paymentType?: string | null;
+  /** Phases da campanha (formats + prices) — necessário para calcular custo local. */
+  phasesWithFormats?: ReadonlyArray<CampaignPhaseForCost>;
 }
 
 export function CurationTab({
   focusCampaignUserId = null,
   onFocusUserConsumed,
+  paymentType,
+  phasesWithFormats = [],
 }: CurationTabProps) {
+  const showApprovalCost =
+    !!paymentType && SHOW_APPROVAL_COST_METHODS.has(paymentType);
+
+  // Saldo real (BRL) do workspace — fonte de verdade para gating.
+  const balanceQ = useWorkspaceBalance();
+  const availableCents = balanceQ.data?.available_cents ?? null;
   const navigate = useNavigate();
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -331,6 +355,23 @@ export function CurationTab({
   useEffect(() => {
     clearSelection();
   }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Custo de aprovação por card (centavos BRL) — só para a coluna "pending"
+  // em modalidades monetárias. Cálculo local, sem chamadas blockchain.
+  const costByProfileKey = useMemo<Map<string, number | null>>(() => {
+    const map = new Map<string, number | null>();
+    if (!showApprovalCost || !paymentType) return map;
+    for (const app of pendingCards) {
+      const cents = computeApprovalCostCents(
+        paymentType,
+        app.profileType,
+        app.prices,
+        phasesWithFormats,
+      );
+      map.set(app.profileKey, cents);
+    }
+    return map;
+  }, [showApprovalCost, paymentType, pendingCards, phasesWithFormats]);
 
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
@@ -441,6 +482,10 @@ export function CurationTab({
   };
 
   const handleBulkApprove = () => {
+    if (bulkApprovalGate.blocked) {
+      toast.error(bulkApprovalGate.reason ?? "Saldo insuficiente para aprovar os selecionados.");
+      return;
+    }
     const selectedApps = filteredApplications.filter((app) => selectedInfluencers.has(app.profileKey));
     const appsByNetworkId = new Map<string | number, typeof selectedApps>();
     selectedApps.forEach((app) => {
@@ -517,6 +562,48 @@ export function CurationTab({
     if (bulkActionType === "approve") handleBulkApprove();
     else if (bulkActionType === "reject") handleBulkReject();
   };
+
+  // ── Gating de aprovação por saldo (BRL) ────────────────────────────────────
+  // Soma o custo dos selecionados em centavos vs `available_cents` do workspace.
+  // Fail-open quando saldo não carregou ou custo é desconhecido.
+  const bulkApprovalGate = useMemo<{ blocked: boolean; reason: string | null }>(() => {
+    if (!showApprovalCost) return { blocked: false, reason: null };
+    if (statusFilter !== "pending") return { blocked: false, reason: null };
+    if (availableCents == null) return { blocked: false, reason: null };
+    if (selectedInfluencers.size === 0) return { blocked: false, reason: null };
+
+    let totalCents = 0;
+    let anyUnknown = false;
+    for (const app of filteredApplications) {
+      if (!selectedInfluencers.has(app.profileKey)) continue;
+      const cents = costByProfileKey.get(app.profileKey);
+      if (cents == null) {
+        anyUnknown = true;
+        continue;
+      }
+      totalCents += cents;
+    }
+
+    if (anyUnknown && totalCents === 0) {
+      return { blocked: false, reason: null };
+    }
+
+    if (totalCents > availableCents) {
+      return {
+        blocked: true,
+        reason: `Saldo insuficiente: necessário ${fmtBRL(totalCents)}, disponível ${fmtBRL(availableCents)}.`,
+      };
+    }
+
+    return { blocked: false, reason: null };
+  }, [
+    showApprovalCost,
+    statusFilter,
+    availableCents,
+    selectedInfluencers,
+    filteredApplications,
+    costByProfileKey,
+  ]);
 
   // ── Helpers de exibição ─────────────────────────────────────────────────────
 
@@ -652,7 +739,9 @@ export function CurationTab({
                 <Button
                   variant="outline"
                   onClick={() => setBulkActionType("approve")}
-                  className="h-11 rounded-full font-semibold"
+                  disabled={bulkApprovalGate.blocked}
+                  title={bulkApprovalGate.blocked ? (bulkApprovalGate.reason ?? undefined) : undefined}
+                  className="h-11 rounded-full font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Múltiplas aprovações
                 </Button>
@@ -679,10 +768,22 @@ export function CurationTab({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredApplications.map((app) => {
                 const isPending = app.profileStatus === "curation";
+                const cardCostCents =
+                  isPending && showApprovalCost
+                    ? costByProfileKey.get(app.profileKey) ?? null
+                    : null;
+                const cardCanApprove =
+                  !isPending || !showApprovalCost || availableCents == null || cardCostCents == null
+                    ? undefined
+                    : cardCostCents <= availableCents;
+                const cardBlocked = cardCanApprove === false;
+
                 return (
                   <InfluencerProfileCard
                     key={app.profileKey}
-                    data={app}
+                    // Custo já calculado upstream (costSlot). Não exibimos o
+                    // breakdown de preços do influenciador aqui — só o badge.
+                    data={{ ...app, prices: undefined }}
                     nicheName={nicheLabelForCard(app)}
                     isSelected={selectedInfluencers.has(app.profileKey)}
                     selectable={isPending}
@@ -692,6 +793,26 @@ export function CurationTab({
                     onApprove={isPending ? () => handleApprove(app) : undefined}
                     onReject={isPending ? () => handleReject(app) : undefined}
                     onViewProfile={() => navigate({ to: "/influencer/$influencerId", params: { influencerId: app.influencerId } })}
+                    costSlot={
+                      isPending && showApprovalCost ? (
+                        <ApprovalCostBadge
+                          costCents={cardCostCents}
+                          canApprove={cardCanApprove}
+                          reason={
+                            cardBlocked
+                              ? `Saldo do workspace insuficiente (${fmtBRL(availableCents ?? 0)} disponível).`
+                              : null
+                          }
+                          isLoading={balanceQ.isLoading}
+                        />
+                      ) : null
+                    }
+                    disableApprove={cardBlocked}
+                    disableApproveReason={
+                      cardBlocked
+                        ? "Saldo do workspace insuficiente para esta aprovação."
+                        : undefined
+                    }
                   />
                 );
               })}

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -63,6 +64,69 @@ const NETWORK_OPTIONS = [
 ];
 
 // ---------------------------------------------------------------------------
+// "Perto de mim" — geolocalização do admin via Geolocation API
+// ---------------------------------------------------------------------------
+
+const RADIUS_OPTIONS = [
+  { value: "10", label: "10 km" },
+  { value: "25", label: "25 km" },
+  { value: "50", label: "50 km" },
+  { value: "100", label: "100 km" },
+  { value: "200", label: "200 km" },
+];
+
+const DEFAULT_RADIUS_KM = 50;
+
+/**
+ * Chave versionada para o localStorage. Bump da versão (`v1` → `v2`)
+ * invalida caches antigos sem precisar migrar.
+ */
+const NEAR_ME_STORAGE_KEY = "hypeapp:near-me-location:v1";
+
+interface NearMeLocation {
+  lat: number;
+  lng: number;
+  /** Epoch ms — usado pra exibir "capturado há X" no futuro, se necessário. */
+  capturedAt: number;
+}
+
+function loadStoredLocation(): NearMeLocation | null {
+  try {
+    const raw = localStorage.getItem(NEAR_ME_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.lat === "number" &&
+      typeof parsed.lng === "number" &&
+      Number.isFinite(parsed.lat) &&
+      Number.isFinite(parsed.lng)
+    ) {
+      return {
+        lat: parsed.lat,
+        lng: parsed.lng,
+        capturedAt: typeof parsed.capturedAt === "number" ? parsed.capturedAt : Date.now(),
+      };
+    }
+  } catch {
+    // localStorage indisponível (modo privado, quota) — ignora.
+  }
+  return null;
+}
+
+function saveStoredLocation(loc: NearMeLocation | null): void {
+  try {
+    if (loc) {
+      localStorage.setItem(NEAR_ME_STORAGE_KEY, JSON.stringify(loc));
+    } else {
+      localStorage.removeItem(NEAR_ME_STORAGE_KEY);
+    }
+  } catch {
+    // ignora — não bloqueia a UX se localStorage falhar
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -78,6 +142,7 @@ function catalogItemToCardData(item: CatalogItem): InfluencerCardData {
     influencerFollowers: item.social_network.members,
     profileFollowers: item.social_network.members,
     influencerEngagement: item.social_network.engagement_percent ?? 0,
+    distanceKm: item.distance_km ?? null,
   };
 }
 
@@ -288,6 +353,15 @@ function CatalogTab() {
   const membershipMap = useInfluencerMembershipMap();
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
+  // "Perto de mim" — estado de geolocalização, persistido em localStorage
+  // para não pedir permissão a cada visita. Inicializado lazy (somente uma
+  // leitura no mount) para não bloquear render.
+  const [nearMeLocation, setNearMeLocation] = useState<NearMeLocation | null>(
+    () => loadStoredLocation(),
+  );
+  const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
+  const [nearMeRequesting, setNearMeRequesting] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(filters.q), 350);
     return () => clearTimeout(t);
@@ -301,9 +375,59 @@ function CatalogTab() {
       state: filters.state || undefined,
       followers_min: filters.followers_min ? Number(filters.followers_min) : undefined,
       followers_max: filters.followers_max ? Number(filters.followers_max) : undefined,
+      // Geo só vai pro backend quando temos coords salvas (admin já permitiu)
+      ...(nearMeLocation
+        ? {
+            lat: nearMeLocation.lat,
+            lng: nearMeLocation.lng,
+            radius_km: radiusKm,
+          }
+        : {}),
     }),
-    [debouncedQ, filters]
+    [debouncedQ, filters, nearMeLocation, radiusKm]
   );
+
+  /**
+   * Pede a localização atual via Geolocation API. Grava em localStorage
+   * pra evitar reprompt a cada visita. Em caso de erro/negação, mostra
+   * toast informativo — não bloqueia o resto do catálogo.
+   */
+  const handleEnableNearMe = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Seu navegador não suporta geolocalização.");
+      return;
+    }
+    setNearMeRequesting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc: NearMeLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          capturedAt: Date.now(),
+        };
+        setNearMeLocation(loc);
+        saveStoredLocation(loc);
+        setNearMeRequesting(false);
+      },
+      (err) => {
+        setNearMeRequesting(false);
+        const denied = err.code === err.PERMISSION_DENIED;
+        toast.error(
+          denied
+            ? "Permissão negada. Habilite a localização nas configurações do navegador."
+            : "Não foi possível obter sua localização agora. Tente novamente.",
+        );
+      },
+      // Precisão alta consome bateria e não é necessária pra "perto de mim".
+      // maximumAge 5min evita re-consulta cara em cliques sucessivos.
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
+    );
+  }, []);
+
+  const handleClearNearMe = useCallback(() => {
+    setNearMeLocation(null);
+    saveStoredLocation(null);
+  }, []);
 
   const {
     data,
@@ -349,8 +473,8 @@ function CatalogTab() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
-  function getNicheName(item: CatalogItem): string | null {
-    return item.niches[0]?.name ?? null;
+  function getNicheNames(item: CatalogItem): string[] {
+    return item.niches.map((n) => n.name).filter((s) => s.trim().length > 0);
   }
 
   return (
@@ -392,6 +516,48 @@ function CatalogTab() {
             onChange={(e) => setFilter("state", e.target.value)}
           />
         </div>
+
+        {/* Filtro "Perto de mim" — usa Geolocation API + filtro geo do backend
+            (ver docs/api-creators-near-me.md). */}
+        {nearMeLocation ? (
+          <div className="flex items-center gap-2">
+            <div className="w-32">
+              <Select
+                options={RADIUS_OPTIONS}
+                value={String(radiusKm)}
+                onChange={(v) => setRadiusKm(Number(v))}
+                placeholder="Raio"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearNearMe}
+              className="h-11 rounded-full whitespace-nowrap border-primary-300 text-primary-700"
+              title="Remover filtro de proximidade"
+            >
+              <span className="flex items-center gap-1.5">
+                <Icon name="MapPinCheck" size={16} color="var(--color-primary-600)" />
+                Perto de mim
+                <Icon name="X" size={14} color="var(--color-primary-600)" />
+              </span>
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleEnableNearMe}
+            disabled={nearMeRequesting}
+            className="h-11 rounded-full whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
+            title="Filtrar criadores próximos a você"
+          >
+            <span className="flex items-center gap-1.5">
+              <Icon name="MapPin" size={16} color="#404040" />
+              {nearMeRequesting ? "Localizando…" : "Perto de mim"}
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* Count */}
@@ -418,13 +584,13 @@ function CatalogTab() {
             {allItems.map((item) => {
               console.log(item)
               const cardData = catalogItemToCardData(item);
-              const nicheName = getNicheName(item);
+              const nicheNames = getNicheNames(item);
 
               return (
                 <InfluencerProfileCard
                   key={cardData.profileKey}
                   data={cardData}
-                  nicheName={nicheName}
+                  nicheNames={nicheNames}
                   inLists={membershipMap.get(item.user.id) ?? []}
                   onViewProfile={() =>
                     navigate({

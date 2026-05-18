@@ -537,6 +537,8 @@ function RouteComponent() {
           <ApplicationsTab
             focusCampaignUserId={pendingFocusCampaignUser}
             onFocusUserConsumed={handleFocusUserConsumed}
+            paymentType={campaign?.payment_method}
+            phasesWithFormats={phases}
           />
         );
       case "curation":
@@ -544,6 +546,8 @@ function RouteComponent() {
           <CurationTab
             focusCampaignUserId={pendingFocusCampaignUser}
             onFocusUserConsumed={handleFocusUserConsumed}
+            paymentType={campaign?.payment_method}
+            phasesWithFormats={phases}
           />
         );
       case "shipment":

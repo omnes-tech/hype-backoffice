@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
+import { StarRating } from "@/components/ui/star-rating";
 import {
   useInfluencerEvaluation,
   useBrandEvaluation,
@@ -27,47 +28,6 @@ const PERFORMANCE_OPTIONS: { value: PerformanceLevel; label: string; color: stri
 const labelClass = "text-sm font-medium text-[#0A0A0A]";
 const inputClass =
   "w-full rounded-[12px] bg-[#F5F5F5] px-4 py-2.5 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] outline-none resize-y";
-
-// ---------------------------------------------------------------------------
-// StarRating
-// ---------------------------------------------------------------------------
-
-function StarRating({
-  value,
-  onChange,
-  readonly = false,
-}: {
-  value: number;
-  onChange?: (v: number) => void;
-  readonly?: boolean;
-}) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => {
-        const filled = (hovered || value) >= star;
-        return (
-          <button
-            key={star}
-            type="button"
-            disabled={readonly}
-            onClick={() => onChange?.(star)}
-            onMouseEnter={() => !readonly && setHovered(star)}
-            onMouseLeave={() => !readonly && setHovered(0)}
-            className={readonly ? "cursor-default" : "cursor-pointer"}
-          >
-            <Icon
-              name="Star"
-              size={24}
-              color={filled ? "#eab308" : "#d4d4d4"}
-              className={filled ? "fill-[#eab308]" : "fill-[#d4d4d4]"}
-            />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Modal de avaliação

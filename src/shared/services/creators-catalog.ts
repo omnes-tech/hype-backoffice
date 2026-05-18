@@ -30,6 +30,8 @@ export interface CatalogItem {
   social_network: CatalogSocialNetwork;
   user: CatalogUser;
   niches: CatalogNiche[];
+  /** Distância (km) do admin até o influencer. Presente só quando o filtro geo é aplicado. */
+  distance_km?: number | null;
 }
 
 export interface CreatorsCatalogFilters {
@@ -40,6 +42,12 @@ export interface CreatorsCatalogFilters {
   city?: string;
   followers_min?: number;
   followers_max?: number;
+  /** Latitude do admin (origem da busca "perto de mim"). Range: [-90, 90]. */
+  lat?: number;
+  /** Longitude do admin. Range: [-180, 180]. */
+  lng?: number;
+  /** Raio de busca em km. Range: (0, 500]. Default sugerido: 50. */
+  radius_km?: number;
   page?: number;
   per_page?: number;
 }
@@ -112,10 +120,16 @@ function normalizeItem(raw: unknown): CatalogItem | null {
   const sn = normalizeSocialNetwork(o.social_network);
   const user = normalizeUser(o.user);
   if (!sn || !user) return null;
+  const rawDistance = o.distance_km;
+  const distance_km =
+    rawDistance != null && Number.isFinite(Number(rawDistance))
+      ? Number(rawDistance)
+      : null;
   return {
     social_network: sn,
     user,
     niches: normalizeNiches(o.niches),
+    distance_km,
   };
 }
 
@@ -149,6 +163,19 @@ export async function getCreatorsCatalog(
     url.searchParams.set("followers_min", String(filters.followers_min));
   if (filters.followers_max)
     url.searchParams.set("followers_max", String(filters.followers_max));
+
+  // Filtro geo ("perto de mim") — só envia se os 3 vierem juntos.
+  // Backend exige os três ou nenhum (ver docs/api-creators-near-me.md §2.1).
+  if (
+    Number.isFinite(filters.lat) &&
+    Number.isFinite(filters.lng) &&
+    Number.isFinite(filters.radius_km) &&
+    (filters.radius_km as number) > 0
+  ) {
+    url.searchParams.set("lat", String(filters.lat));
+    url.searchParams.set("lng", String(filters.lng));
+    url.searchParams.set("radius_km", String(filters.radius_km));
+  }
 
   url.searchParams.set("page", String(filters.page ?? 1));
   url.searchParams.set("per_page", String(filters.per_page ?? 20));

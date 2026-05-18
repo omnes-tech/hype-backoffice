@@ -14,6 +14,7 @@ import { useBulkInfluencerActions } from "@/hooks/use-bulk-influencer-actions";
 import { useUpdateInfluencerStatus, useMoveToPreSelectionCuration } from "@/hooks/use-campaign-influencers";
 import { useNiches } from "@/hooks/use-niches";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
+import { useWorkspaceBalance } from "@/hooks/use-balance";
 
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
@@ -21,7 +22,15 @@ import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { InfluencerProfileCard } from "./shared/influencer-profile-card";
 import { RejectionModal } from "./shared/rejection-modal";
 import { BulkActionModal, type BulkActionType } from "./shared/bulk-action-modal";
+import { ApprovalCostBadge } from "./shared/approval-cost-badge";
+import {
+  computeApprovalCostCents,
+  fmtBRL,
+  type CampaignPhaseForCost,
+} from "./shared/prices-utils";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SHOW_APPROVAL_COST_METHODS = new Set(["fixed", "fixed_value", "price"]);
 
 /** Skeleton da aba Inscrições — espelha o layout real */
 export function ApplicationsTabSkeleton() {
@@ -84,6 +93,8 @@ export function ApplicationsTabSkeleton() {
 
 interface ApplicationWithProfile {
   influencerId: string;
+  /** campaign_users.id — identifica univocamente um (usuário, campanha). */
+  campaignUserId: string;
   influencerName: string;
   influencerUsername: string;
   influencerAvatar: string;
@@ -100,6 +111,8 @@ interface ApplicationWithProfile {
   sentAt?: string | null;
   updatedAt?: string | null;
   isExternal?: boolean;
+  /** Preços do influenciador para esse perfil (centavos BRL), quando disponíveis. */
+  prices?: Record<string, number>;
 }
 
 function buildInscriptionsProfiles(
@@ -122,6 +135,7 @@ function buildInscriptionsProfiles(
       if (infStatus === statusNorm && profiles.length === 0) {
         applications.push({
           influencerId: inf.id,
+          campaignUserId: inf.campaign_user_id ?? "",
           influencerName: inf.name,
           influencerUsername: inf.username,
           influencerAvatar: inf.avatar,
@@ -147,6 +161,7 @@ function buildInscriptionsProfiles(
             : "";
         applications.push({
           influencerId: inf.id,
+          campaignUserId: inf.campaign_user_id ?? "",
           influencerName: inf.name,
           influencerUsername: inf.username,
           influencerAvatar: profilePhoto || inf.avatar,
@@ -162,6 +177,7 @@ function buildInscriptionsProfiles(
           profileKey: `${inf.id}-${profile.id}`,
           updatedAt: inf.updated_at,
           isExternal: inf.is_external,
+          prices: profile.prices,
         });
       });
     }
@@ -173,12 +189,24 @@ function buildInscriptionsProfiles(
 interface ApplicationsTabProps {
   focusCampaignUserId?: string | null;
   onFocusUserConsumed?: () => void;
+  /** payment_method da campanha — controla exibição do custo de aprovação */
+  paymentType?: string | null;
+  /** Phases da campanha (formats + prices) — necessário para calcular custo local. */
+  phasesWithFormats?: ReadonlyArray<CampaignPhaseForCost>;
 }
 
 export function ApplicationsTab({
   focusCampaignUserId = null,
   onFocusUserConsumed,
+  paymentType,
+  phasesWithFormats = [],
 }: ApplicationsTabProps) {
+  const showApprovalCost =
+    !!paymentType && SHOW_APPROVAL_COST_METHODS.has(paymentType);
+
+  // Saldo real (BRL) do workspace — fonte única de verdade para gating.
+  const balanceQ = useWorkspaceBalance();
+  const availableCents = balanceQ.data?.available_cents ?? null;
   const navigate = useNavigate();
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -310,6 +338,25 @@ export function ApplicationsTab({
   const filteredApplications = useMemo(() => applyFilters(applicationsWithProfiles), [applicationsWithProfiles, applyFilters]);
   const filteredPreselections = useMemo(() => applyFilters(preselectionsWithProfiles), [preselectionsWithProfiles, applyFilters]);
   const currentFilteredList = segmentTab === "organic" ? filteredApplications : filteredPreselections;
+
+  // Custo de aprovação por card (centavos BRL) — cálculo 100% local.
+  //  - "price": soma prices do influenciador × formatos exigidos para a rede.
+  //  - "fixed"/"fixed_value": soma format.price × quantity das phases da campanha.
+  // Cache estável: depende só de paymentType, phases e da lista não-filtrada.
+  const costByProfileKey = useMemo<Map<string, number | null>>(() => {
+    const map = new Map<string, number | null>();
+    if (!showApprovalCost || !paymentType) return map;
+    for (const app of applicationsWithProfiles) {
+      const cents = computeApprovalCostCents(
+        paymentType,
+        app.profileType,
+        app.prices,
+        phasesWithFormats,
+      );
+      map.set(app.profileKey, cents);
+    }
+    return map;
+  }, [showApprovalCost, paymentType, applicationsWithProfiles, phasesWithFormats]);
 
   const currentFilteredKeys = useMemo(
     () => currentFilteredList.map((app) => app.profileKey),
@@ -494,6 +541,10 @@ export function ApplicationsTab({
   };
 
   const handleBulkApprove = () => {
+    if (bulkApprovalGate.blocked) {
+      toast.error(bulkApprovalGate.reason ?? "Saldo insuficiente para aprovar os selecionados.");
+      return;
+    }
     const selectedApps = currentFilteredList.filter((app) => selectedInfluencers.has(app.profileKey));
     const appsByNetworkId = new Map<string | number, typeof selectedApps>();
     selectedApps.forEach((app) => {
@@ -570,6 +621,48 @@ export function ApplicationsTab({
   const organicCount = applicationsWithProfiles.length;
   const preselectionCount = preselectionsWithProfiles.length;
 
+  // ── Gating de aprovação por saldo (BRL) ────────────────────────────────────
+  // Soma o custo dos selecionados em centavos e compara com `available_cents`
+  // do workspace. Fail-open quando saldo ainda não carregou — backend valida.
+  const bulkApprovalGate = useMemo<{ blocked: boolean; reason: string | null }>(() => {
+    if (!showApprovalCost) return { blocked: false, reason: null };
+    if (availableCents == null) return { blocked: false, reason: null };
+    if (selectedInfluencers.size === 0) return { blocked: false, reason: null };
+
+    let totalCents = 0;
+    let anyUnknown = false;
+    for (const app of currentFilteredList) {
+      if (!selectedInfluencers.has(app.profileKey)) continue;
+      const cents = costByProfileKey.get(app.profileKey);
+      if (cents == null) {
+        anyUnknown = true;
+        continue;
+      }
+      totalCents += cents;
+    }
+
+    // Custo desconhecido (ex.: "price" sem prices do influenciador) → fail-open;
+    // o admin precisa negociar antes, mas o front não bloqueia aprovação.
+    if (anyUnknown && totalCents === 0) {
+      return { blocked: false, reason: null };
+    }
+
+    if (totalCents > availableCents) {
+      return {
+        blocked: true,
+        reason: `Saldo insuficiente: necessário ${fmtBRL(totalCents)}, disponível ${fmtBRL(availableCents)}.`,
+      };
+    }
+
+    return { blocked: false, reason: null };
+  }, [
+    showApprovalCost,
+    availableCents,
+    selectedInfluencers,
+    currentFilteredList,
+    costByProfileKey,
+  ]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (tabLoading) return <ApplicationsTabSkeleton />;
@@ -644,7 +737,13 @@ export function ApplicationsTab({
                       <Icon name="ArrowRight" color="#404040" size={16} className="mr-2" />
                       Mover para Curadoria
                     </Button>
-                    <Button variant="outline" onClick={() => setBulkActionType("approve")} className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50">
+                    <Button
+                      variant="outline"
+                      onClick={() => setBulkActionType("approve")}
+                      disabled={bulkApprovalGate.blocked}
+                      title={bulkApprovalGate.blocked ? (bulkApprovalGate.reason ?? undefined) : undefined}
+                      className="h-11 rounded-full font-semibold text-success-600 border-success-200 hover:bg-success-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
                       <Icon name="Check" color="#16a34a" size={16} className="mr-2" />
                       Aprovar selecionados
                     </Button>
@@ -728,10 +827,23 @@ export function ApplicationsTab({
                     ? isUpdatingStatus || isMovingToPreSelectionCuration
                     : isUpdatingStatus;
 
+                  const cardCostCents = showApprovalCost
+                    ? costByProfileKey.get(app.profileKey) ?? null
+                    : null;
+                  // Bloqueio individual: card alone caberia no saldo?
+                  // Apenas quando temos custo conhecido E saldo carregado.
+                  const cardCanApprove =
+                    !showApprovalCost || availableCents == null || cardCostCents == null
+                      ? undefined
+                      : cardCostCents <= availableCents;
+                  const cardBlocked = cardCanApprove === false;
+
                   return (
                     <InfluencerProfileCard
                       key={app.profileKey}
-                      data={app}
+                      // Custo já calculado upstream (costSlot). Não exibimos o
+                      // breakdown de preços do influenciador aqui — só o badge.
+                      data={{ ...app, prices: undefined }}
                       nicheName={nicheName}
                       isSelected={selectedInfluencers.has(app.profileKey)}
                       isActionLoading={actionLoading}
@@ -746,6 +858,26 @@ export function ApplicationsTab({
                           : () => handleMoveToCuration(app)
                       }
                       onViewProfile={() => navigate({ to: "/influencer/$influencerId", params: { influencerId: app.influencerId } })}
+                      costSlot={
+                        showApprovalCost ? (
+                          <ApprovalCostBadge
+                            costCents={cardCostCents}
+                            canApprove={cardCanApprove}
+                            reason={
+                              cardBlocked
+                                ? `Saldo do workspace insuficiente (${fmtBRL(availableCents ?? 0)} disponível).`
+                                : null
+                            }
+                            isLoading={balanceQ.isLoading}
+                          />
+                        ) : null
+                      }
+                      disableApprove={cardBlocked}
+                      disableApproveReason={
+                        cardBlocked
+                          ? "Saldo do workspace insuficiente para esta aprovação."
+                          : undefined
+                      }
                     />
                   );
                 })}

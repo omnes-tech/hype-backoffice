@@ -15,7 +15,6 @@ import { useBulkScriptActions } from "@/hooks/use-bulk-script-actions";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import {
   getSocialNetworkDisplayLabel,
-  SocialNetworkCornerBadge,
   SocialNetworkIcon,
 } from "@/components/social-network-icon";
 import { RejectionModal } from "./shared/rejection-modal";
@@ -386,7 +385,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
               <p className="text-neutral-600 mt-4">Nenhum roteiro encontrado</p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-x-3 gap-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {filteredScripts.map((script) => {
                 const resolvedSocialNetwork =
                   script.social_network ||
@@ -397,129 +396,141 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     : "") ||
                   "";
 
+                const networkLabel = getSocialNetworkDisplayLabel(resolvedSocialNetwork);
+                const influencerNameLabel =
+                  script.influencerName || script.influencer_name || "Sem nome";
+                const scriptText =
+                  script.script || script.scriptText || script.script_text || "";
+                const phaseNumber =
+                  script.phase?.order ?? getPhaseNumber(script.phase_id) ?? null;
+                const formatLabel =
+                  script.content_format_type ||
+                  (isContentFormatObject(script.content_format) &&
+                    script.content_format.formats?.[0]?.type) ||
+                  null;
+                const isPending =
+                  script.status === "pending" || script.status === "awaiting_approval";
+                const isSelected = selectedScripts.has(script.id);
+
                 return (
-                <div
-                  key={script.id}
-                  className={`relative bg-[#f5f5f5] rounded-[12px] p-3 min-w-[260px] w-full max-w-[269px] flex flex-col gap-5 border transition-colors ${
-                    selectedScripts.has(script.id)
-                      ? "ring-2 ring-primary-600 ring-offset-2"
-                      : "border-transparent"
-                  }`}
-                >
-                  {/* Checkbox para múltiplas aprovações */}
-                  <div className="absolute top-3 left-3 z-10">
-                    <Checkbox
-                      checked={selectedScripts.has(script.id)}
-                      onCheckedChange={() => handleSelectScript(script.id)}
-                      className="rounded-[4px] border-[#c8c8c8] bg-white size-6"
-                    />
-                  </div>
-
-                  {/* Top: avatar + fase */}
-                  <div className="flex items-center justify-between pl-8">
-                    <div className="relative w-[60px] h-[60px] rounded-[16px] overflow-visible shrink-0 flex items-center justify-center bg-neutral-200">
-                      <div className="size-full overflow-hidden rounded-[16px] flex items-center justify-center">
-                        <Avatar
-                          src={script.influencerAvatar || ""}
-                          alt={script.influencerName || script.influencer_name || ""}
-                          size="2xl"
-                        />
+                  <div
+                    key={script.id}
+                    className={`flex min-h-[320px] w-full min-w-0 flex-col gap-5 rounded-xl bg-neutral-100 p-3 border transition-colors ${
+                      isSelected && isPending
+                        ? "border-primary-500 ring-1 ring-primary-200"
+                        : "border-transparent"
+                    }`}
+                  >
+                    {/* Topo: avatar (com checkbox circular) + network icon */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="relative shrink-0">
+                        <div className="size-[60px] overflow-hidden rounded-2xl bg-neutral-200">
+                          <Avatar
+                            src={script.influencerAvatar || ""}
+                            alt={influencerNameLabel}
+                            size="2xl"
+                          />
+                        </div>
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScript(script.id)}
+                            aria-pressed={isSelected}
+                            className="absolute -left-2 -top-2 flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm"
+                          >
+                            {isSelected ? (
+                              <Icon name="Check" size={14} color="var(--color-primary-600)" />
+                            ) : (
+                              <div className="size-3 rounded-full border-2 border-neutral-300" />
+                            )}
+                          </button>
+                        )}
                       </div>
-                      <SocialNetworkCornerBadge
-                        networkType={resolvedSocialNetwork}
-                        title={getSocialNetworkDisplayLabel(resolvedSocialNetwork)}
-                      />
-                    </div>
-                    {(script.phase || script.phase_id) && (
-                      <span className="bg-[#c4e3ff] px-4 py-2 rounded-[32px] text-base text-neutral-950">
-                        Fase{" "}
-                        {script.phase?.order ??
-                          getPhaseNumber(script.phase_id) ??
-                          "?"}
-                        {campaignPhases.length > 0
-                          ? `/${campaignPhases.length}`
-                          : ""}
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="flex flex-col gap-3">
-                    <p className="text-lg font-medium text-neutral-950 truncate">
-                      {script.influencerName || script.influencer_name || "Sem nome"}
-                    </p>
-                    <p className="text-sm text-[#4d4d4d] truncate">
-                      @
-                      {(script.influencerName || script.influencer_name || "")
-                        .replace(/\s+/g, "_") || "username"}
-                    </p>
-                  </div>
-
-                  {resolvedSocialNetwork ? (
-                    <div className="flex gap-2.5 items-center">
-                      <SocialNetworkIcon
-                        networkType={resolvedSocialNetwork}
-                        color="#737373"
-                        size={20}
-                      />
-                    </div>
-                  ) : null}
-
-                  {/* Preview do roteiro */}
-                  <p className="text-sm text-[#4d4d4d] leading-5 h-[59px] overflow-hidden text-ellipsis line-clamp-3">
-                    {script.script || script.scriptText || script.script_text || "Sem texto"}
-                  </p>
-
-                  {/* Tag formato (Stories, Post estático, Reels) */}
-                  {(script.content_format_type || script.content_format) && (
-                    <span className="bg-[#e2e2e2] px-4 py-2 rounded-[32px] text-base text-neutral-950 inline-flex justify-center w-fit">
-                      {script.content_format_type ||
-                        (isContentFormatObject(script.content_format) &&
-                        script.content_format.formats?.[0]?.type) ||
-                        "Conteúdo"}
-                    </span>
-                  )}
-
-                  {/* Ações por status */}
-                  <div className="flex flex-col gap-1 mt-auto">
-                    {(script.status === "pending" ||
-                      script.status === "awaiting_approval") && (
-                      <div className="flex gap-1">
-                        <Button
-                          onClick={() => handleApprove(script)}
-                          disabled={isApproving || isRejecting}
-                          className="flex-1 h-11 rounded-[24px] bg-primary-600 text-white border-0 font-semibold hover:bg-primary-700"
+                      {resolvedSocialNetwork && (
+                        <div
+                          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200/90 bg-white shadow-sm"
+                          title={networkLabel}
+                          aria-label={`Rede: ${networkLabel}`}
                         >
-                          <div className="flex items-center gap-1">
-                            <Icon name="Check" color="#FAFAFA" size={24} />
-                            <span>Aprovar</span>
-                          </div>
-                        </Button>
+                          <SocialNetworkIcon
+                            networkType={resolvedSocialNetwork}
+                            size={22}
+                            color="#404040"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Nome do influenciador */}
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <p className="truncate text-xl font-medium leading-6 text-neutral-950">
+                        {influencerNameLabel}
+                      </p>
+                    </div>
+
+                    {/* Chips: Fase + Formato */}
+                    {(phaseNumber != null || formatLabel) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {phaseNumber != null && (
+                          <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium leading-tight text-primary-700">
+                            Fase {phaseNumber}
+                            {campaignPhases.length > 0 ? `/${campaignPhases.length}` : ""}
+                          </span>
+                        )}
+                        {formatLabel && (
+                          <span className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-medium leading-tight capitalize text-neutral-700">
+                            {formatLabel}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Preview do roteiro */}
+                    <div className="flex flex-col gap-1 rounded-lg bg-neutral-200 p-3">
+                      <p className="text-xs font-medium text-neutral-600">Roteiro</p>
+                      <p className="line-clamp-3 min-h-[60px] text-sm leading-5 text-neutral-800">
+                        {scriptText || "Sem texto"}
+                      </p>
+                    </div>
+
+                    {/* Ações por status */}
+                    <div className="mt-auto flex flex-col gap-2">
+                      {isPending && (
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            onClick={() => handleApprove(script)}
+                            disabled={isApproving || isRejecting}
+                            className="h-11 flex-1 rounded-full border-0 bg-primary-600 text-base font-semibold text-white hover:bg-primary-700"
+                          >
+                            <Icon name="Check" size={20} color="#fafafa" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleOpenDetailModal(script)}
+                            className="h-11 flex-1 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50"
+                          >
+                            Avaliar
+                          </Button>
+                        </div>
+                      )}
+                      {script.status === "approved" && (
+                        <p className="text-base font-medium text-neutral-600">
+                          Aprovado
+                        </p>
+                      )}
+                      {(script.status === "correction" || script.status === "rejected") && (
                         <Button
                           variant="outline"
                           onClick={() => handleOpenDetailModal(script)}
-                          className="flex-1 h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
+                          className="h-11 rounded-full border-neutral-200 text-base font-semibold text-neutral-600 hover:bg-neutral-50"
                         >
-                          Avaliar
+                          Visualizar feedback
                         </Button>
-                      </div>
-                    )}
-                    {script.status === "approved" && (
-                      <div className="flex items-center gap-1 h-11 px-4 rounded-[24px] border border-[#e5e5e5] bg-white text-[#585858] font-semibold text-base">
-                        <Icon name="Check" color="#585858" size={24} />
-                        <span>Aprovado</span>
-                      </div>
-                    )}
-                    {(script.status === "correction" || script.status === "rejected") && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleOpenDetailModal(script)}
-                        className="h-11 rounded-[24px] border-[#e5e5e5] text-[#585858] font-semibold"
-                      >
-                        Visualizar feedback
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
                 );
               })}
             </div>

@@ -285,12 +285,43 @@ export function DashboardTab({ campaignId, campaign, metrics, progressPercentage
   }, [campaign.phases]);
 
   const remunerationLabel = useMemo(() => {
-    if (campaign.paymentType === "fixed") return "Por conteudo publicado";
+    if (campaign.paymentType === "fixed" || campaign.paymentType === "fixed_value") return "Por conteúdo publicado";
+    if (campaign.paymentType === "price") return "Valor do influenciador";
     if (campaign.paymentType === "swap") return "Permuta";
     if (campaign.paymentType === "cpa") return "CPA";
     if (campaign.paymentType === "cpm") return "CPM";
     return "-";
-  }, [campaign.paymentType, campaign.paymentFixedAmount]);
+  }, [campaign.paymentType]);
+
+  /**
+   * Valor monetário exibido abaixo do label de remuneração, quando aplicável.
+   * - "fixed"/"fixed_value": "R$ X por conteúdo"
+   * - "swap": "Valor de mercado: R$ X" (quando informado)
+   * - "cpa": "R$ X por ação"
+   * - "cpm": "R$ X por mil"
+   * - "price"/sem valor: null (varia por influenciador / não monetário)
+   */
+  const remunerationValue = useMemo<string | null>(() => {
+    if (campaign.paymentType === "fixed" || campaign.paymentType === "fixed_value") {
+      return campaign.paymentFixedAmount ? `R$ ${campaign.paymentFixedAmount} por conteúdo` : null;
+    }
+    if (campaign.paymentType === "swap") {
+      return campaign.paymentSwapMarketValue ? `Valor de mercado: R$ ${campaign.paymentSwapMarketValue}` : null;
+    }
+    if (campaign.paymentType === "cpa") {
+      return campaign.paymentCpaValue ? `R$ ${campaign.paymentCpaValue} por ação` : null;
+    }
+    if (campaign.paymentType === "cpm") {
+      return campaign.paymentCpmValue ? `R$ ${campaign.paymentCpmValue} por mil` : null;
+    }
+    return null;
+  }, [
+    campaign.paymentType,
+    campaign.paymentFixedAmount,
+    campaign.paymentSwapMarketValue,
+    campaign.paymentCpaValue,
+    campaign.paymentCpmValue,
+  ]);
 
   const locationLabel = useMemo(() => {
     if (campaign.state && campaign.city) return `${campaign.city}, ${campaign.state}`;
@@ -416,7 +447,12 @@ export function DashboardTab({ campaignId, campaign, metrics, progressPercentage
             </div>
             <div className="flex-1 min-w-[120px] pl-4 pr-5 py-5 flex flex-col gap-3">
               <p className="text-sm text-neutral-500">Remuneração</p>
-              <p className="text-base font-medium text-neutral-950">{remunerationLabel === "Permuta" || "fixed" ? "" : "R$"}{remunerationLabel}</p>
+              <div className="flex flex-col gap-0.5">
+                <p className="text-base font-medium text-neutral-950">{remunerationLabel}</p>
+                {remunerationValue && (
+                  <p className="text-sm text-neutral-600 tabular-nums">{remunerationValue}</p>
+                )}
+              </div>
             </div>
           </div>
 

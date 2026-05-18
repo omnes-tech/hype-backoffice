@@ -339,6 +339,12 @@ export interface Influencer {
     /** Foto do perfil na rede (URL/path da API) */
     photo?: string | null;
     status?: Influencer["status"];
+    /**
+     * Preços por formato (centavos BRL) definidos pelo influenciador.
+     * Presente quando o backend inclui — usado para gating de aprovação
+     * em campanhas com `payment_method === "price"`.
+     */
+    prices?: Record<string, number>;
   }>;
 }
 

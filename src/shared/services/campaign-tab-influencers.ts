@@ -28,6 +28,12 @@ export interface InscriptionApiSocialNetwork {
   members?: number | null;
   photo?: string | null;
   status?: string | null;
+  /**
+   * Preços por formato (centavos BRL) definidos pelo influenciador.
+   * Presente quando o backend inclui o bloco — usado para cálculo de
+   * custo de aprovação quando `payment_method === "price"`.
+   */
+  prices?: Record<string, number> | null;
 }
 
 export interface InscriptionApiRow {
@@ -80,6 +86,23 @@ function normalizeInscriptionStatus(s: string): Influencer["status"] {
     "rejected",
   ]);
   return (allowed.has(v) ? v : "applications") as Influencer["status"];
+}
+
+/**
+ * Normaliza dict de preços do influenciador (mantém só valores numéricos
+ * finitos; descarta entradas inválidas). Retorna `undefined` quando o
+ * backend não envia preços ou o dict é vazio.
+ */
+function normalizePricesDict(
+  raw: Record<string, number> | null | undefined,
+): Record<string, number> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const n = Number(v);
+    if (Number.isFinite(n)) out[k] = n;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -137,6 +160,7 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
                 : undefined,
             photo: networkPhoto || null,
             status: netStatus,
+            prices: normalizePricesDict(sn.prices),
           },
         ]
       : [],

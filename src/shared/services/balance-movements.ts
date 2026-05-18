@@ -80,7 +80,7 @@ export interface MovementsFilters {
 // ---- Consumo por campanha -------------------------------------------------
 
 export type CampaignStatus = "active" | "finished" | "draft" | "all";
-export type PaymentMethod = "fixed" | "cpm" | "cpa" | "swap";
+export type PaymentMethod = "fixed" | "cpm" | "cpa" | "swap" | "price";
 export type ConsumptionOrder =
   | "committed_desc"
   | "committed_asc"

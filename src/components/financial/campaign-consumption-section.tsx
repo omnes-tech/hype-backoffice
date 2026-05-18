@@ -28,6 +28,7 @@ const STATUS_FILTERS: { value: CampaignStatus; label: string }[] = [
 
 const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   fixed: "Fixo",
+  price: "Valor do influencer",
   cpm: "CPM",
   cpa: "CPA",
   swap: "Permuta",
@@ -35,6 +36,7 @@ const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 
 const PAYMENT_METHOD_BADGE: Record<PaymentMethod, string> = {
   fixed: "bg-primary-600/10 text-primary-700",
+  price: "bg-primary-600/10 text-primary-700",
   cpm: "bg-amber-100 text-amber-800",
   cpa: "bg-purple-100 text-purple-800",
   swap: "bg-neutral-200/60 text-neutral-700",
@@ -107,7 +109,7 @@ export function CampaignConsumptionSection() {
             <thead className="bg-neutral-50 text-xs uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Campanha</th>
-                <th className="text-left px-4 py-3 font-medium">Modalidade</th>
+                <th className="text-center px-4 py-3 font-medium">Modalidade</th>
                 <th className="text-right px-4 py-3 font-medium">Reservado</th>
                 <th className="text-right px-4 py-3 font-medium">Gasto</th>
                 <th className="text-left px-4 py-3 font-medium w-[200px]">
@@ -168,10 +170,10 @@ function CampaignRow({ item }: { item: CampaignConsumptionItem }) {
           </div>
         </Link>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 flex items-center justify-center">
         <span
           className={clsx(
-            "px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap",
+            "px-2 py-0.5 rounded-md text-xs text-center font-medium whitespace-nowrap",
             PAYMENT_METHOD_BADGE[item.payment_method],
           )}
         >
@@ -194,8 +196,8 @@ function CampaignRow({ item }: { item: CampaignConsumptionItem }) {
                   spentPct >= 90
                     ? "bg-danger-500"
                     : spentPct >= 70
-                    ? "bg-amber-500"
-                    : "bg-success-500",
+                      ? "bg-amber-500"
+                      : "bg-success-500",
                 )}
                 style={{ width: `${spentPct}%` }}
               />

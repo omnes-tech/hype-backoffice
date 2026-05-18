@@ -7,6 +7,7 @@ import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { useInfluencerProfile } from "@/hooks/use-influencer-profile";
 import { getUploadUrl } from "@/lib/utils/api";
 import { AudienceByAgePanel } from "@/components/audience-by-age-panel";
+import { CampaignEvaluationViewModal } from "@/components/campaign-tabs/shared/campaign-evaluation-view-modal";
 
 export const Route = createFileRoute("/(private)/(app)/influencer/$influencerId")({
   component: InfluencerProfileScreen,
@@ -154,6 +155,7 @@ function InfluencerProfileScreen() {
   const [metricsPosts, setMetricsPosts] = useState(10);
   const { data, isLoading, isError, error } = useInfluencerProfile(influencerId ?? "", metricsPosts);
   const [metricsTab, setMetricsTab] = useState<(typeof METRIC_NETWORKS)[number]>("Instagram");
+  const [evaluationTarget, setEvaluationTarget] = useState<{ id: string; name: string } | null>(null);
 
   const availableNetworks = METRIC_NETWORKS.filter(
     (n) => data?.metrics_by_network?.[n.toLowerCase()] != null
@@ -930,18 +932,40 @@ function InfluencerProfileScreen() {
                   </div>
                   <p className="text-sm text-neutral-500 shrink-0">{formatCampaignDate(c.date)}</p>
                 </div>
-                {c.rating != null && (
-                  <div className="flex gap-0.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Icon
-                        key={s}
-                        name="Star"
-                        size={20}
-                        color={s <= Math.round(c.rating!) ? "#eab308" : "#d4d4d4"}
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  {c.rating != null ? (
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Icon
+                          key={s}
+                          name="Star"
+                          size={20}
+                          color={s <= Math.round(c.rating!) ? "#eab308" : "#d4d4d4"}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs italic text-neutral-400">Sem avaliação</span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={c.rating == null}
+                    onClick={() =>
+                      setEvaluationTarget({
+                        id: c.id,
+                        name: c.campaign_name ?? "Campanha",
+                      })
+                    }
+                    className="h-8 rounded-full px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    title={c.rating == null ? "Ainda não avaliado" : "Ver avaliação"}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Icon name="Eye" size={13} color="#404040" />
+                      Ver avaliação
+                    </span>
+                  </Button>
+                </div>
                 {c.description ? (
                   <p className="text-sm text-neutral-600 line-clamp-2">{c.description}</p>
                 ) : null}
@@ -985,6 +1009,15 @@ function InfluencerProfileScreen() {
           Enviar convite
         </Button>
       </div>
+
+      {evaluationTarget && influencerId && (
+        <CampaignEvaluationViewModal
+          campaignId={evaluationTarget.id}
+          influencerId={influencerId}
+          campaignName={evaluationTarget.name}
+          onClose={() => setEvaluationTarget(null)}
+        />
+      )}
     </div>
   );
 }
