@@ -4,6 +4,8 @@ import { icons } from "lucide-react";
 import { SidebarItem } from "@/components/sidebar-item";
 import { SidebarUserMenu } from "@/components/sidebar-user-menu";
 import { useWorkspacePermissions } from "@/contexts/workspace-context";
+import { useAuth } from "@/contexts/auth-context";
+import { isPlatformAdmin } from "@/lib/utils/platform-admin";
 
 import hypeappLogo from "@/assets/images/hypeapp-logo.png";
 
@@ -13,6 +15,8 @@ export function Sidebar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isNarrow, setIsNarrow] = useState(false);
   const permissions = useWorkspacePermissions();
+  const { user } = useAuth();
+  const showPlatformAdmin = isPlatformAdmin(user);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -73,7 +77,7 @@ export function Sidebar() {
         />
       </div>
 
-      <nav className="flex-1 min-h-0">
+      <nav className="flex-1 min-h-0 flex flex-col gap-4">
         <ul className="flex flex-col gap-2">
           {visibleMenus.map((menu) => (
             <SidebarItem
@@ -85,6 +89,34 @@ export function Sidebar() {
             />
           ))}
         </ul>
+
+        {showPlatformAdmin && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 px-3">
+              <div className="h-px flex-1 bg-neutral-800" aria-hidden />
+              {!isNarrow && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary-500">
+                  Admin
+                </span>
+              )}
+              <div className="h-px flex-1 bg-neutral-800" aria-hidden />
+            </div>
+            <ul className="flex flex-col gap-2">
+              <SidebarItem
+                href="/admin/dashboard"
+                icon="ShieldCheck"
+                label="Dashboard"
+                compact={isNarrow}
+              />
+              <SidebarItem
+                href="/admin/notifications"
+                icon="Bell"
+                label="Notificações"
+                compact={isNarrow}
+              />
+            </ul>
+          </div>
+        )}
       </nav>
 
       <SidebarUserMenu compact={isNarrow} />

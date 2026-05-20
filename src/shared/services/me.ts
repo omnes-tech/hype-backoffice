@@ -11,6 +11,13 @@ function mapUserFromApi(raw: unknown): User {
     throw new Error("Resposta de usuário inválida");
   }
   const av = o.avatar ?? o.photo ?? o.profile_photo;
+  const platformRole =
+    typeof o.platform_role === "string" ? o.platform_role : undefined;
+  const isPlatformAdmin =
+    o.is_platform_admin === true ||
+    platformRole === "admin" ||
+    (Array.isArray(o.abilities) &&
+      (o.abilities as unknown[]).includes("platform:admin"));
   return {
     id,
     name: String(o.name ?? ""),
@@ -21,6 +28,7 @@ function mapUserFromApi(raw: unknown): User {
     created_at: String(o.created_at ?? ""),
     updated_at: String(o.updated_at ?? ""),
     avatar: typeof av === "string" && av.trim() ? av : null,
+    is_platform_admin: isPlatformAdmin || undefined,
   };
 }
 

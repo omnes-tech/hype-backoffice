@@ -8,6 +8,213 @@ export interface User {
   updated_at: string;
   /** Foto de perfil (path relativo ou URL) — `avatar`, `photo` na API. */
   avatar?: string | null;
+  /**
+   * Papel de plataforma (escopo global, fora de workspace).
+   * Backend deve retornar `true` em `GET /me` quando o usuário tem `platform_role = 'admin'`
+   * (ou ability `platform:admin`). Fallback temporário por env em `lib/utils/platform-admin.ts`
+   * enquanto backend não implementa. Ver `docs/api-super-admin-dashboard.md`.
+   */
+  is_platform_admin?: boolean;
+}
+
+export interface AdminPeriod {
+  /** YYYY-MM-DD */
+  from: string;
+  /** YYYY-MM-DD */
+  to: string;
+}
+
+export type AdminGranularity = "day" | "week" | "month";
+
+export interface AdminCreatorsSummary {
+  total: number;
+  new_in_period: number;
+  active_in_period: number;
+  total_social_networks: number;
+  avg_networks_per_creator: number;
+  activation_rate: number;
+}
+
+export interface AdminCampaignsSummary {
+  total: number;
+  active: number;
+  finished: number;
+  draft: number;
+  created_in_period: number;
+  avg_influencers_per_campaign: number;
+  workspaces_with_active_campaigns: number;
+  draft_to_active_rate: number;
+}
+
+export interface AdminFinancialSummary {
+  custody_balance: number;
+  total_volume_in_period: number;
+  paid_to_creators: number;
+  total_deposits: number;
+  platform_fees: number;
+  pending_payments: number;
+}
+
+export interface AdminDashboardSummary {
+  period: AdminPeriod;
+  creators: AdminCreatorsSummary;
+  campaigns: AdminCampaignsSummary;
+  financial: AdminFinancialSummary;
+}
+
+export interface AdminTimeSeriesPoint {
+  /** YYYY-MM-DD ou YYYY-MM (depende da granularidade) */
+  bucket: string;
+  value: number;
+}
+
+export interface AdminCreatorsStats extends AdminCreatorsSummary {
+  growth_series: AdminTimeSeriesPoint[];
+}
+
+export interface AdminCampaignsStats extends AdminCampaignsSummary {
+  evolution: {
+    bucket: string;
+    created: number;
+    published: number;
+    finished: number;
+  }[];
+}
+
+export interface AdminFinancialStats extends AdminFinancialSummary {
+  volume_series: {
+    bucket: string;
+    deposits: number;
+    payments: number;
+  }[];
+}
+
+export interface AdminNicheDistributionItem {
+  niche_id: number;
+  niche_name: string;
+  count: number;
+  percentage: number;
+}
+
+export type AdminCreatorSizeBucket =
+  | "ugc"
+  | "nano"
+  | "micro"
+  | "mid"
+  | "macro"
+  | "mega";
+
+export interface AdminSizeDistributionItem {
+  bucket: AdminCreatorSizeBucket;
+  count: number;
+  percentage: number;
+}
+
+export interface AdminSaasMetrics {
+  churn_rate: number;
+  ltv_estimate: number;
+  arpu: number;
+  nrr: number;
+  avg_ticket_per_campaign: number;
+  activation_rate_new_clients: number;
+  avg_customer_lifetime_days: number;
+  cac?: number | null;
+}
+
+export interface AdminWorkspaceRankingItem {
+  workspace_id: string;
+  workspace_name: string;
+  active_campaigns: number;
+  total_volume: number;
+  influencers_contracted: number;
+}
+
+export interface AdminGeoDistributionItem {
+  state: string;
+  count: number;
+  percentage: number;
+}
+
+// ───────────────────────────────────────────────────────────
+// Super Admin — Notificações (push / email / whatsapp)
+// Detalhes do contrato em `docs/api-super-admin-notifications.md`.
+// ───────────────────────────────────────────────────────────
+
+export type AdminNotificationChannel = "push" | "email" | "whatsapp";
+
+export type AdminNotificationStatus =
+  | "draft"
+  | "scheduled"
+  | "sending"
+  | "sent"
+  | "partially_failed"
+  | "failed"
+  | "cancelled";
+
+/** Tipo discriminado de filtro de audiência. */
+export type AdminAudienceFilter =
+  | { type: "all" }
+  | { type: "campaign"; campaign_id: string }
+  | { type: "niche"; niche_ids: number[] }
+  | { type: "followers"; min_followers: number; max_followers: number }
+  | {
+      type: "location";
+      states?: string[];
+      cities?: string[];
+    };
+
+export type AdminAudienceFilterType = AdminAudienceFilter["type"];
+
+/** Payload de criação enviado para o backend. */
+export interface AdminNotificationCreatePayload {
+  title: string;
+  body: string;
+  cta_url?: string | null;
+  channels: AdminNotificationChannel[];
+  audience: AdminAudienceFilter;
+  /**
+   * ISO 8601 com timezone (`2026-05-22T18:30:00-03:00`) quando agendado.
+   * `null`/`undefined` = enviar imediatamente.
+   */
+  scheduled_at?: string | null;
+}
+
+/** Resposta de `POST /admin/notifications/estimate-audience`. */
+export interface AdminAudienceEstimate {
+  total_recipients: number;
+  /** Quebra por canal (alguns criadores podem não ter email, etc.). */
+  by_channel: Partial<Record<AdminNotificationChannel, number>>;
+}
+
+/** Item retornado em `GET /admin/notifications` (lista). */
+export interface AdminNotificationListItem {
+  id: string;
+  title: string;
+  body: string;
+  cta_url: string | null;
+  channels: AdminNotificationChannel[];
+  audience: AdminAudienceFilter;
+  status: AdminNotificationStatus;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  created_at: string;
+  created_by: { id: number; name: string };
+  /** Estatísticas de entrega — populadas após processamento. */
+  stats?: {
+    total_recipients: number;
+    delivered: number;
+    failed: number;
+  };
+}
+
+/** Resposta completa de `GET /admin/notifications/{id}`. */
+export interface AdminNotificationDetail extends AdminNotificationListItem {
+  per_channel_stats?: Partial<
+    Record<
+      AdminNotificationChannel,
+      { sent: number; delivered: number; failed: number }
+    >
+  >;
 }
 
 /** Papéis em `GET /backoffice/me/workspaces` — @see API_BACKOFFICE_WORKSPACES_AND_PERMISSIONS.md */

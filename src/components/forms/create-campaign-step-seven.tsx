@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData } from "@/shared/types";
 import { useNiches } from "@/hooks/use-niches";
+import { formatDateToDisplay } from "@/shared/utils/date-validations";
 
 interface CreateCampaignStepSevenProps {
   formData: CampaignFormData;
@@ -74,11 +75,6 @@ const getContentTypeLabel = (value: string) => {
   return types[value] || value;
 };
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("pt-BR");
-};
 
 function ReviewCard({
   title,
@@ -440,7 +436,7 @@ export function CreateCampaignStepSeven({
                         />
                         <LabelValue
                           label="Data prevista de postagem"
-                          value={phase.postDate ? formatDate(phase.postDate) : null}
+                          value={phase.postDate ? formatDateToDisplay(phase.postDate) : null}
                         />
                         {(phase.postTime ?? "").trim() && (
                           <LabelValue

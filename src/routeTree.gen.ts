@@ -17,6 +17,7 @@ import { Route as publicResetPasswordRouteImport } from './screens/(public)/rese
 import { Route as publicForgotPasswordRouteImport } from './screens/(public)/forgot-password'
 import { Route as privateOnboardingLayoutRouteImport } from './screens/(private)/onboarding/_layout'
 import { Route as privateappLayoutRouteImport } from './screens/(private)/(app)/_layout'
+import { Route as privateadminLayoutRouteImport } from './screens/(private)/(admin)/_layout'
 import { Route as privateOnboardingIndexRouteImport } from './screens/(private)/onboarding/index'
 import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/index'
 import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private)/onboarding/welcome'
@@ -32,6 +33,8 @@ import { Route as privateappWorkspaceSettingsRouteImport } from './screens/(priv
 import { Route as privateappInfluencerInfluencerIdRouteImport } from './screens/(private)/(app)/influencer.$influencerId'
 import { Route as privateappCampaignsNewRouteImport } from './screens/(private)/(app)/campaigns.new'
 import { Route as privateappCampaignsCampaignIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId'
+import { Route as privateadminAdminNotificationsRouteImport } from './screens/(private)/(admin)/admin.notifications'
+import { Route as privateadminAdminDashboardRouteImport } from './screens/(private)/(admin)/admin.dashboard'
 import { Route as privateappCampaignsCampaignIdEditRouteImport } from './screens/(private)/(app)/campaigns.$campaignId.edit'
 import { Route as privateappCampaignsCampaignIdInfluencerInfluencerIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId.influencer.$influencerId'
 
@@ -70,6 +73,10 @@ const privateOnboardingLayoutRoute = privateOnboardingLayoutRouteImport.update({
 } as any)
 const privateappLayoutRoute = privateappLayoutRouteImport.update({
   id: '/(app)',
+  getParentRoute: () => privateLayoutRoute,
+} as any)
+const privateadminLayoutRoute = privateadminLayoutRouteImport.update({
+  id: '/(admin)',
   getParentRoute: () => privateLayoutRoute,
 } as any)
 const privateOnboardingIndexRoute = privateOnboardingIndexRouteImport.update({
@@ -154,6 +161,18 @@ const privateappCampaignsCampaignIdRoute =
     path: '/$campaignId',
     getParentRoute: () => privateappCampaignsRoute,
   } as any)
+const privateadminAdminNotificationsRoute =
+  privateadminAdminNotificationsRouteImport.update({
+    id: '/admin/notifications',
+    path: '/admin/notifications',
+    getParentRoute: () => privateadminLayoutRoute,
+  } as any)
+const privateadminAdminDashboardRoute =
+  privateadminAdminDashboardRouteImport.update({
+    id: '/admin/dashboard',
+    path: '/admin/dashboard',
+    getParentRoute: () => privateadminLayoutRoute,
+  } as any)
 const privateappCampaignsCampaignIdEditRoute =
   privateappCampaignsCampaignIdEditRouteImport.update({
     id: '/edit',
@@ -183,6 +202,8 @@ export interface FileRoutesByFullPath {
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding/': typeof privateOnboardingIndexRoute
+  '/admin/dashboard': typeof privateadminAdminDashboardRoute
+  '/admin/notifications': typeof privateadminAdminNotificationsRoute
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
@@ -206,6 +227,8 @@ export interface FileRoutesByTo {
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/': typeof privateappIndexRoute
   '/onboarding': typeof privateOnboardingIndexRoute
+  '/admin/dashboard': typeof privateadminAdminDashboardRoute
+  '/admin/notifications': typeof privateadminAdminNotificationsRoute
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
@@ -218,6 +241,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(private)': typeof privateLayoutRouteWithChildren
   '/(public)': typeof publicLayoutRouteWithChildren
+  '/(private)/(admin)': typeof privateadminLayoutRouteWithChildren
   '/(private)/(app)': typeof privateappLayoutRouteWithChildren
   '/(private)/onboarding': typeof privateOnboardingLayoutRouteWithChildren
   '/(public)/forgot-password': typeof publicForgotPasswordRoute
@@ -234,6 +258,8 @@ export interface FileRoutesById {
   '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
   '/(private)/(app)/': typeof privateappIndexRoute
   '/(private)/onboarding/': typeof privateOnboardingIndexRoute
+  '/(private)/(admin)/admin/dashboard': typeof privateadminAdminDashboardRoute
+  '/(private)/(admin)/admin/notifications': typeof privateadminAdminNotificationsRoute
   '/(private)/(app)/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/(private)/(app)/campaigns/new': typeof privateappCampaignsNewRoute
   '/(private)/(app)/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
@@ -260,6 +286,8 @@ export interface FileRouteTypes {
     | '/onboarding/welcome'
     | '/'
     | '/onboarding/'
+    | '/admin/dashboard'
+    | '/admin/notifications'
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
@@ -283,6 +311,8 @@ export interface FileRouteTypes {
     | '/onboarding/welcome'
     | '/'
     | '/onboarding'
+    | '/admin/dashboard'
+    | '/admin/notifications'
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
@@ -294,6 +324,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/(private)'
     | '/(public)'
+    | '/(private)/(admin)'
     | '/(private)/(app)'
     | '/(private)/onboarding'
     | '/(public)/forgot-password'
@@ -310,6 +341,8 @@ export interface FileRouteTypes {
     | '/(private)/onboarding/welcome'
     | '/(private)/(app)/'
     | '/(private)/onboarding/'
+    | '/(private)/(admin)/admin/dashboard'
+    | '/(private)/(admin)/admin/notifications'
     | '/(private)/(app)/campaigns/$campaignId'
     | '/(private)/(app)/campaigns/new'
     | '/(private)/(app)/influencer/$influencerId'
@@ -380,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: ''
       preLoaderRoute: typeof privateappLayoutRouteImport
+      parentRoute: typeof privateLayoutRoute
+    }
+    '/(private)/(admin)': {
+      id: '/(private)/(admin)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof privateadminLayoutRouteImport
       parentRoute: typeof privateLayoutRoute
     }
     '/(private)/onboarding/': {
@@ -487,6 +527,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateappCampaignsCampaignIdRouteImport
       parentRoute: typeof privateappCampaignsRoute
     }
+    '/(private)/(admin)/admin/notifications': {
+      id: '/(private)/(admin)/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof privateadminAdminNotificationsRouteImport
+      parentRoute: typeof privateadminLayoutRoute
+    }
+    '/(private)/(admin)/admin/dashboard': {
+      id: '/(private)/(admin)/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof privateadminAdminDashboardRouteImport
+      parentRoute: typeof privateadminLayoutRoute
+    }
     '/(private)/(app)/campaigns/$campaignId/edit': {
       id: '/(private)/(app)/campaigns/$campaignId/edit'
       path: '/edit'
@@ -503,6 +557,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface privateadminLayoutRouteChildren {
+  privateadminAdminDashboardRoute: typeof privateadminAdminDashboardRoute
+  privateadminAdminNotificationsRoute: typeof privateadminAdminNotificationsRoute
+}
+
+const privateadminLayoutRouteChildren: privateadminLayoutRouteChildren = {
+  privateadminAdminDashboardRoute: privateadminAdminDashboardRoute,
+  privateadminAdminNotificationsRoute: privateadminAdminNotificationsRoute,
+}
+
+const privateadminLayoutRouteWithChildren =
+  privateadminLayoutRoute._addFileChildren(privateadminLayoutRouteChildren)
 
 interface privateappCampaignsCampaignIdRouteChildren {
   privateappCampaignsCampaignIdEditRoute: typeof privateappCampaignsCampaignIdEditRoute
@@ -583,11 +650,13 @@ const privateOnboardingLayoutRouteWithChildren =
   )
 
 interface privateLayoutRouteChildren {
+  privateadminLayoutRoute: typeof privateadminLayoutRouteWithChildren
   privateappLayoutRoute: typeof privateappLayoutRouteWithChildren
   privateOnboardingLayoutRoute: typeof privateOnboardingLayoutRouteWithChildren
 }
 
 const privateLayoutRouteChildren: privateLayoutRouteChildren = {
+  privateadminLayoutRoute: privateadminLayoutRouteWithChildren,
   privateappLayoutRoute: privateappLayoutRouteWithChildren,
   privateOnboardingLayoutRoute: privateOnboardingLayoutRouteWithChildren,
 }
