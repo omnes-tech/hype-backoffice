@@ -44,6 +44,35 @@ export interface MovementRelated {
   campaign_id: number | null;
   campaign_user_id: number | null;
   hold_id: number | null;
+
+  // ---------------------------------------------------------------------
+  // Enriquecimento opcional (server-side join — ver docs/api-financial-movements-enriched.md).
+  // Backend faz LEFT JOIN nas tabelas relacionadas para evitar N+1 do frontend.
+  // Front exibe quando presentes, com fallback elegante quando ausentes.
+  // ---------------------------------------------------------------------
+
+  /** Título da campanha vinculada ao movimento (quando aplicável). */
+  campaign_title?: string | null;
+  /** Public_id da campanha (UUID) — usado para deep-link futuro. */
+  campaign_public_id?: string | null;
+  /** Path do banner da campanha (resolver via `getUploadUrl`). */
+  campaign_banner_url?: string | null;
+  /** Método de pagamento da campanha — exibido como chip para contexto. */
+  campaign_payment_method?: PaymentMethod | null;
+
+  /** Nome do influenciador (resolvido pelo `campaign_user_id` → `users`). */
+  influencer_name?: string | null;
+  /** Handle público do perfil envolvido no movimento (sem `@`). */
+  influencer_username?: string | null;
+  /** Path do avatar do influenciador. */
+  influencer_avatar?: string | null;
+
+  /** Tipo da rede social (instagram, tiktok, youtube, ugc…). */
+  social_network?: string | null;
+  /** Rótulo já resolvido pelo backend (opcional — front faz fallback via getNetworkLabel). */
+  social_network_label?: string | null;
+  /** Formato do conteúdo associado ao movimento (post, reels, video, etc.). */
+  content_type?: string | null;
 }
 
 export interface BalanceMovement {

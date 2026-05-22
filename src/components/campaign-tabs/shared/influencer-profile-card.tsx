@@ -82,6 +82,14 @@ interface InfluencerProfileCardProps {
   /** Mensagem exibida como tooltip quando `disableApprove` é true. */
   disableApproveReason?: string;
   /**
+   * Quando true, desabilita o botão "Convidar" mesmo que `onInvite` esteja
+   * presente. Usado para bloquear convite por saldo insuficiente (mesmo
+   * gating monetário aplicado à aprovação na aba de Inscrições).
+   */
+  disableInvite?: boolean;
+  /** Mensagem exibida como tooltip quando `disableInvite` é true. */
+  disableInviteReason?: string;
+  /**
    * Lista de formatos (contentType) que a campanha exige para a rede deste
    * card. Quando informada, o bloco de preços:
    *   - Filtra apenas os formatos pedidos pela campanha.
@@ -146,6 +154,8 @@ export function InfluencerProfileCard({
   costSlot,
   disableApprove = false,
   disableApproveReason,
+  disableInvite = false,
+  disableInviteReason,
   allowedPriceFormats,
 }: InfluencerProfileCardProps) {
   const rawFollowers =
@@ -332,9 +342,10 @@ export function InfluencerProfileCard({
                 {onInvite && (
                   <Button
                     type="button"
-                    className="h-11 px-1 rounded-full border border-neutral-200 bg-primary-600 font-semibold text-base text-neutral-50 hover:bg-primary-700 flex-1"
+                    className="h-11 px-1 rounded-full border border-neutral-200 bg-primary-600 font-semibold text-base text-neutral-50 hover:bg-primary-700 flex-1 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={onInvite}
-                    disabled={isActionLoading}
+                    disabled={isActionLoading || disableInvite}
+                    title={disableInvite ? disableInviteReason : undefined}
                   >
                     Convidar
                   </Button>

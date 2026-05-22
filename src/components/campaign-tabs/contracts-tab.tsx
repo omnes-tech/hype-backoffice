@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import {
   useCampaignContracts,
+  useContractTemplates,
   useDownloadContract,
   useResendContract,
 } from "@/hooks/use-campaign-contracts";
@@ -19,6 +20,7 @@ import {
   SendContractModal,
   type InfluencerOption,
 } from "./contracts/send-contract-modal";
+import { TemplatePreviewModal } from "./contracts/template-preview-modal";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -99,6 +101,7 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [presetCampaignUserId, setPresetCampaignUserId] = useState<string>("");
   const [detail, setDetail] = useState<CampaignContract | null>(null);
+  const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
 
   const queryFilters = useMemo(() => {
     const f: { status?: string } = {};
@@ -121,6 +124,11 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
   const { mutate: download, isPending: isDownloading } = useDownloadContract(
     campaignId || "",
   );
+
+  // Templates da plataforma — usados também pelo modal de envio, então o
+  // hook já está warm no cache (staleTime 5min). Aqui só consumimos a query.
+  const { data: templates = [], isLoading: isLoadingTemplates } =
+    useContractTemplates();
 
   // -----------------------------------------------------------------------
   // Enriquecimento opcional com username vindo do dashboard
@@ -215,6 +223,30 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
     });
   };
 
+  /**
+   * Visualiza o template padrão da plataforma.
+   *  - 0 templates: avisa que ainda não há modelo cadastrado.
+   *  - 1 template: abre direto em nova aba — evita modal desnecessário.
+   *  - 2+ templates: abre modal de seleção para o usuário escolher qual revisar.
+   */
+  const handleViewTemplate = () => {
+    if (isLoadingTemplates) return;
+    if (templates.length === 0) {
+      toast.info("Nenhum template padrão cadastrado ainda.");
+      return;
+    }
+    if (templates.length === 1) {
+      const url = templates[0]?.content;
+      if (!url) {
+        toast.error("O template padrão não possui URL disponível.");
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    setTemplatesModalOpen(true);
+  };
+
   const handleDownload = (contract: CampaignContract) => {
     if (!contract.id) return;
     // Quando o backend já entrega a URL direta, abrir nova aba é mais barato
@@ -274,6 +306,19 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
                   isSearchable
                 />
               </div>
+              <Button
+                variant="outline"
+                onClick={handleViewTemplate}
+                disabled={isLoadingTemplates}
+                title="Visualizar o modelo do contrato padrão"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Icon name="FileText" color="#404040" size={16} />
+                  {isLoadingTemplates
+                    ? "Carregando..."
+                    : "Ver template padrão"}
+                </span>
+              </Button>
               <Button onClick={() => openSendModal()}>
                 <span className="inline-flex items-center gap-2">
                   <Icon name="Send" color="#FAFAFA" size={16} />
@@ -313,6 +358,14 @@ export function ContractsTab({ influencers = [] }: ContractsTabProps) {
           initialInfluencerId={presetCampaignUserId || undefined}
           onClose={closeSendModal}
           onSuccess={refetch}
+        />
+      )}
+
+      {/* Modal de seleção de templates (só quando há mais de um) */}
+      {templatesModalOpen && (
+        <TemplatePreviewModal
+          templates={templates}
+          onClose={() => setTemplatesModalOpen(false)}
         />
       )}
 

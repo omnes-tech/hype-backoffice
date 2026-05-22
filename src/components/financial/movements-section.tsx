@@ -4,18 +4,24 @@ import { clsx } from "clsx";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { useMovements } from "@/hooks/use-balance-movements";
+import { getUploadUrl } from "@/lib/utils/api";
+import { getNetworkLabel } from "@/shared/constants/network-labels";
 import type {
   BalanceMovement,
   MovementType,
+  PaymentMethod,
 } from "@/shared/services/balance-movements";
 
 /**
  * Histórico de movimentações de saldo.
  *
- * Paginação cursor (useInfiniteQuery). Quando o backend ainda não expôs o
- * endpoint, o service devolve `{ items: [], next_cursor: null }` e a UI cai
- * naturalmente no empty state — sem mock, sem erro.
+ * Paginação cursor (useInfiniteQuery). Cada item é renderizado como card com
+ * o contexto completo do movimento (campanha + influenciador + rede + ator).
+ * Os campos enriquecidos vêm via JOIN server-side — ver
+ * `docs/api-financial-movements-enriched.md`. Quando ausentes, a UI cai num
+ * fallback elegante sem quebrar (campos legados continuam funcionando).
  */
 
 const TYPE_FILTERS: { value: MovementType | "all"; label: string }[] = [
@@ -39,6 +45,14 @@ const TYPE_BADGE: Record<MovementType, { bg: string; text: string; label: string
   adjustment_credit: { bg: "bg-success-500/10", text: "text-success-500", label: "Ajuste (+)" },
   adjustment_debit: { bg: "bg-danger-500/10", text: "text-danger-500", label: "Ajuste (−)" },
   payout: { bg: "bg-primary-600/10", text: "text-primary-700", label: "Pagamento" },
+};
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  fixed: "Valor fixo",
+  cpm: "CPM",
+  cpa: "CPA",
+  swap: "Permuta",
+  price: "Por entrega",
 };
 
 const formatBRL = (cents: number): string =>
@@ -91,11 +105,11 @@ export function MovementsSection() {
 
       <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-white">
         {query.isLoading ? (
-          <div className="p-6 space-y-2">
+          <div className="p-4 space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="h-12 rounded-xl bg-neutral-100 animate-pulse"
+                className="h-20 rounded-xl bg-neutral-100 animate-pulse"
               />
             ))}
           </div>
@@ -104,21 +118,11 @@ export function MovementsSection() {
         ) : items.length === 0 ? (
           <EmptyState />
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-xs uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">Quando</th>
-                <th className="text-left px-4 py-3 font-medium">Tipo</th>
-                <th className="text-left px-4 py-3 font-medium">Descrição</th>
-                <th className="text-right px-4 py-3 font-medium">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((m) => (
-                <MovementRow key={m.id} movement={m} />
-              ))}
-            </tbody>
-          </table>
+          <ul className="divide-y divide-neutral-100">
+            {items.map((m) => (
+              <MovementCard key={m.id} movement={m} />
+            ))}
+          </ul>
         )}
       </div>
 
@@ -138,52 +142,207 @@ export function MovementsSection() {
 }
 
 // ---------------------------------------------------------------------------
-// MovementRow
+// MovementCard — linha rica com contexto do movimento
 // ---------------------------------------------------------------------------
 
-function MovementRow({ movement }: { movement: BalanceMovement }) {
+function MovementCard({ movement }: { movement: BalanceMovement }) {
   const badge = TYPE_BADGE[movement.type];
   const isPositive = movement.amount_cents > 0;
   const isNegative = movement.amount_cents < 0;
+  const r = movement.related;
+
+  const hasCampaign = !!(r.campaign_title || r.campaign_id);
+  const hasInfluencer = !!(r.influencer_name || r.influencer_username);
+  const hasSocialNetwork = !!r.social_network;
 
   return (
-    <tr className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/50">
-      <td className="px-4 py-3 text-neutral-700 whitespace-nowrap tabular-nums">
-        {formatDateTime(movement.occurred_at)}
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={clsx(
-            "px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap",
-            badge.bg,
-            badge.text,
-          )}
-        >
-          {badge.label}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-neutral-700">
-        <div className="flex flex-col">
-          <span className="leading-tight">{movement.description || "—"}</span>
-          {movement.actor.name && movement.actor.type === "user" && (
-            <span className="text-xs text-neutral-500 leading-tight">
-              por {movement.actor.name}
+    <li className="px-4 py-3.5 hover:bg-neutral-50/60 transition-colors">
+      <div className="flex items-start justify-between gap-4">
+        {/* Coluna principal */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* Linha 1: tipo + data */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={clsx(
+                "px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap",
+                badge.bg,
+                badge.text,
+              )}
+            >
+              {badge.label}
             </span>
+            <span className="text-xs text-neutral-500 tabular-nums whitespace-nowrap">
+              {formatDateTime(movement.occurred_at)}
+            </span>
+          </div>
+
+          {/* Linha 2: descrição */}
+          {movement.description && (
+            <p className="text-sm text-neutral-800 leading-snug">
+              {movement.description}
+            </p>
+          )}
+
+          {/* Linha 3: campanha */}
+          {hasCampaign && (
+            <CampaignChip
+              title={r.campaign_title}
+              fallbackId={r.campaign_id}
+              bannerUrl={r.campaign_banner_url}
+              paymentMethod={r.campaign_payment_method}
+            />
+          )}
+
+          {/* Linha 4: influenciador + rede */}
+          {(hasInfluencer || hasSocialNetwork) && (
+            <InfluencerChip
+              name={r.influencer_name}
+              username={r.influencer_username}
+              avatar={r.influencer_avatar}
+              socialNetwork={r.social_network}
+              socialNetworkLabel={r.social_network_label}
+              contentType={r.content_type}
+            />
+          )}
+
+          {/* Linha 5: ator */}
+          {movement.actor.name && movement.actor.type === "user" && (
+            <p className="text-xs text-neutral-500 leading-tight">
+              por {movement.actor.name}
+            </p>
           )}
         </div>
-      </td>
-      <td
-        className={clsx(
-          "px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap",
-          isPositive && "text-success-600",
-          isNegative && "text-danger-500",
-          !isPositive && !isNegative && "text-neutral-500",
-        )}
-      >
-        {isPositive ? "+" : ""}
-        {formatBRL(movement.amount_cents)}
-      </td>
-    </tr>
+
+        {/* Coluna direita: valor */}
+        <div
+          className={clsx(
+            "text-right font-semibold tabular-nums whitespace-nowrap shrink-0",
+            isPositive && "text-success-600",
+            isNegative && "text-danger-500",
+            !isPositive && !isNegative && "text-neutral-500",
+          )}
+        >
+          {isPositive ? "+" : ""}
+          {formatBRL(movement.amount_cents)}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CampaignChip — banner + título + método de pagamento
+// ---------------------------------------------------------------------------
+
+interface CampaignChipProps {
+  title: string | null | undefined;
+  fallbackId: number | null;
+  bannerUrl: string | null | undefined;
+  paymentMethod: PaymentMethod | null | undefined;
+}
+
+function CampaignChip({
+  title,
+  fallbackId,
+  bannerUrl,
+  paymentMethod,
+}: CampaignChipProps) {
+  const displayTitle =
+    title?.trim() || (fallbackId != null ? `Campanha #${fallbackId}` : "—");
+  const bannerSrc = getUploadUrl(bannerUrl);
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      {bannerSrc ? (
+        <img
+          src={bannerSrc}
+          alt=""
+          loading="lazy"
+          className="size-6 rounded-md object-cover bg-neutral-100"
+        />
+      ) : (
+        <div className="size-6 rounded-md bg-primary-50 flex items-center justify-center shrink-0">
+          <Icon name="Megaphone" size={12} color="#7c3aed" />
+        </div>
+      )}
+      <span className="text-neutral-700 truncate font-medium">
+        {displayTitle}
+      </span>
+      {paymentMethod && (
+        <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 text-[10px] font-medium uppercase tracking-wide whitespace-nowrap">
+          {PAYMENT_METHOD_LABEL[paymentMethod] ?? paymentMethod}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// InfluencerChip — avatar + nome + rede social + formato
+// ---------------------------------------------------------------------------
+
+interface InfluencerChipProps {
+  name: string | null | undefined;
+  username: string | null | undefined;
+  avatar: string | null | undefined;
+  socialNetwork: string | null | undefined;
+  socialNetworkLabel: string | null | undefined;
+  contentType: string | null | undefined;
+}
+
+function InfluencerChip({
+  name,
+  username,
+  avatar,
+  socialNetwork,
+  socialNetworkLabel,
+  contentType,
+}: InfluencerChipProps) {
+  const avatarSrc = getUploadUrl(avatar);
+  const handle = username?.replace(/^@/, "").trim();
+  const networkLabel = socialNetwork
+    ? getNetworkLabel(socialNetwork, socialNetworkLabel || socialNetwork)
+    : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      {avatarSrc ? (
+        <img
+          src={avatarSrc}
+          alt=""
+          loading="lazy"
+          className="size-6 rounded-full object-cover bg-neutral-100"
+        />
+      ) : name || handle ? (
+        <div className="size-6 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
+          <Icon name="User" size={12} color="#737373" />
+        </div>
+      ) : null}
+
+      {name && (
+        <span className="text-neutral-700 font-medium truncate">{name}</span>
+      )}
+      {handle && (
+        <span className="text-neutral-500 truncate">@{handle}</span>
+      )}
+
+      {networkLabel && (
+        <span className="inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-neutral-700">
+          <SocialNetworkIcon
+            networkType={socialNetwork ?? undefined}
+            size={12}
+            color="#525252"
+          />
+          {networkLabel}
+        </span>
+      )}
+
+      {contentType && (
+        <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 text-[10px] font-medium uppercase tracking-wide">
+          {contentType}
+        </span>
+      )}
+    </div>
   );
 }
 

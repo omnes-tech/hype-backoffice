@@ -42,6 +42,19 @@ import {
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfluencerProfileCard, type InfluencerCardData } from "@/components/campaign-tabs/shared/influencer-profile-card";
+import { useWorkspaceBalance } from "@/hooks/use-balance";
+import {
+  computeApprovalCostCents,
+  fmtBRL,
+  type CampaignPhaseForCost,
+} from "@/components/campaign-tabs/shared/prices-utils";
+
+/**
+ * Métodos de pagamento que debitam saldo BRL do workspace e, portanto,
+ * exigem gating na ação "Convidar". Espelha o conjunto usado na aba de
+ * Inscrições (applications-tab.tsx).
+ */
+const SHOW_APPROVAL_COST_METHODS = new Set(["fixed", "fixed_value", "price"]);
 
 interface ExtendedInfluencer extends Influencer {
   socialNetwork?: string;
@@ -65,9 +78,12 @@ interface InfluencerSelectionTabProps {
   influencers: Influencer[];
   campaignPhases?: Array<{ id: string; label: string; publish_date?: string }>;
   maxInfluencers?: number;
-  phasesWithFormats?: Array<{
-    formats?: Array<{ socialNetwork: string; contentType?: string }>;
-  }>;
+  /**
+   * Phases com formatos da campanha. Estrutura compatível com `CampaignPhaseForCost`
+   * (inclui `quantity` e `price` quando o método é `fixed`/`fixed_value`) — necessária
+   * para calcular o custo de aprovação e gating monetário do convite.
+   */
+  phasesWithFormats?: ReadonlyArray<CampaignPhaseForCost>;
   onOpenMuralModal?: () => void;
   /** Método de pagamento da campanha — controla exibição de preços nos cards */
   paymentMethod?: string;
@@ -443,6 +459,16 @@ export function InfluencerSelectionTab({
 
   const isPriceMode = paymentMethod === "price";
 
+  // ── Gating monetário (BRL) — mesmo padrão da aba de Inscrições ────────────
+  // Convidar leva ao aceite que debita o saldo na aprovação. Bloqueamos a
+  // ação cedo para não criar convites "fantasma" que travam quando o admin
+  // tentar aprovar mais tarde. Saldo é o BRL real do workspace (Web2);
+  // nunca usar HYPE/blockchain — ver feedback `saldo-brl-nao-blockchain`.
+  const showApprovalCost =
+    !!paymentMethod && SHOW_APPROVAL_COST_METHODS.has(paymentMethod);
+  const balanceQ = useWorkspaceBalance();
+  const availableCents = balanceQ.data?.available_cents ?? null;
+
   /** Resolve a lista de formatos permitidos para o card baseado em sua rede. */
   const getAllowedPriceFormats = useCallback(
     (profileType: string | undefined): string[] | undefined => {
@@ -451,6 +477,53 @@ export function InfluencerSelectionTab({
       return allowedFormatsByNetwork[key] ?? [];
     },
     [isPriceMode, allowedFormatsByNetwork],
+  );
+
+  /**
+   * Custo de convite (≡ custo de aprovação) por (rede, prices) em centavos BRL.
+   * Memoizado para evitar recomputar a cada render do grid.
+   * Retorna `null` quando o método não debita saldo (swap/cpa/cpm) ou
+   * quando dados ainda não foram resolvidos.
+   */
+  const computeInviteCostCents = useCallback(
+    (
+      network: string | undefined,
+      prices: Record<string, number> | undefined,
+    ): number | null => {
+      if (!showApprovalCost) return null;
+      if (!network) return null;
+      return computeApprovalCostCents(
+        paymentMethod,
+        network,
+        prices,
+        phasesWithFormats,
+      );
+    },
+    [showApprovalCost, paymentMethod, phasesWithFormats],
+  );
+
+  /**
+   * Resolve a flag de bloqueio de convite para um card específico.
+   *  - Fail-open: se saldo, custo ou método ainda não resolvem, não bloqueia
+   *    (o backend valida na hora do convite/aprovação como defesa em camadas).
+   *  - Bloqueia somente quando custo > saldo disponível.
+   */
+  const resolveInviteGate = useCallback(
+    (
+      network: string | undefined,
+      prices: Record<string, number> | undefined,
+    ): { disabled: boolean; reason?: string } => {
+      if (!showApprovalCost) return { disabled: false };
+      if (availableCents == null) return { disabled: false };
+      const cost = computeInviteCostCents(network, prices);
+      if (cost == null) return { disabled: false };
+      if (cost <= availableCents) return { disabled: false };
+      return {
+        disabled: true,
+        reason: `Saldo do workspace insuficiente: necessário ${fmtBRL(cost)}, disponível ${fmtBRL(availableCents)}.`,
+      };
+    },
+    [showApprovalCost, availableCents, computeInviteCostCents],
   );
 
   // Curadoria: restringe aos perfis nas redes da campanha (avisos / validação)
@@ -893,6 +966,20 @@ export function InfluencerSelectionTab({
       ? resolveInviteProfileIds(selectedInfluencer, selectedProfileIds)
       : [];
 
+  // Gating monetário no modal — só aplica para `invite` (pré-seleção não debita
+  // saldo do workspace). Reusa o mesmo cálculo dos cards para manter consistência.
+  // Quando o card já carrega `socialNetworkId`, temos rede + preços direto;
+  // no fallback do picker o backend não envia prices por perfil (estrutura
+  // `InfluencerProfile` atual) — fail-open e backend valida.
+  const modalInviteGate = useMemo<{ disabled: boolean; reason?: string }>(() => {
+    if (modalType !== "invite") return { disabled: false };
+    if (!selectedInfluencer) return { disabled: false };
+    return resolveInviteGate(
+      selectedInfluencer.socialNetwork,
+      selectedInfluencer.prices,
+    );
+  }, [modalType, selectedInfluencer, resolveInviteGate]);
+
   const invitePreSubmitDisabled =
     isInviting ||
     isAddingToPreSelection ||
@@ -900,7 +987,8 @@ export function InfluencerSelectionTab({
     (inviteOrPreselection &&
       (needsInviteProfilePicker
         ? isLoadingProfiles || modalInvitePreProfileIds.length === 0
-        : modalInvitePreProfileIds.length === 0));
+        : modalInvitePreProfileIds.length === 0)) ||
+    modalInviteGate.disabled;
 
   return (
     <>
@@ -966,6 +1054,7 @@ export function InfluencerSelectionTab({
                     renderCard={(influencer) => {
                       const { data, nicheName } = buildSelectionCardData(influencer, niches);
                       const inCuration = isInfluencerInCuration(influencer.id);
+                      const inviteGate = resolveInviteGate(data.profileType, data.prices);
                       return (
                         <InfluencerProfileCard
                           data={{
@@ -977,6 +1066,8 @@ export function InfluencerSelectionTab({
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
                           onPreSelection={() => handleAction(influencer, "preselection")}
+                          disableInvite={inviteGate.disabled}
+                          disableInviteReason={inviteGate.reason}
                           onViewProfile={() =>
                             navigate({
                               to: "/influencer/$influencerId",
@@ -1096,6 +1187,7 @@ export function InfluencerSelectionTab({
                     {flattenedCatalog.map((influencer) => {
                       const { data, nicheName } = buildSelectionCardData(influencer, niches);
                       const inCuration = isInfluencerInCuration(influencer.id);
+                      const inviteGate = resolveInviteGate(data.profileType, data.prices);
                       return (
                         <InfluencerProfileCard
                           key={`all-${influencer.socialNetwork}-${influencer.socialNetworkId}`}
@@ -1108,6 +1200,8 @@ export function InfluencerSelectionTab({
                           statusBadge={isInfluencerInvited(influencer.id) ? "invited" : undefined}
                           onInvite={!inCuration ? () => handleAction(influencer, "invite") : undefined}
                           onPreSelection={() => handleAction(influencer, "preselection")}
+                          disableInvite={inviteGate.disabled}
+                          disableInviteReason={inviteGate.reason}
                           onViewProfile={() =>
                             navigate({
                               to: "/influencer/$influencerId",
@@ -1328,6 +1422,15 @@ export function InfluencerSelectionTab({
                   </div>
                 </div>
 
+                {modalInviteGate.disabled && modalInviteGate.reason && (
+                  <div className="rounded-xl border border-danger-200 bg-danger-50 p-3">
+                    <p className="flex items-start gap-2 text-sm leading-relaxed text-danger-900">
+                      <Icon name="TriangleAlert" size={16} color="#dc2626" />
+                      <span>{modalInviteGate.reason}</span>
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2.5 pt-2">
                   <Button
                     type="button"
@@ -1341,7 +1444,12 @@ export function InfluencerSelectionTab({
                     type="button"
                     onClick={handleConfirm}
                     disabled={invitePreSubmitDisabled}
-                    className="h-11 rounded-full border-0 bg-primary-600 px-6 text-base font-semibold text-white hover:bg-primary-700"
+                    title={
+                      modalInviteGate.disabled
+                        ? modalInviteGate.reason
+                        : undefined
+                    }
+                    className="h-11 rounded-full border-0 bg-primary-600 px-6 text-base font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isInviting
                       ? "Processando..."
