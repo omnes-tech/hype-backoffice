@@ -16,7 +16,10 @@
       "Bash(npm run *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n%{url_effective}\\\\n\" -H \"User-Agent: facebookexternalhit/1.1 \\(+http://www.facebook.com/externalhit_uatext.php\\)\" -I https://backoffice-v2.hypeapp.com.br/)",
       "Bash(node -e \"require\\('socket.io-client'\\)\")",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"---TSC EXIT: $?---\")",
+      "Bash(npx vitest *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('react',p.dependencies.react\\)\")"
     ]
   }
 }

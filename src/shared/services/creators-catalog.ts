@@ -26,12 +26,26 @@ export interface CatalogNiche {
   name: string;
 }
 
+/**
+ * Localização aproximada do criador (privacy-snapped a uma célula de ~`precision_km`).
+ * Determinística, não-jitter — só revela a célula, não o ponto exato.
+ * Presente apenas quando o filtro geo ("perto de mim") é aplicado.
+ */
+export interface CatalogApproxLocation {
+  lat: number;
+  lng: number;
+  /** Precisão da célula, em km (ex.: 1 → área de ~1 km). */
+  precision_km: number;
+}
+
 export interface CatalogItem {
   social_network: CatalogSocialNetwork;
   user: CatalogUser;
   niches: CatalogNiche[];
   /** Distância (km) do admin até o influencer. Presente só quando o filtro geo é aplicado. */
   distance_km?: number | null;
+  /** Localização aproximada (privacy-safe) para plotagem no mapa. */
+  approx_location?: CatalogApproxLocation | null;
 }
 
 export interface CreatorsCatalogFilters {
@@ -114,6 +128,22 @@ function normalizeNiches(raw: unknown): CatalogNiche[] {
   return result;
 }
 
+function normalizeApproxLocation(raw: unknown): CatalogApproxLocation | null {
+  const o = readRecord(raw);
+  if (!o) return null;
+  const lat = Number(o.lat);
+  const lng = Number(o.lng);
+  // Coordenadas precisam ser finitas e dentro do range geográfico válido.
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) return null;
+  const precision = Number(o.precision_km);
+  return {
+    lat,
+    lng,
+    precision_km: Number.isFinite(precision) && precision > 0 ? precision : 1,
+  };
+}
+
 function normalizeItem(raw: unknown): CatalogItem | null {
   const o = readRecord(raw);
   if (!o) return null;
@@ -130,6 +160,7 @@ function normalizeItem(raw: unknown): CatalogItem | null {
     user,
     niches: normalizeNiches(o.niches),
     distance_km,
+    approx_location: normalizeApproxLocation(o.approx_location),
   };
 }
 

@@ -10,10 +10,8 @@ import { usePublicCampaignInvite } from "@/hooks/use-public-campaign-invite";
 import { getUploadUrl } from "@/lib/utils/api";
 import type { PublicCampaignInviteData } from "@/shared/services/public-campaign-invite";
 import { formatReais } from "@/shared/utils/masks";
-import {
-  formatContentTypeLabel,
-  SOCIAL_NETWORK_LABELS,
-} from "@/shared/utils/social-profile-url";
+import { formatContentTypeLabel } from "@/shared/utils/social-profile-url";
+import { getNetworkLabel } from "@/shared/constants/network-labels";
 import {
   getCampaignStatusDisplayLabel,
   getCampaignStatusValue,
@@ -396,7 +394,7 @@ function PublicCampaignInviteScreen() {
                     key={n}
                     className="inline-flex items-center rounded-full bg-neutral-100 border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900"
                   >
-                    {SOCIAL_NETWORK_LABELS[n] ?? n}
+                    {getNetworkLabel(n, n)}
                   </li>
                 ))}
               </ul>
@@ -446,7 +444,7 @@ function PublicCampaignInviteScreen() {
                             {phase.formats.map((f, i) => (
                               <li key={`${f.network}-${f.content_type}-${i}`} className="flex flex-wrap gap-x-2 gap-y-0.5">
                                 <span className="font-medium text-neutral-950">
-                                  {SOCIAL_NETWORK_LABELS[f.network] ?? f.network}
+                                  {getNetworkLabel(f.network, f.network)}
                                 </span>
                                 {f.content_type ? (
                                   <>

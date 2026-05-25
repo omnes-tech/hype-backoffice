@@ -5,6 +5,11 @@ import { Icon } from "@/components/ui/icon";
 import type { CampaignFormData } from "@/shared/types";
 import { useNiches } from "@/hooks/use-niches";
 import { formatDateToDisplay } from "@/shared/utils/date-validations";
+import {
+  getCampaignNetworkLabel,
+  getContentTypeLabel,
+  getPhaseObjectiveLabel,
+} from "@/shared/constants/campaign-formats";
 
 interface CreateCampaignStepSevenProps {
   formData: CampaignFormData;
@@ -35,46 +40,8 @@ const getPaymentTypeLabel = (value: string) => {
   return types[value] || value;
 };
 
-const getObjectiveLabel = (value: string) => {
-  const objectives: Record<string, string> = {
-    awareness: "Awareness",
-    engagement: "Engajamento",
-    conversion: "Conversão",
-    reach: "Alcance",
-    education: "Educação",
-  };
-  return objectives[value] || value;
-};
-
-const getSocialNetworkLabel = (value: string) => {
-  const networks: Record<string, string> = {
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    youtube: "Youtube",
-    ugc: "UGC",
-  };
-  return networks[value] || value;
-};
-
-const getContentTypeLabel = (value: string) => {
-  const types: Record<string, string> = {
-    post: "Post",
-    reels: "Reels",
-    stories: "Stories",
-    video: "Vídeos",
-    video_dedicated: "Vídeo dedicado até 10 minutos",
-    insertion: "Inserção até 60 segundos",
-    preroll_endroll: "Pré-roll ou End-roll até 15 segundos",
-    live: "LIVE",
-    shorts: "Shorts",
-    image: "Imagem",
-    video_1min: "Vídeo até 1 minuto",
-    video_10min: "Vídeo até 10 minutos",
-    video_1hour: "Vídeo até 1 hora",
-  };
-  return types[value] || value;
-};
-
+// Rótulos de objetivo, rede e formato vêm do vocabulário canônico
+// compartilhado (`@/shared/constants/campaign-formats`).
 
 function ReviewCard({
   title,
@@ -420,7 +387,7 @@ export function CreateCampaignStepSeven({
                           label="Objetivo da fase"
                           value={
                             phase.objective
-                              ? getObjectiveLabel(phase.objective)
+                              ? getPhaseObjectiveLabel(phase.objective)
                               : null
                           }
                         />
@@ -461,7 +428,7 @@ export function CreateCampaignStepSeven({
                                     </span>
                                     <span>
                                       {format.socialNetwork
-                                        ? getSocialNetworkLabel(
+                                        ? getCampaignNetworkLabel(
                                           format.socialNetwork
                                         )
                                         : "-"}

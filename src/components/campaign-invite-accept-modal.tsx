@@ -12,10 +12,8 @@ import {
   postPublicCampaignInvitePreRegister,
   type PublicCampaignInviteData,
 } from "@/shared/services/public-campaign-invite";
-import {
-  isValidProfileUrlForNetwork,
-  SOCIAL_NETWORK_LABELS,
-} from "@/shared/utils/social-profile-url";
+import { isValidProfileUrlForNetwork } from "@/shared/utils/social-profile-url";
+import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { formatBrazilianPhoneInput } from "@/shared/utils/masks";
 
 const HYPEAPP_PLAY_STORE_URL =
@@ -44,7 +42,7 @@ function createAcceptSchema(networks: string[]) {
     .superRefine((data, ctx) => {
       for (const net of networks) {
         const v = String(data.profile[net] ?? "").trim();
-        const label = SOCIAL_NETWORK_LABELS[net] ?? net;
+        const label = getNetworkLabel(net, net);
         if (!v) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -228,7 +226,7 @@ export function CampaignInviteAcceptModal({
                 {allowedNetworks.map((net) => (
                   <Input
                     key={net}
-                    label={`${SOCIAL_NETWORK_LABELS[net] ?? net}`}
+                    label={`${getNetworkLabel(net, net)}`}
                     type="url"
                     inputMode="url"
                     placeholder="https://..."

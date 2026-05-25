@@ -8,6 +8,8 @@ describe("getNetworkLabel", () => {
     expect(getNetworkLabel("youtube")).toBe("YouTube");
     expect(getNetworkLabel("ugc")).toBe("UGC");
     expect(getNetworkLabel("instagram_facebook")).toBe("Instagram / Facebook");
+    expect(getNetworkLabel("linkedin")).toBe("LinkedIn");
+    expect(getNetworkLabel("twitter")).toBe("X / Twitter");
   });
 
   it("é case-insensitive", () => {
@@ -16,7 +18,7 @@ describe("getNetworkLabel", () => {
   });
 
   it("retorna fallback quando tipo é desconhecido", () => {
-    expect(getNetworkLabel("linkedin", "Rede social")).toBe("Rede social");
+    expect(getNetworkLabel("pinterest", "Rede social")).toBe("Rede social");
   });
 
   it("retorna o próprio tipo quando fallback não é passado e tipo é desconhecido", () => {

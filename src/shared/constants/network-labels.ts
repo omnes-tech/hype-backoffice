@@ -1,4 +1,8 @@
-/** Mapeamento canônico de tipo de rede social para rótulo exibível. */
+/**
+ * Mapeamento canônico de tipo de rede social para rótulo exibível.
+ * Fonte ÚNICA de verdade para labels de rede em todo o app (UI, criação de
+ * campanha, convite público). Adicionar/alterar rótulo de rede aqui — e só aqui.
+ */
 export const NETWORK_LABELS: Record<string, string> = {
   instagram: "Instagram",
   instagram_facebook: "Instagram / Facebook",
@@ -6,7 +10,8 @@ export const NETWORK_LABELS: Record<string, string> = {
   youtube: "YouTube",
   ugc: "UGC",
   facebook: "Facebook",
-  twitter: "Twitter",
+  linkedin: "LinkedIn",
+  twitter: "X / Twitter",
 };
 
 export function getNetworkLabel(type: string | undefined | null, fallback?: string): string {

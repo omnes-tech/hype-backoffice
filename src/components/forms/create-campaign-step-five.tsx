@@ -13,6 +13,11 @@ import {
   getPhase1MinDate,
 } from "@/shared/utils/date-validations";
 import { handleNumberInput, unformatNumber, handleCurrencyInput } from "@/shared/utils/masks";
+import {
+  CAMPAIGN_SOCIAL_NETWORKS,
+  PHASE_OBJECTIVE_OPTIONS,
+  getContentTypesForNetwork,
+} from "@/shared/constants/campaign-formats";
 
 interface CreateCampaignStepFiveProps {
   formData: CampaignFormData;
@@ -24,49 +29,9 @@ interface CreateCampaignStepFiveProps {
   focusPhaseId?: string | null;
 }
 
-const OBJECTIVE_OPTIONS = [
-  { label: "Awareness", value: "awareness" },
-  { label: "Engajamento", value: "engagement" },
-  { label: "Conversão", value: "conversion" },
-  { label: "Alcance", value: "reach" },
-  { label: "Educação", value: "education" },
-];
-
-const SOCIAL_NETWORKS = [
-  { label: "Instagram", value: "instagram" },
-  { label: "TikTok", value: "tiktok" },
-  { label: "Youtube", value: "youtube" },
-  { label: "UGC", value: "ugc" },
-];
-
-const CONTENT_TYPES_BY_NETWORK: Record<string, Array<{ label: string; value: string }>> = {
-  instagram: [
-    { label: "Post", value: "post" },
-    { label: "Reels", value: "reels" },
-    { label: "Stories", value: "stories" },
-  ],
-  tiktok: [
-    { label: "Vídeos", value: "video" },
-    { label: "LIVE", value: "live" },
-  ],
-  youtube: [
-    { label: "Vídeo dedicado até 10 minutos", value: "video_dedicated" },
-    { label: "Inserção até 60 segundos", value: "insertion" },
-    { label: "Pré-roll ou End-roll até 15 segundos", value: "preroll_endroll" },
-    { label: "Shorts", value: "shorts" },
-    { label: "LIVE", value: "live" },
-  ],
-  ugc: [
-    { label: "Imagem", value: "image" },
-    { label: "Vídeo até 1 minuto", value: "video_1min" },
-    { label: "Vídeo até 10 minutos", value: "video_10min" },
-    { label: "Vídeo até 1 hora", value: "video_1hour" },
-  ],
-};
-
-function getContentTypes(socialNetwork: string) {
-  return CONTENT_TYPES_BY_NETWORK[socialNetwork] || [];
-}
+// Redes, objetivos e formatos vêm do vocabulário canônico em
+// `@/shared/constants/campaign-formats` (fonte única, compartilhada com os
+// steps 6 e 7).
 
 export function CreateCampaignStepFive({
   formData,
@@ -453,7 +418,7 @@ export function CreateCampaignStepFive({
                       placeholder="Selecionar objetivo"
                       value={phase.objective}
                       onChange={(value) => updatePhase(phase.id, "objective", value)}
-                      options={OBJECTIVE_OPTIONS}
+                      options={PHASE_OBJECTIVE_OPTIONS}
                     />
 
                     {/* Direitos de imagem — Figma 2283:8016 / Fase 3 */}
@@ -577,7 +542,7 @@ export function CreateCampaignStepFive({
                               onChange={(v) =>
                                 updateFormat(phase.id, format.id, "socialNetwork", v)
                               }
-                              options={SOCIAL_NETWORKS}
+                              options={CAMPAIGN_SOCIAL_NETWORKS}
                             />
                           </div>
                           <div className="flex flex-1 min-w-[120px] flex-col gap-1">
@@ -590,7 +555,7 @@ export function CreateCampaignStepFive({
                               onChange={(v) =>
                                 updateFormat(phase.id, format.id, "contentType", v)
                               }
-                              options={getContentTypes(format.socialNetwork)}
+                              options={getContentTypesForNetwork(format.socialNetwork)}
                               disabled={!format.socialNetwork}
                             />
                           </div>

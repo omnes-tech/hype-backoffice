@@ -11,6 +11,11 @@ import {
   validateSubsequentPhaseDate,
   getPhase1MinDate,
 } from "@/shared/utils/date-validations";
+import {
+  CAMPAIGN_SOCIAL_NETWORKS,
+  PHASE_OBJECTIVE_OPTIONS,
+  getContentTypesForNetwork,
+} from "@/shared/constants/campaign-formats";
 
 interface CreateCampaignStepSixProps {
   formData: CampaignFormData;
@@ -182,41 +187,8 @@ export function CreateCampaignStepSix({
     }
   };
 
-  const socialNetworks = [
-    { label: "Instagram", value: "instagram" },
-    { label: "TikTok", value: "tiktok" },
-    { label: "Youtube", value: "youtube" },
-    { label: "UGC", value: "ugc" },
-  ];
-
-  const contentTypesByNetwork: { [key: string]: Array<{ label: string; value: string }> } = {
-    instagram: [
-      { label: "Post", value: "post" },
-      { label: "Reels", value: "reels" },
-      { label: "Stories", value: "stories" },
-    ],
-    tiktok: [
-      { label: "Vídeos", value: "video" },
-      { label: "LIVE", value: "live" },
-    ],
-    youtube: [
-      { label: "Vídeo dedicado até 10 minutos", value: "video_dedicated" },
-      { label: "Inserção até 60 segundos", value: "insertion" },
-      { label: "Pré-roll ou End-roll até 15 segundos", value: "preroll_endroll" },
-      { label: "Shorts", value: "shorts" },
-      { label: "LIVE", value: "live" },
-    ],
-    ugc: [
-      { label: "Imagem", value: "image" },
-      { label: "Vídeo até 1 minuto", value: "video_1min" },
-      { label: "Vídeo até 10 minutos", value: "video_10min" },
-      { label: "Vídeo até 1 hora", value: "video_1hour" },
-    ],
-  };
-
-  const getContentTypes = (socialNetwork: string) => {
-    return contentTypesByNetwork[socialNetwork] || [];
-  };
+  // Redes e formatos vêm do vocabulário canônico compartilhado
+  // (`@/shared/constants/campaign-formats`).
 
   // Calcular data mínima para cada fase
   const getPhaseMinDate = (phaseIndex: number, phaseDate: string): string | undefined => {
@@ -291,13 +263,7 @@ export function CreateCampaignStepSix({
               placeholder="Selecionar objetivo"
               value={phase.objective}
               onChange={(value) => updatePhase(phase.id, "objective", value)}
-              options={[
-                { label: "Awareness", value: "awareness" },
-                { label: "Engajamento", value: "engagement" },
-                { label: "Conversão", value: "conversion" },
-                { label: "Alcance", value: "reach" },
-                { label: "Educação", value: "education" },
-              ]}
+              options={PHASE_OBJECTIVE_OPTIONS}
             />
 
             {/* Data */}
@@ -346,7 +312,7 @@ export function CreateCampaignStepSix({
                         onChange={(value) =>
                           updateFormat(phase.id, format.id, "socialNetwork", value)
                         }
-                        options={socialNetworks}
+                        options={CAMPAIGN_SOCIAL_NETWORKS}
                       />
                     </div>
 
@@ -357,7 +323,7 @@ export function CreateCampaignStepSix({
                         onChange={(value) =>
                           updateFormat(phase.id, format.id, "contentType", value)
                         }
-                        options={getContentTypes(format.socialNetwork)}
+                        options={getContentTypesForNetwork(format.socialNetwork)}
                         disabled={!format.socialNetwork}
                       />
                     </div>

@@ -48,6 +48,7 @@ import {
   fmtBRL,
   type CampaignPhaseForCost,
 } from "@/components/campaign-tabs/shared/prices-utils";
+import { ReserveBalancePreview } from "@/components/campaign-tabs/shared/reserve-balance-modal";
 
 /**
  * Métodos de pagamento que debitam saldo BRL do workspace e, portanto,
@@ -468,6 +469,7 @@ export function InfluencerSelectionTab({
     !!paymentMethod && SHOW_APPROVAL_COST_METHODS.has(paymentMethod);
   const balanceQ = useWorkspaceBalance();
   const availableCents = balanceQ.data?.available_cents ?? null;
+  const committedCents = balanceQ.data?.committed_cents ?? null;
 
   /** Resolve a lista de formatos permitidos para o card baseado em sua rede. */
   const getAllowedPriceFormats = useCallback(
@@ -980,6 +982,15 @@ export function InfluencerSelectionTab({
     );
   }, [modalType, selectedInfluencer, resolveInviteGate]);
 
+  // Custo a reservar ao convidar (centavos BRL) — só quando o método debita saldo.
+  const modalInviteCostCents = useMemo<number | null>(() => {
+    if (modalType !== "invite" || !showApprovalCost || !selectedInfluencer) return null;
+    return computeInviteCostCents(
+      selectedInfluencer.socialNetwork,
+      selectedInfluencer.prices,
+    );
+  }, [modalType, showApprovalCost, selectedInfluencer, computeInviteCostCents]);
+
   const invitePreSubmitDisabled =
     isInviting ||
     isAddingToPreSelection ||
@@ -1421,6 +1432,21 @@ export function InfluencerSelectionTab({
                     </span>
                   </div>
                 </div>
+
+                {modalType === "invite" && showApprovalCost && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-neutral-600">
+                      Ao convidar, este valor fica{" "}
+                      <span className="font-medium text-amber-700">reservado</span> do seu
+                      saldo para este influencer.
+                    </p>
+                    <ReserveBalancePreview
+                      costCents={modalInviteCostCents}
+                      availableCents={availableCents}
+                      committedCents={committedCents}
+                    />
+                  </div>
+                )}
 
                 {modalInviteGate.disabled && modalInviteGate.reason && (
                   <div className="rounded-xl border border-danger-200 bg-danger-50 p-3">

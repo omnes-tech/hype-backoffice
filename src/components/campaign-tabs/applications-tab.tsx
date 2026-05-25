@@ -21,6 +21,7 @@ import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { InfluencerProfileCard } from "./shared/influencer-profile-card";
 import { RejectionModal } from "./shared/rejection-modal";
+import { ReserveBalanceModal } from "./shared/reserve-balance-modal";
 import { BulkActionModal, type BulkActionType } from "./shared/bulk-action-modal";
 import { ApprovalCostBadge } from "./shared/approval-cost-badge";
 import {
@@ -207,6 +208,7 @@ export function ApplicationsTab({
   // Saldo real (BRL) do workspace — fonte única de verdade para gating.
   const balanceQ = useWorkspaceBalance();
   const availableCents = balanceQ.data?.available_cents ?? null;
+  const committedCents = balanceQ.data?.committed_cents ?? null;
   const navigate = useNavigate();
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -244,6 +246,9 @@ export function ApplicationsTab({
 
   // Modal de reprovação individual
   const [rejectTarget, setRejectTarget] = useState<Influencer | null>(null);
+
+  // Modal de confirmação de reserva de saldo (aprovação com custo)
+  const [reserveTarget, setReserveTarget] = useState<ApplicationWithProfile | null>(null);
 
   // Modal de perfil (redes sociais)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -430,7 +435,8 @@ export function ApplicationsTab({
 
   // ── Handlers de ação ────────────────────────────────────────────────────────
 
-  const handleApprove = (app: ApplicationWithProfile) => {
+  // Executa a aprovação de fato (reserva o saldo no backend). `onDone` roda no sucesso.
+  const approve = (app: ApplicationWithProfile, onDone?: () => void) => {
     updateStatus(
       {
         influencer_id: app.influencerId,
@@ -439,10 +445,28 @@ export function ApplicationsTab({
         network_id: app.profileId ? Number(app.profileId) : undefined,
       },
       {
-        onSuccess: () => toast.success(`${app.profileTypeLabel} aprovado com sucesso!`),
+        onSuccess: () => {
+          toast.success(`${app.profileTypeLabel} aprovado com sucesso!`);
+          onDone?.();
+        },
         onError: (error: Error) => toast.error(error?.message || "Erro ao aprovar influenciador"),
       }
     );
+  };
+
+  const handleApprove = (app: ApplicationWithProfile) => {
+    // Com custo: confirma a reserva de saldo antes. Sem custo (ex.: permuta):
+    // aprova direto, pois nada é debitado/reservado.
+    if (showApprovalCost) {
+      setReserveTarget(app);
+      return;
+    }
+    approve(app);
+  };
+
+  const handleConfirmReserve = () => {
+    if (!reserveTarget) return;
+    approve(reserveTarget, () => setReserveTarget(null));
   };
 
   const handleReject = (app: ApplicationWithProfile) => {
@@ -895,6 +919,27 @@ export function ApplicationsTab({
           onClose={() => setRejectTarget(null)}
         />
       )}
+
+      {/* Modal de confirmação de reserva de saldo (aprovação com custo) */}
+      <ReserveBalanceModal
+        target={
+          reserveTarget
+            ? {
+                name: reserveTarget.influencerName,
+                username: reserveTarget.influencerUsername,
+                avatar: reserveTarget.influencerAvatar,
+              }
+            : null
+        }
+        costCents={reserveTarget ? costByProfileKey.get(reserveTarget.profileKey) ?? null : null}
+        availableCents={availableCents}
+        committedCents={committedCents}
+        title="Reservar saldo para aprovar"
+        confirmLabel="Confirmar aprovação"
+        isSubmitting={isUpdatingStatus}
+        onConfirm={handleConfirmReserve}
+        onClose={() => setReserveTarget(null)}
+      />
 
       {/* Modal de visualização de redes sociais */}
       {isProfileModalOpen && selectedProfileInfluencer && (

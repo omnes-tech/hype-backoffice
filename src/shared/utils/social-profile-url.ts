@@ -1,43 +1,16 @@
-/** Rótulos para exibição (alinhado ao fluxo de criação de campanha). */
-export const SOCIAL_NETWORK_LABELS: Record<string, string> = {
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  ugc: "UGC",
-  facebook: "Facebook",
-  linkedin: "LinkedIn",
-  twitter: "X / Twitter",
-};
+import { getContentTypesForNetwork } from "@/shared/constants/campaign-formats";
 
-const CONTENT_TYPE_LABELS: Record<string, Record<string, string>> = {
-  instagram: {
-    post: "Post",
-    reels: "Reels",
-    stories: "Stories",
-  },
-  tiktok: {
-    video: "Vídeos",
-    live: "LIVE",
-  },
-  youtube: {
-    video_dedicated: "Vídeo dedicado até 10 minutos",
-    insertion: "Inserção até 60 segundos",
-    preroll_endroll: "Pré-roll ou End-roll até 15 segundos",
-    shorts: "Shorts",
-    live: "LIVE",
-  },
-  ugc: {
-    image: "Imagem",
-    video_1min: "Vídeo até 1 minuto",
-    video_10min: "Vídeo até 10 minutos",
-    video_1hour: "Vídeo até 1 hora",
-  },
-};
-
+/**
+ * Rótulo do formato de conteúdo, derivado do vocabulário canônico da campanha
+ * (`@/shared/constants/campaign-formats`). Em caso de formato desconhecido,
+ * devolve o texto original recebido do backend.
+ */
 export function formatContentTypeLabel(network: string, contentType: string): string {
-  const n = network.toLowerCase();
-  const t = contentType.toLowerCase();
-  return CONTENT_TYPE_LABELS[n]?.[t] ?? contentType;
+  if (!contentType) return contentType;
+  const match = getContentTypesForNetwork(network).find(
+    (option) => option.value === contentType.toLowerCase(),
+  );
+  return match?.label ?? contentType;
 }
 
 /**

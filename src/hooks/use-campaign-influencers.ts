@@ -13,6 +13,7 @@ import {
   useWorkspaceQueryKey,
   withWorkspaceKey,
 } from "@/hooks/use-workspace-query-key";
+import { useInvalidateWorkspaceBalance } from "@/hooks/use-balance";
 
 export function useCampaignInfluencers(campaignId: string) {
   const workspaceId = useWorkspaceQueryKey();
@@ -26,95 +27,66 @@ export function useCampaignInfluencers(campaignId: string) {
   });
 }
 
-export function useUpdateInfluencerStatus(campaignId: string) {
+/**
+ * Invalida todas as caches afetadas por uma mudança de influencer na campanha.
+ * Inclui o **saldo do workspace** — o backend reserva/libera BRL ao aceitar,
+ * convidar ou pré-selecionar, então "Reservado/Disponível" precisa refetchar.
+ * Centralizado para não duplicar as chaves entre as mutações.
+ */
+function useInvalidateCampaignInfluencerCaches(campaignId: string) {
   const queryClient = useQueryClient();
+  const invalidateBalance = useInvalidateWorkspaceBalance();
+
+  return () => {
+    const scopes = [
+      "influencers",
+      "dashboard",
+      "users",
+      "management",
+      "inscriptions",
+      "curation",
+    ] as const;
+    for (const scope of scopes) {
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", campaignId, scope],
+      });
+    }
+    invalidateBalance();
+  };
+}
+
+export function useUpdateInfluencerStatus(campaignId: string) {
+  const invalidate = useInvalidateCampaignInfluencerCaches(campaignId);
 
   return useMutation({
     mutationFn: (data: InfluencerStatusUpdate) =>
       updateInfluencerStatus(campaignId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "influencers"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "users"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "management"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "inscriptions"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "curation"],
-      });
-    },
+    onSuccess: invalidate,
   });
 }
 
 export function useInviteInfluencer(campaignId: string) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateCampaignInfluencerCaches(campaignId);
 
   return useMutation({
     mutationFn: (data: InfluencerInviteData) =>
       inviteInfluencer(campaignId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "influencers"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "users"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "management"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "inscriptions"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "curation"],
-      });
-    },
+    onSuccess: invalidate,
   });
 }
 
 export function useAddToPreSelection(campaignId: string) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateCampaignInfluencerCaches(campaignId);
 
   return useMutation({
     mutationFn: (data: InfluencerInviteData) =>
       addToPreSelection(campaignId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "influencers"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "users"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "management"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "inscriptions"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "curation"],
-      });
-    },
+    onSuccess: invalidate,
   });
 }
 
 export function useMoveToPreSelectionCuration(campaignId: string) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateCampaignInfluencerCaches(campaignId);
 
   return useMutation({
     mutationFn: ({
@@ -124,26 +96,7 @@ export function useMoveToPreSelectionCuration(campaignId: string) {
       influencerId: string;
       data?: MoveToPreSelectionCurationData;
     }) => moveToPreSelectionCuration(campaignId, influencerId, data ?? {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "influencers"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "users"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "management"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "inscriptions"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "curation"],
-      });
-    },
+    onSuccess: invalidate,
   });
 }
 

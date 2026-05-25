@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -26,6 +26,11 @@ import {
 import type { CatalogItem } from "@/shared/services/creators-catalog";
 import type { Niche } from "@/shared/types";
 import { getUploadUrl } from "@/lib/utils/api";
+
+// Lazy: o Leaflet (~130kB) só baixa quando o usuário ativa "Perto de mim".
+const NearMeMap = lazy(() =>
+  import("@/components/creators/near-me-map").then((m) => ({ default: m.NearMeMap })),
+);
 
 export const Route = createFileRoute("/(private)/(app)/creators")({
   component: RouteComponent,
@@ -361,6 +366,8 @@ function CatalogTab() {
   );
   const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
   const [nearMeRequesting, setNearMeRequesting] = useState(false);
+  // Mapa "perto de mim" — colapsável (ocupa espaço vertical; preferência do usuário)
+  const [showNearMeMap, setShowNearMeMap] = useState(true);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(filters.q), 350);
@@ -450,6 +457,12 @@ function CatalogTab() {
   const allItems = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data]
+  );
+
+  // Criadores com localização aproximada — plotáveis no mapa "perto de mim".
+  const nearMeLocatedCount = useMemo(
+    () => allItems.filter((i) => i.approx_location).length,
+    [allItems]
   );
 
   const total = data?.pages[0]?.total;
@@ -560,6 +573,67 @@ function CatalogTab() {
         )}
       </div>
 
+      {/* Mapa "Perto de mim" — visão geográfica dos criadores próximos */}
+      {nearMeLocation && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Icon name="Map" size={18} color="var(--color-primary-600)" />
+              <h3 className="text-sm font-semibold text-neutral-900">
+                Criadores perto de você
+              </h3>
+              {!isLoading && (
+                <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
+                  {nearMeLocatedCount} no mapa
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNearMeMap((v) => !v)}
+              className="flex items-center gap-1 text-sm text-neutral-500 transition-colors hover:text-neutral-800"
+            >
+              {showNearMeMap ? "Ocultar mapa" : "Mostrar mapa"}
+              <Icon
+                name={showNearMeMap ? "ChevronUp" : "ChevronDown"}
+                size={16}
+                color="currentColor"
+              />
+            </button>
+          </div>
+
+          {showNearMeMap &&
+            (nearMeLocatedCount > 0 ? (
+              <Suspense
+                fallback={
+                  <div className="h-80 w-full animate-pulse rounded-2xl bg-neutral-100 sm:h-96" />
+                }
+              >
+                <NearMeMap
+                  origin={{ lat: nearMeLocation.lat, lng: nearMeLocation.lng, radiusKm }}
+                  items={allItems}
+                  onViewProfile={(userId) =>
+                    navigate({
+                      to: "/influencer/$influencerId",
+                      params: { influencerId: String(userId) },
+                    })
+                  }
+                />
+              </Suspense>
+            ) : !isLoading ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 py-10 text-center">
+                <Icon name="MapPinOff" size={28} color="#a3a3a3" />
+                <p className="text-sm text-neutral-500">
+                  Nenhum criador com localização neste raio
+                </p>
+                <p className="text-xs text-neutral-400">Aumente o raio para ver mais</p>
+              </div>
+            ) : (
+              <div className="h-80 w-full animate-pulse rounded-2xl bg-neutral-100 sm:h-96" />
+            ))}
+        </div>
+      )}
+
       {/* Count */}
       {!isLoading && total != null && (
         <p className="text-sm text-neutral-500">
@@ -582,7 +656,6 @@ function CatalogTab() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {allItems.map((item) => {
-              console.log(item)
               const cardData = catalogItemToCardData(item);
               const nicheNames = getNicheNames(item);
 

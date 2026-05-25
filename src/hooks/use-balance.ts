@@ -17,6 +17,22 @@ export function useWorkspaceBalance() {
   });
 }
 
+/**
+ * Invalida o saldo do workspace. Use no `onSuccess` de qualquer mutação que o
+ * backend reserve/libere valor (aceite de inscrição, convite, pré-seleção),
+ * para que "Reservado/Disponível" no header e no Financeiro reflitam na hora.
+ */
+export function useInvalidateWorkspaceBalance() {
+  const queryClient = useQueryClient();
+  const workspaceId = getWorkspaceId() ?? "";
+  return () => {
+    if (!workspaceId) return;
+    queryClient.invalidateQueries({
+      queryKey: BALANCE_QUERY_KEYS.workspace(workspaceId),
+    });
+  };
+}
+
 export function useTopUpWorkspace() {
   const queryClient = useQueryClient();
   const workspaceId = getWorkspaceId() ?? "";
