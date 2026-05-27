@@ -8,6 +8,7 @@ import { useInfluencerProfile } from "@/hooks/use-influencer-profile";
 import { getUploadUrl } from "@/lib/utils/api";
 import { AudienceByAgePanel } from "@/components/audience-by-age-panel";
 import { CampaignEvaluationViewModal } from "@/components/campaign-tabs/shared/campaign-evaluation-view-modal";
+import { StarRating } from "@/components/ui/star-rating";
 
 export const Route = createFileRoute("/(private)/(app)/influencer/$influencerId")({
   component: InfluencerProfileScreen,
@@ -790,22 +791,21 @@ function InfluencerProfileScreen() {
               const Wrapper: React.ElementType = hasUrl ? "a" : "div";
               const wrapperProps = hasUrl
                 ? {
-                    href: content.post_url ?? undefined,
-                    target: "_blank",
-                    rel: "noopener noreferrer",
-                    "aria-label": isVideo ? "Assistir vídeo no app" : "Abrir postagem",
-                  }
+                  href: content.post_url ?? undefined,
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                  "aria-label": isVideo ? "Assistir vídeo no app" : "Abrir postagem",
+                }
                 : { "aria-disabled": true };
 
               return (
                 <Wrapper
                   key={content.id}
                   {...wrapperProps}
-                  className={`group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${
-                    hasUrl
+                  className={`group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${hasUrl
                       ? "hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
                       : "opacity-90 grayscale-[0.2]"
-                  }`}
+                    }`}
                 >
                   {/* Thumbnail vertical (4/5) — formato natural de reel/post */}
                   <div className="relative aspect-[4/5] bg-neutral-200 overflow-hidden">
@@ -839,9 +839,8 @@ function InfluencerProfileScreen() {
                       )}
                       {network && (
                         <div
-                          className={`size-6 rounded-md flex items-center justify-center shadow-sm ${
-                            NETWORK_BADGE_STYLE[network] ?? "bg-neutral-700"
-                          }`}
+                          className={`size-6 rounded-md flex items-center justify-center shadow-sm ${NETWORK_BADGE_STYLE[network] ?? "bg-neutral-700"
+                            }`}
                           title={network}
                         >
                           <SocialNetworkIcon networkType={network} size={13} color="#ffffff" />
@@ -934,16 +933,7 @@ function InfluencerProfileScreen() {
                 </div>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   {c.rating != null ? (
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Icon
-                          key={s}
-                          name="Star"
-                          size={20}
-                          color={s <= Math.round(c.rating!) ? "#eab308" : "#d4d4d4"}
-                        />
-                      ))}
-                    </div>
+                    <StarRating value={c.rating} readonly />
                   ) : (
                     <span className="text-xs italic text-neutral-400">Sem avaliação</span>
                   )}

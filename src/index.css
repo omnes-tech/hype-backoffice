@@ -239,18 +239,20 @@
   transform: translateX(-50%);
   transition: box-shadow 0.15s ease;
 }
-.near-me-avatar__ring img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* Foto sobreposta às iniciais. url() que dá 404 não pinta -> iniciais aparecem. */
+.near-me-avatar__photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .near-me-avatar__initials {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
   font-size: 15px;
   font-weight: 600;
   color: var(--color-primary-700);

@@ -1,6 +1,6 @@
 import "leaflet/dist/leaflet.css";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import {
   Circle,
@@ -12,6 +12,7 @@ import {
 } from "react-leaflet";
 
 import { Icon } from "@/components/ui/icon";
+import { getUploadUrl } from "@/lib/utils/api";
 import type { CatalogItem } from "@/shared/services/creators-catalog";
 
 export interface NearMeOrigin {
@@ -58,15 +59,28 @@ function originIcon(): L.DivIcon {
   });
 }
 
+/**
+ * Resolve a foto do criador para URL absoluta.
+ * Prioriza a foto do USUÁRIO (`/uploads/...`, caminho relativo); só cai para a
+ * foto da rede social quando o usuário não tem foto. `getUploadUrl` passa URLs
+ * http(s) adiante e prefixa relativas com a base do servidor — padrão do app.
+ */
+function resolvePhoto(item: CatalogItem): string | undefined {
+  return getUploadUrl(item.user.photo ?? item.social_network.photo ?? undefined);
+}
+
 function avatarIcon(item: CatalogItem): L.DivIcon {
-  const photo = item.social_network.photo ?? item.user.photo ?? "";
+  const photo = resolvePhoto(item);
   const initial = (item.user.name || "?").trim().charAt(0).toUpperCase();
-  const inner = photo
-    ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" />`
-    : `<span class="near-me-avatar__initials">${escapeHtml(initial)}</span>`;
+  // As iniciais ficam como base; a foto cobre via overlay `background-image`.
+  // Se a foto der 404 (arquivo ausente no backend), o overlay fica transparente
+  // e as iniciais aparecem — sem ícone de imagem quebrada e sem JS inline.
+  const photoLayer = photo
+    ? `<span class="near-me-avatar__photo" style="background-image:url('${escapeHtml(photo)}')"></span>`
+    : "";
   return L.divIcon({
     className: "near-me-avatar",
-    html: `<span class="near-me-avatar__ring">${inner}</span><span class="near-me-avatar__nub"></span>`,
+    html: `<span class="near-me-avatar__ring"><span class="near-me-avatar__initials">${escapeHtml(initial)}</span>${photoLayer}</span><span class="near-me-avatar__nub"></span>`,
     iconSize: [42, 50],
     iconAnchor: [21, 48], // ponta inferior aponta para a localização
     popupAnchor: [0, -46],
@@ -203,17 +217,20 @@ function NearMeCreatorPopup({
   item: CatalogItem;
   onViewProfile: (userId: number) => void;
 }) {
-  const photo = item.social_network.photo ?? item.user.photo ?? "";
+  const photo = resolvePhoto(item);
   const initial = (item.user.name || "?").trim().charAt(0).toUpperCase();
   const distance = item.distance_km;
+  // Se a foto 404 (arquivo ausente no backend), cai para as iniciais.
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   return (
     <div className="flex w-52 flex-col gap-3 py-1">
       <div className="flex items-center gap-3">
-        {photo ? (
+        {photo && !photoFailed ? (
           <img
             src={photo}
             alt={item.user.name}
+            onError={() => setPhotoFailed(true)}
             className="size-11 rounded-full object-cover ring-2 ring-primary-100"
           />
         ) : (

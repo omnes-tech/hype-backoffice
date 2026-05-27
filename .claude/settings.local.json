@@ -19,7 +19,17 @@
       "Bash(echo \"EXIT=$?\")",
       "Bash(echo \"---TSC EXIT: $?---\")",
       "Bash(npx vitest *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('react',p.dependencies.react\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('react',p.dependencies.react\\)\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | type=%{content_type} | size=%{size_download}\\\\n\" \"http://localhost:3000/uploads/photos/d6ab5056-c984-47a1-97d8-1de539423dc4.jpeg\")",
+      "Bash(curl -s \"http://localhost:3000/uploads/photos/d6ab5056-c984-47a1-97d8-1de539423dc4.jpeg\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | type=%{content_type} | size=%{size_download}\\\\n\" \"http://localhost:3000/api/backoffice/uploads/photos/d6ab5056-c984-47a1-97d8-1de539423dc4.jpeg\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | type=%{content_type} | size=%{size_download}\\\\n\" \"http://localhost:3000/api/uploads/photos/d6ab5056-c984-47a1-97d8-1de539423dc4.jpeg\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | type=%{content_type} | size=%{size_download}\\\\n\" \"https://hypeapp-api.onrender.com/uploads/photos/d6ab5056-c984-47a1-97d8-1de539423dc4.jpeg\")",
+      "Bash(netstat -ano)",
+      "Read(//c/Users/muril/Projects/hypeapp/**)",
+      "Bash(ls -d */)",
+      "Bash(curl *)"
     ]
   }
 }
