@@ -30,6 +30,8 @@ const PERMISSIVE_DEFAULT: WorkspacePermissions = {
   content_reject: true,
   contracts_read: true,
   contracts_write: true,
+  community_lives_read: true,
+  community_lives_write: true,
   financial_read: false,
   financial_balance_add: false,
   financial_payments_approve: false,
@@ -48,6 +50,7 @@ const PERMISSION_KEYS = new Set<string>([
   "scripts_read", "scripts_write", "scripts_approve", "scripts_reject",
   "content_read", "content_write", "content_approve", "content_reject",
   "contracts_read", "contracts_write",
+  "community_lives_read", "community_lives_write",
   "financial_read", "financial_balance_add", "financial_payments_approve", "financial_reports_export",
   "catalog_read", "catalog_write", "billing_read", "billing_write",
 ]);

@@ -24,12 +24,15 @@ import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
 import { Route as privateappSettingsRouteImport } from './screens/(private)/(app)/settings'
+import { Route as privateappLivesRouteImport } from './screens/(private)/(app)/lives'
 import { Route as privateappHoldsRouteImport } from './screens/(private)/(app)/holds'
 import { Route as privateappFinancialRouteImport } from './screens/(private)/(app)/financial'
 import { Route as privateappCreatorsRouteImport } from './screens/(private)/(app)/creators'
 import { Route as privateappCampaignsRouteImport } from './screens/(private)/(app)/campaigns'
 import { Route as publicCampaignsCampaignIdInviteRouteImport } from './screens/(public)/campaigns.$campaignId.invite'
 import { Route as privateappWorkspaceSettingsRouteImport } from './screens/(private)/(app)/workspace.settings'
+import { Route as privateappLivesNewRouteImport } from './screens/(private)/(app)/lives.new'
+import { Route as privateappLivesLiveIdRouteImport } from './screens/(private)/(app)/lives.$liveId'
 import { Route as privateappInfluencerInfluencerIdRouteImport } from './screens/(private)/(app)/influencer.$influencerId'
 import { Route as privateappCampaignsNewRouteImport } from './screens/(private)/(app)/campaigns.new'
 import { Route as privateappCampaignsCampaignIdRouteImport } from './screens/(private)/(app)/campaigns.$campaignId'
@@ -112,6 +115,11 @@ const privateappSettingsRoute = privateappSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => privateappLayoutRoute,
 } as any)
+const privateappLivesRoute = privateappLivesRouteImport.update({
+  id: '/lives',
+  path: '/lives',
+  getParentRoute: () => privateappLayoutRoute,
+} as any)
 const privateappHoldsRoute = privateappHoldsRouteImport.update({
   id: '/holds',
   path: '/holds',
@@ -144,6 +152,16 @@ const privateappWorkspaceSettingsRoute =
     path: '/workspace/settings',
     getParentRoute: () => privateappLayoutRoute,
   } as any)
+const privateappLivesNewRoute = privateappLivesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => privateappLivesRoute,
+} as any)
+const privateappLivesLiveIdRoute = privateappLivesLiveIdRouteImport.update({
+  id: '/$liveId',
+  path: '/$liveId',
+  getParentRoute: () => privateappLivesRoute,
+} as any)
 const privateappInfluencerInfluencerIdRoute =
   privateappInfluencerInfluencerIdRouteImport.update({
     id: '/influencer/$influencerId',
@@ -196,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/creators': typeof privateappCreatorsRoute
   '/financial': typeof privateappFinancialRoute
   '/holds': typeof privateappHoldsRoute
+  '/lives': typeof privateappLivesRouteWithChildren
   '/settings': typeof privateappSettingsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
@@ -207,6 +226,8 @@ export interface FileRoutesByFullPath {
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/lives/$liveId': typeof privateappLivesLiveIdRoute
+  '/lives/new': typeof privateappLivesNewRoute
   '/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
@@ -221,6 +242,7 @@ export interface FileRoutesByTo {
   '/creators': typeof privateappCreatorsRoute
   '/financial': typeof privateappFinancialRoute
   '/holds': typeof privateappHoldsRoute
+  '/lives': typeof privateappLivesRouteWithChildren
   '/settings': typeof privateappSettingsRoute
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
@@ -232,6 +254,8 @@ export interface FileRoutesByTo {
   '/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/campaigns/new': typeof privateappCampaignsNewRoute
   '/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/lives/$liveId': typeof privateappLivesLiveIdRoute
+  '/lives/new': typeof privateappLivesNewRoute
   '/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
@@ -252,6 +276,7 @@ export interface FileRoutesById {
   '/(private)/(app)/creators': typeof privateappCreatorsRoute
   '/(private)/(app)/financial': typeof privateappFinancialRoute
   '/(private)/(app)/holds': typeof privateappHoldsRoute
+  '/(private)/(app)/lives': typeof privateappLivesRouteWithChildren
   '/(private)/(app)/settings': typeof privateappSettingsRoute
   '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
@@ -263,6 +288,8 @@ export interface FileRoutesById {
   '/(private)/(app)/campaigns/$campaignId': typeof privateappCampaignsCampaignIdRouteWithChildren
   '/(private)/(app)/campaigns/new': typeof privateappCampaignsNewRoute
   '/(private)/(app)/influencer/$influencerId': typeof privateappInfluencerInfluencerIdRoute
+  '/(private)/(app)/lives/$liveId': typeof privateappLivesLiveIdRoute
+  '/(private)/(app)/lives/new': typeof privateappLivesNewRoute
   '/(private)/(app)/workspace/settings': typeof privateappWorkspaceSettingsRoute
   '/(public)/campaigns/$campaignId/invite': typeof publicCampaignsCampaignIdInviteRoute
   '/(private)/(app)/campaigns/$campaignId/edit': typeof privateappCampaignsCampaignIdEditRoute
@@ -280,6 +307,7 @@ export interface FileRouteTypes {
     | '/creators'
     | '/financial'
     | '/holds'
+    | '/lives'
     | '/settings'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
@@ -291,6 +319,8 @@ export interface FileRouteTypes {
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
+    | '/lives/$liveId'
+    | '/lives/new'
     | '/workspace/settings'
     | '/campaigns/$campaignId/invite'
     | '/campaigns/$campaignId/edit'
@@ -305,6 +335,7 @@ export interface FileRouteTypes {
     | '/creators'
     | '/financial'
     | '/holds'
+    | '/lives'
     | '/settings'
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
@@ -316,6 +347,8 @@ export interface FileRouteTypes {
     | '/campaigns/$campaignId'
     | '/campaigns/new'
     | '/influencer/$influencerId'
+    | '/lives/$liveId'
+    | '/lives/new'
     | '/workspace/settings'
     | '/campaigns/$campaignId/invite'
     | '/campaigns/$campaignId/edit'
@@ -335,6 +368,7 @@ export interface FileRouteTypes {
     | '/(private)/(app)/creators'
     | '/(private)/(app)/financial'
     | '/(private)/(app)/holds'
+    | '/(private)/(app)/lives'
     | '/(private)/(app)/settings'
     | '/(private)/onboarding/create-workspace'
     | '/(private)/onboarding/verify-phone'
@@ -346,6 +380,8 @@ export interface FileRouteTypes {
     | '/(private)/(app)/campaigns/$campaignId'
     | '/(private)/(app)/campaigns/new'
     | '/(private)/(app)/influencer/$influencerId'
+    | '/(private)/(app)/lives/$liveId'
+    | '/(private)/(app)/lives/new'
     | '/(private)/(app)/workspace/settings'
     | '/(public)/campaigns/$campaignId/invite'
     | '/(private)/(app)/campaigns/$campaignId/edit'
@@ -464,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof privateappSettingsRouteImport
       parentRoute: typeof privateappLayoutRoute
     }
+    '/(private)/(app)/lives': {
+      id: '/(private)/(app)/lives'
+      path: '/lives'
+      fullPath: '/lives'
+      preLoaderRoute: typeof privateappLivesRouteImport
+      parentRoute: typeof privateappLayoutRoute
+    }
     '/(private)/(app)/holds': {
       id: '/(private)/(app)/holds'
       path: '/holds'
@@ -505,6 +548,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspace/settings'
       preLoaderRoute: typeof privateappWorkspaceSettingsRouteImport
       parentRoute: typeof privateappLayoutRoute
+    }
+    '/(private)/(app)/lives/new': {
+      id: '/(private)/(app)/lives/new'
+      path: '/new'
+      fullPath: '/lives/new'
+      preLoaderRoute: typeof privateappLivesNewRouteImport
+      parentRoute: typeof privateappLivesRoute
+    }
+    '/(private)/(app)/lives/$liveId': {
+      id: '/(private)/(app)/lives/$liveId'
+      path: '/$liveId'
+      fullPath: '/lives/$liveId'
+      preLoaderRoute: typeof privateappLivesLiveIdRouteImport
+      parentRoute: typeof privateappLivesRoute
     }
     '/(private)/(app)/influencer/$influencerId': {
       id: '/(private)/(app)/influencer/$influencerId'
@@ -603,11 +660,26 @@ const privateappCampaignsRouteChildren: privateappCampaignsRouteChildren = {
 const privateappCampaignsRouteWithChildren =
   privateappCampaignsRoute._addFileChildren(privateappCampaignsRouteChildren)
 
+interface privateappLivesRouteChildren {
+  privateappLivesLiveIdRoute: typeof privateappLivesLiveIdRoute
+  privateappLivesNewRoute: typeof privateappLivesNewRoute
+}
+
+const privateappLivesRouteChildren: privateappLivesRouteChildren = {
+  privateappLivesLiveIdRoute: privateappLivesLiveIdRoute,
+  privateappLivesNewRoute: privateappLivesNewRoute,
+}
+
+const privateappLivesRouteWithChildren = privateappLivesRoute._addFileChildren(
+  privateappLivesRouteChildren,
+)
+
 interface privateappLayoutRouteChildren {
   privateappCampaignsRoute: typeof privateappCampaignsRouteWithChildren
   privateappCreatorsRoute: typeof privateappCreatorsRoute
   privateappFinancialRoute: typeof privateappFinancialRoute
   privateappHoldsRoute: typeof privateappHoldsRoute
+  privateappLivesRoute: typeof privateappLivesRouteWithChildren
   privateappSettingsRoute: typeof privateappSettingsRoute
   privateappIndexRoute: typeof privateappIndexRoute
   privateappInfluencerInfluencerIdRoute: typeof privateappInfluencerInfluencerIdRoute
@@ -619,6 +691,7 @@ const privateappLayoutRouteChildren: privateappLayoutRouteChildren = {
   privateappCreatorsRoute: privateappCreatorsRoute,
   privateappFinancialRoute: privateappFinancialRoute,
   privateappHoldsRoute: privateappHoldsRoute,
+  privateappLivesRoute: privateappLivesRouteWithChildren,
   privateappSettingsRoute: privateappSettingsRoute,
   privateappIndexRoute: privateappIndexRoute,
   privateappInfluencerInfluencerIdRoute: privateappInfluencerInfluencerIdRoute,

@@ -49,6 +49,12 @@ export function Sidebar() {
       visible: permissions.catalog_read,
     },
     {
+      label: "Lives",
+      icon: "Radio" as keyof typeof icons,
+      href: "/lives",
+      visible: permissions.community_lives_read,
+    },
+    {
       label: "Financeiro",
       icon: "Wallet" as keyof typeof icons,
       href: "/financial",

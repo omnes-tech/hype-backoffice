@@ -265,6 +265,9 @@ export interface WorkspacePermissions {
   // Contratos
   contracts_read: boolean;
   contracts_write: boolean;
+  // Lives da Comunidade (transmissões ao vivo)
+  community_lives_read: boolean;
+  community_lives_write: boolean;
   // Financeiro
   financial_read: boolean;
   financial_balance_add: boolean;
@@ -893,4 +896,119 @@ export interface ContractVariable {
   label: string;
   description?: string;
   group: "influencer" | "brand" | "campaign";
+}
+// ---------------------------------------------------------------------------
+// Lives da Comunidade (transmissões ao vivo) — LiveKit/WebRTC.
+// Contrato: hypeapp-api/docs/backoffice-community-lives.md
+// ---------------------------------------------------------------------------
+
+/**
+ * Máquina de estados:
+ *  upcoming → live → ended
+ *  upcoming → cancelled
+ */
+export type LiveStatus = "upcoming" | "live" | "ended" | "cancelled";
+
+/** Estado do processamento da gravação (VOD). */
+export type LiveRecordingStatus = "none" | "processing" | "ready" | "failed";
+
+/** Filtro de status na listagem (`past` agrega `ended`). */
+export type LiveStatusFilter = "live" | "upcoming" | "past" | "cancelled" | "all";
+
+/** Membro do backoffice que criou a live. */
+export interface LiveCreator {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+/** Objeto `Live` (gestão no backoffice) — §4 do doc de backend. */
+export interface Live {
+  id: string; // public_id (UUID)
+  title: string;
+  description: string | null;
+  /** URL absoluta (upload prévio em /community/lives/uploads). */
+  thumbnail_url: string | null;
+  host_display_name: string | null;
+  status: LiveStatus;
+  scheduled_at: string; // ISO (sempre presente)
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  views_count: number;
+  likes_count: number;
+  recording_status: LiveRecordingStatus;
+  /** Playback do VOD quando `recording_status === "ready"`. */
+  recording_url: string | null;
+  creator: LiveCreator;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Credenciais de transmissão do criador (LiveKit). Efêmeras — retornadas só por
+ * `POST /:id/start` e `POST /:id/broadcaster-token`. Nunca persistir além do
+ * necessário para a conexão; renovar via `/broadcaster-token` ao expirar.
+ */
+export interface BroadcasterCredentials {
+  provider: string; // "livekit"
+  url: string; // wss://... endpoint do LiveKit
+  room: string; // nome da sala (== live id)
+  token: string; // JWT de PUBLISH (TTL curto)
+  identity: string; // identidade do publicador na sala
+  expires_at: string; // ISO
+}
+
+/** Resposta de `POST /:id/start`. */
+export interface StartLiveResponse {
+  live: Live;
+  broadcaster: BroadcasterCredentials;
+}
+
+/** Payload de criação/agendamento — `POST /community/lives`. */
+export interface CreateLivePayload {
+  title: string;
+  description?: string | null;
+  thumbnail_url?: string | null;
+  host_display_name?: string | null;
+  /** ISO 8601 UTC. Futuro = agenda; agora/passado = abrir já (depois chamar /start). */
+  scheduled_at: string;
+}
+
+/** Payload de edição (apenas `upcoming`) — `PATCH /community/lives/:id`. */
+export interface UpdateLivePayload {
+  title?: string;
+  description?: string | null;
+  thumbnail_url?: string | null;
+  host_display_name?: string | null;
+  scheduled_at?: string;
+}
+
+/** Meta de paginação por cursor opaco. */
+export interface CursorMeta {
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+/** Página de lives. */
+export interface LivePage {
+  items: Live[];
+  meta: CursorMeta;
+}
+
+/** Autor de um comentário no chat ao vivo (frame do WS). */
+export interface LiveCommentAuthor {
+  id: string;
+  name: string;
+  username?: string;
+  avatar_url: string | null;
+}
+
+/** Comentário do chat ao vivo — frame `comment` do namespace `/community/live`. */
+export interface LiveComment {
+  id: string;
+  live_id: string;
+  author: LiveCommentAuthor;
+  content: string;
+  created_at: string;
 }

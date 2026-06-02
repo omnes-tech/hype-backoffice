@@ -32,6 +32,12 @@ function RouteComponent() {
     title = "Financeiro";
   } else if (pathname === "/holds") {
     title = "Holds";
+  } else if (pathname === "/lives/new") {
+    title = "Nova live";
+  } else if (pathname.startsWith("/lives/")) {
+    title = "Sala de controle";
+  } else if (pathname === "/lives") {
+    title = "Lives";
   }
 
   return (

@@ -29,7 +29,14 @@
       "Bash(netstat -ano)",
       "Read(//c/Users/muril/Projects/hypeapp/**)",
       "Bash(ls -d */)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(Get-ChildItem -Path \".\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(npx vite *)",
+      "Bash(cd \"C:/Users/muril/Projects/hypeapp/hypeapp-api\")",
+      "Bash(find src *)",
+      "Bash(sed -n '1,80p' src/common/guards/workspace-permission.guard.ts)",
+      "Bash(grep -rln \"community_lives\\\\|ROLE_PERMISSIONS\\\\|rolePermissions\\\\|owner.*admin.*member\" src/modules/workspaces/workspaces.service.ts src/resources/backoffice/workspace.resource.ts)"
     ]
   }
 }
