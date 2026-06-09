@@ -120,6 +120,12 @@ export function Sidebar() {
                 label="Notificações"
                 compact={isNarrow}
               />
+              <SidebarItem
+                href="/admin/groups"
+                icon="Users"
+                label="Grupos"
+                compact={isNarrow}
+              />
             </ul>
           </div>
         )}

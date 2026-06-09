@@ -1012,3 +1012,105 @@ export interface LiveComment {
   content: string;
   created_at: string;
 }
+
+// ===========================================================================
+// Comunidade ▸ Grupos (backoffice/super-admin)
+// Contrato: backend-community-groups-spec.md (rotas §4, escopo global sem
+// `Workspace-Id`, protegidas por `PlatformAdminGuard`).
+// ===========================================================================
+
+/** Filtro de status na listagem admin (`active` é o default do backend). */
+export type GroupStatusFilter = "active" | "deleted" | "all";
+
+/** Moderador/admin de um grupo (lista exibida no detalhe). */
+export interface CommunityGroupModerator {
+  id: string;
+  name: string;
+  username: string;
+  avatar_url: string | null;
+}
+
+/**
+ * Grupo da comunidade (visão de backoffice).
+ *
+ * `cover_url` é a identidade visual primária (imagem enviada). `icon_name`/
+ * `icon_color` permanecem como fallback legado para grupos antigos sem capa —
+ * resolver `cover_url` com `getUploadUrl()` antes de renderizar.
+ */
+export interface CommunityGroup {
+  id: string; // public_id (UUID)
+  name: string;
+  description: string;
+  cover_url: string | null;
+  /** Legado/fallback — só quando `cover_url` é null. */
+  icon_name: string | null;
+  /** Legado/fallback — hex sem `#`. */
+  icon_color: string | null;
+  required_level: number | null;
+  required_hype_points: number | null;
+  members_count: number;
+  is_official: boolean;
+  // Campos exclusivos do contexto admin (§4.1):
+  posts_count?: number;
+  deleted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Detalhe do grupo (§4.2) — inclui regras e moderadores. */
+export interface CommunityGroupDetail extends CommunityGroup {
+  rules: string | null;
+  moderators: CommunityGroupModerator[];
+}
+
+/** Página de grupos (cursor). */
+export interface CommunityGroupPage {
+  items: CommunityGroup[];
+  meta: CursorMeta;
+}
+
+/**
+ * Payload de criação — `POST /admin/community/groups` (§4.3).
+ *
+ * Requisitos de entrada são **combináveis**: `required_level` e
+ * `required_hype_points` podem coexistir; ambos `null`/`0` = grupo aberto.
+ */
+export interface CreateGroupPayload {
+  name: string;
+  description: string;
+  cover_url?: string | null;
+  required_level?: number | null;
+  required_hype_points?: number | null;
+  is_official?: boolean;
+  rules?: string | null;
+  /** Seed inicial de moderadores (cria membership role=moderator). */
+  moderator_user_ids?: string[];
+}
+
+/** Payload de edição parcial — `PATCH /admin/community/groups/:id` (§4.4). */
+export type UpdateGroupPayload = Partial<CreateGroupPayload>;
+
+/** Autor de um post (moderação de conteúdo). */
+export interface GroupPostAuthor {
+  id: string;
+  name: string;
+  username?: string;
+  avatar_url: string | null;
+}
+
+/** Post de um grupo (moderação — §4.7). */
+export interface GroupPost {
+  id: string; // public_id
+  content: string;
+  image_url: string | null;
+  author: GroupPostAuthor;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+}
+
+/** Página de posts do grupo (cursor). */
+export interface GroupPostPage {
+  items: GroupPost[];
+  meta: CursorMeta;
+}
