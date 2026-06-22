@@ -504,6 +504,10 @@ function RouteComponent() {
             nicheNames={campaignFormData.nicheNames}
             subNicheNames={campaignFormData.subNicheNames}
             participants={managementData?.participants ?? []}
+            influencers={influencers}
+            contents={contents}
+            onNavigateTab={setActiveTab}
+            visibleTabIds={visibleTabs.map((t) => t.id)}
           />
         );
       case "management":

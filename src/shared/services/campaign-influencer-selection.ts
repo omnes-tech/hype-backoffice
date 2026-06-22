@@ -28,6 +28,11 @@ export interface InfluencerSelectionProfileItem {
   niche_name?: string;
   /** Todos os nomes quando a API envia lista (ex.: nichos aninhados). */
   niche_names?: string[];
+  /**
+   * Engajamento (%) da conta — mesma definição do catálogo de criadores.
+   * `null` quando a API ainda não tem métricas calculadas.
+   */
+  engagement?: number | null;
   /** Presente apenas em `recommended` */
   match_reason?: string;
 }
@@ -128,6 +133,16 @@ function normalizeProfileItem(raw: unknown): InfluencerSelectionProfileItem | nu
   const match_reason =
     typeof mr === "string" && mr.trim() ? mr.trim() : undefined;
 
+  const engRaw = o.engagement;
+  const engagement =
+    typeof engRaw === "number" && Number.isFinite(engRaw)
+      ? engRaw
+      : engRaw == null
+        ? null
+        : Number.isFinite(Number(engRaw))
+          ? Number(engRaw)
+          : null;
+
   const nn = o.niche_name ?? o.nicheName;
   if (typeof nn === "string" && nn.trim()) niche_name = niche_name ?? nn.trim();
 
@@ -182,6 +197,7 @@ function normalizeProfileItem(raw: unknown): InfluencerSelectionProfileItem | nu
     niche_ids,
     niche_name,
     niche_names,
+    engagement,
     match_reason,
   };
 }

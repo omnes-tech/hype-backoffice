@@ -14,6 +14,7 @@ import {
 import type { CampaignListItem } from "@/shared/services/campaign";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import { GettingStartedChecklist } from "@/components/dashboard/getting-started-checklist";
 
 export const Route = createFileRoute("/(private)/(app)/")({
   component: RouteComponent,
@@ -254,6 +255,12 @@ function RouteComponent() {
           </div>
         </div>
       </header>
+
+      {/* Primeiros passos — onboarding; some ao completar os 3 passos */}
+      <GettingStartedChecklist
+        workspaceId={selectedWorkspace?.id ?? ""}
+        campaignCreated={campaignsData.length > 0}
+      />
 
       {/* Resumo rápido — contagem por status */}
       <section aria-label="Resumo de campanhas">

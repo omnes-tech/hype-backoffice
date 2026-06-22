@@ -18,6 +18,8 @@ interface CreateCampaignStepSevenProps {
   onEdit: (step: number) => void;
   onSubmitCampaign: () => void;
   onSaveDraft?: () => void;
+  /** Descarta o rascunho restaurado e reinicia o formulário. */
+  onDiscardDraft?: () => void;
   isLoading?: boolean;
   /** Edição: voltar da revisão sai do fluxo (ex.: detalhe da campanha). Se não vier, usa `onBack`. */
   onReviewBack?: () => void;
@@ -102,6 +104,7 @@ export function CreateCampaignStepSeven({
   onEdit,
   onSubmitCampaign,
   onSaveDraft,
+  onDiscardDraft,
   isLoading = false,
   onReviewBack,
   onEditPhase,
@@ -500,6 +503,17 @@ export function CreateCampaignStepSeven({
           </div>
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {onDiscardDraft && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onDiscardDraft}
+              disabled={isLoading}
+              className="h-11 rounded-[24px] px-4 border-neutral-300 w-max"
+            >
+              <span className="font-semibold text-neutral-600">Descartar rascunho</span>
+            </Button>
+          )}
           {onSaveDraft && (
             <Button
               type="button"

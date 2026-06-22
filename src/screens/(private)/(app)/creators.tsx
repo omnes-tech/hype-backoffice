@@ -12,6 +12,7 @@ import {
   InfluencerProfileCard,
   type InfluencerCardData,
 } from "@/components/campaign-tabs/shared/influencer-profile-card";
+import { ListMembershipModal } from "@/components/influencer-lists/list-membership-modal";
 import { useWorkspaceContext, useWorkspacePermissions } from "@/contexts/workspace-context";
 import { useNiches } from "@/hooks/use-niches";
 import { useInfluencerLists, useInfluencerList, useInfluencerMembershipMap } from "@/hooks/use-influencer-lists";
@@ -20,12 +21,15 @@ import {
   useCreateInfluencerList,
   useUpdateInfluencerList,
   useDeleteInfluencerList,
-  useAddToInfluencerList,
   useRemoveFromInfluencerList,
 } from "@/hooks/use-creators-catalog";
-import type { CatalogItem } from "@/shared/services/creators-catalog";
+import type {
+  CatalogItem,
+  CatalogOrderBy,
+  CatalogOrderDir,
+} from "@/shared/services/creators-catalog";
 import type { Niche } from "@/shared/types";
-import { getUploadUrl } from "@/lib/utils/api";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 // Lazy: o Leaflet (~130kB) só baixa quando o usuário ativa "Perto de mim".
 const NearMeMap = lazy(() =>
@@ -49,6 +53,11 @@ interface CatalogFilters {
   state: string;
   followers_min: string;
   followers_max: string;
+  gender: string;
+  engagement_min: string;
+  engagement_max: string;
+  /** Valor combinado "campo_direção" (ex.: "followers_desc"); "" = padrão. */
+  order: string;
 }
 
 const EMPTY_FILTERS: CatalogFilters = {
@@ -58,6 +67,10 @@ const EMPTY_FILTERS: CatalogFilters = {
   state: "",
   followers_min: "",
   followers_max: "",
+  gender: "",
+  engagement_min: "",
+  engagement_max: "",
+  order: "",
 };
 
 const NETWORK_OPTIONS = [
@@ -67,6 +80,50 @@ const NETWORK_OPTIONS = [
   { value: "youtube", label: "YouTube" },
   { value: "ugc", label: "UGC" },
 ];
+
+const GENDER_OPTIONS = [
+  { value: "", label: "Todos os gêneros" },
+  { value: "male", label: "Masculino" },
+  { value: "female", label: "Feminino" },
+  { value: "other", label: "Outro" },
+  { value: "prefer_not_to_say", label: "Prefiro não dizer" },
+];
+
+const ORDER_OPTIONS = [
+  { value: "", label: "Padrão" },
+  { value: "followers_desc", label: "Seguidores (maior)" },
+  { value: "followers_asc", label: "Seguidores (menor)" },
+  { value: "engagement_desc", label: "Engajamento (maior)" },
+  { value: "engagement_asc", label: "Engajamento (menor)" },
+  { value: "name_asc", label: "Nome (A–Z)" },
+  { value: "recent_desc", label: "Mais recentes" },
+];
+
+/** Quebra o valor combinado de ordenação em campo + direção para a API. */
+function parseOrder(order: string): {
+  order_by?: CatalogOrderBy;
+  order_dir?: CatalogOrderDir;
+} {
+  if (!order) return {};
+  const idx = order.lastIndexOf("_");
+  if (idx <= 0) return {};
+  return {
+    order_by: order.slice(0, idx) as CatalogOrderBy,
+    order_dir: order.slice(idx + 1) as CatalogOrderDir,
+  };
+}
+
+/** Mantém apenas dígitos (campos de seguidores). */
+function sanitizeInt(v: string): string {
+  return v.replace(/\D/g, "");
+}
+
+/** Mantém dígitos e um separador decimal (campos de engajamento %). */
+function sanitizeDecimal(v: string): string {
+  const cleaned = v.replace(/[^\d.,]/g, "").replace(",", ".");
+  const parts = cleaned.split(".");
+  return parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`;
+}
 
 // ---------------------------------------------------------------------------
 // "Perto de mim" — geolocalização do admin via Geolocation API
@@ -177,171 +234,6 @@ function CardSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
-// ListMembershipModal — gerencia em quais listas o influenciador está
-// ---------------------------------------------------------------------------
-
-interface ListMembershipModalProps {
-  userId: number;
-  influencerName: string;
-  onClose: () => void;
-}
-
-function ListMembershipModal({ userId, influencerName, onClose }: ListMembershipModalProps) {
-  const { data: lists = [], isLoading } = useInfluencerLists();
-  const membershipMap = useInfluencerMembershipMap();
-  const addMutation = useAddToInfluencerList();
-  const removeMutation = useRemoveFromInfluencerList();
-  const createMutation = useCreateInfluencerList();
-  const [newListName, setNewListName] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
-
-  const currentLists = membershipMap.get(userId) ?? [];
-  const currentListIds = new Set(currentLists.map((l) => l.id));
-  const availableLists = lists.filter((l) => !currentListIds.has(l.id));
-
-  const isPending = addMutation.isPending || removeMutation.isPending || createMutation.isPending;
-
-  async function handleAdd(listId: string) {
-    await addMutation.mutateAsync({ listId, userId });
-  }
-
-  async function handleRemove(listId: string) {
-    await removeMutation.mutateAsync({ listId, userId });
-  }
-
-  async function handleCreate() {
-    if (!newListName.trim()) return;
-    const list = await createMutation.mutateAsync(newListName.trim());
-    await addMutation.mutateAsync({ listId: list.id, userId });
-    setNewListName("");
-    setShowCreateForm(false);
-  }
-
-  return (
-    <Modal onClose={onClose} title="Listas" panelClassName="max-w-md">
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-neutral-500">
-          Gerenciar listas de <strong className="text-neutral-800">{influencerName}</strong>
-        </p>
-
-        {isLoading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-neutral-400">
-            <Icon name="Loader" size={16} color="#a3a3a3" className="animate-spin" />
-            Carregando listas...
-          </div>
-        ) : (
-          <>
-            {/* Listas em que já está */}
-            {currentLists.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-                  Nas listas
-                </p>
-                {currentLists.map((list) => (
-                  <div
-                    key={list.id}
-                    className="flex items-center justify-between rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3"
-                  >
-                    <p className="font-medium text-neutral-900">{list.name}</p>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(list.id)}
-                      disabled={isPending}
-                      className="flex size-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-50"
-                      title="Remover da lista"
-                    >
-                      <Icon name="X" size={14} color="currentColor" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Listas disponíveis para adicionar */}
-            {availableLists.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {currentLists.length > 0 && (
-                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-                    Adicionar a
-                  </p>
-                )}
-                {availableLists.map((list) => (
-                  <button
-                    key={list.id}
-                    type="button"
-                    onClick={() => handleAdd(list.id)}
-                    disabled={isPending}
-                    className="flex items-center justify-between w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-left hover:border-primary-300 hover:bg-primary-50 transition-colors disabled:opacity-50"
-                  >
-                    <div>
-                      <p className="font-medium text-neutral-900">{list.name}</p>
-                      <p className="text-xs text-neutral-400">
-                        {list.influencer_count} {list.influencer_count === 1 ? "criador" : "criadores"}
-                      </p>
-                    </div>
-                    <Icon name="Plus" size={18} color="#9E2CFA" />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Nenhuma lista ainda */}
-            {lists.length === 0 && !showCreateForm && (
-              <p className="text-sm text-neutral-400">
-                Você ainda não tem nenhuma lista. Crie uma para continuar.
-              </p>
-            )}
-
-            {/* Criar nova lista */}
-            {!showCreateForm ? (
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(true)}
-                className="flex items-center gap-2 w-full rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 hover:border-primary-400 hover:text-primary-600 transition-colors"
-              >
-                <Icon name="Plus" size={16} color="currentColor" />
-                Criar nova lista
-              </button>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-neutral-700">Nome da lista</label>
-                  <input
-                    autoFocus
-                    type="text"
-                    placeholder="Ex: Top creators fashion"
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                    className="h-11 w-full rounded-2xl border border-neutral-200 px-4 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="rounded-full flex-1"
-                    onClick={() => { setShowCreateForm(false); setNewListName(""); }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    className="rounded-full flex-1 bg-primary-600 hover:bg-primary-700"
-                    onClick={handleCreate}
-                    disabled={isPending || !newListName.trim()}
-                  >
-                    {isPending ? "Criando..." : "Criar e adicionar"}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Catalog Tab
 // ---------------------------------------------------------------------------
 
@@ -369,10 +261,38 @@ function CatalogTab() {
   // Mapa "perto de mim" — colapsável (ocupa espaço vertical; preferência do usuário)
   const [showNearMeMap, setShowNearMeMap] = useState(true);
 
+  // Campos numéricos (seguidores/engajamento) são debounced para não refazer a
+  // query a cada tecla; selects e ordenação aplicam imediatamente (UX mais ágil).
+  const [debouncedNumeric, setDebouncedNumeric] = useState({
+    followers_min: "",
+    followers_max: "",
+    engagement_min: "",
+    engagement_max: "",
+  });
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(filters.q), 350);
     return () => clearTimeout(t);
   }, [filters.q]);
+
+  useEffect(() => {
+    const t = setTimeout(
+      () =>
+        setDebouncedNumeric({
+          followers_min: filters.followers_min,
+          followers_max: filters.followers_max,
+          engagement_min: filters.engagement_min,
+          engagement_max: filters.engagement_max,
+        }),
+      350,
+    );
+    return () => clearTimeout(t);
+  }, [
+    filters.followers_min,
+    filters.followers_max,
+    filters.engagement_min,
+    filters.engagement_max,
+  ]);
 
   const queryFilters = useMemo(
     () => ({
@@ -380,8 +300,20 @@ function CatalogTab() {
       social_network: filters.social_network !== "all" ? filters.social_network : undefined,
       niche: filters.niche ? Number(filters.niche) : undefined,
       state: filters.state || undefined,
-      followers_min: filters.followers_min ? Number(filters.followers_min) : undefined,
-      followers_max: filters.followers_max ? Number(filters.followers_max) : undefined,
+      followers_min: debouncedNumeric.followers_min
+        ? Number(debouncedNumeric.followers_min)
+        : undefined,
+      followers_max: debouncedNumeric.followers_max
+        ? Number(debouncedNumeric.followers_max)
+        : undefined,
+      gender: filters.gender || undefined,
+      engagement_min: debouncedNumeric.engagement_min
+        ? Number(debouncedNumeric.engagement_min)
+        : undefined,
+      engagement_max: debouncedNumeric.engagement_max
+        ? Number(debouncedNumeric.engagement_max)
+        : undefined,
+      ...parseOrder(filters.order),
       // Geo só vai pro backend quando temos coords salvas (admin já permitiu)
       ...(nearMeLocation
         ? {
@@ -391,7 +323,7 @@ function CatalogTab() {
           }
         : {}),
     }),
-    [debouncedQ, filters, nearMeLocation, radiusKm]
+    [debouncedQ, filters, debouncedNumeric, nearMeLocation, radiusKm]
   );
 
   /**
@@ -527,6 +459,61 @@ function CatalogTab() {
             placeholder="Estado (ex: SP)"
             value={filters.state}
             onChange={(e) => setFilter("state", e.target.value)}
+          />
+        </div>
+
+        <div className="w-44">
+          <Select
+            options={GENDER_OPTIONS}
+            value={filters.gender}
+            onChange={(v) => setFilter("gender", v)}
+            placeholder="Gênero"
+          />
+        </div>
+
+        {/* Faixa de seguidores */}
+        <div className="w-28">
+          <InputSearch
+            placeholder="Seg. mín"
+            inputMode="numeric"
+            value={filters.followers_min}
+            onChange={(e) => setFilter("followers_min", sanitizeInt(e.target.value))}
+          />
+        </div>
+        <div className="w-28">
+          <InputSearch
+            placeholder="Seg. máx"
+            inputMode="numeric"
+            value={filters.followers_max}
+            onChange={(e) => setFilter("followers_max", sanitizeInt(e.target.value))}
+          />
+        </div>
+
+        {/* Faixa de engajamento (%) */}
+        <div className="w-28">
+          <InputSearch
+            placeholder="Eng. mín %"
+            inputMode="decimal"
+            value={filters.engagement_min}
+            onChange={(e) => setFilter("engagement_min", sanitizeDecimal(e.target.value))}
+          />
+        </div>
+        <div className="w-28">
+          <InputSearch
+            placeholder="Eng. máx %"
+            inputMode="decimal"
+            value={filters.engagement_max}
+            onChange={(e) => setFilter("engagement_max", sanitizeDecimal(e.target.value))}
+          />
+        </div>
+
+        {/* Ordenação */}
+        <div className="w-44">
+          <Select
+            options={ORDER_OPTIONS}
+            value={filters.order}
+            onChange={(v) => setFilter("order", v)}
+            placeholder="Ordenar por"
           />
         </div>
 
@@ -702,32 +689,6 @@ function CatalogTab() {
 }
 
 // ---------------------------------------------------------------------------
-// InfluencerAvatar — avatar com fallback para inicial se a imagem falhar
-// ---------------------------------------------------------------------------
-
-function InfluencerAvatar({ name, photoUrl }: { name: string; photoUrl: string | undefined }) {
-  const [broken, setBroken] = useState(false);
-  const initial = name.charAt(0).toUpperCase();
-
-  if (!photoUrl || broken) {
-    return (
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-200 text-sm font-medium text-neutral-500">
-        {initial}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={photoUrl}
-      alt={name}
-      className="size-10 rounded-xl object-cover bg-neutral-200 shrink-0"
-      onError={() => setBroken(true)}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
 // ListDetailModal
 // ---------------------------------------------------------------------------
 
@@ -771,13 +732,16 @@ function ListDetailModal({ listId, listName, onClose }: ListDetailModalProps) {
               {influencers.length} {influencers.length === 1 ? "criador" : "criadores"}
             </p>
             {influencers.map((influencer) => {
-              const photoUrl = getUploadUrl(influencer.photo);
               return (
               <div
                 key={influencer.id}
                 className="flex items-center gap-3 rounded-2xl border border-neutral-100 bg-neutral-50 px-4 py-3"
               >
-                <InfluencerAvatar name={influencer.name} photoUrl={photoUrl} />
+                <UserAvatar
+                  name={influencer.name}
+                  src={influencer.photo}
+                  className="size-10 rounded-xl"
+                />
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-neutral-900">{influencer.name}</p>

@@ -48,6 +48,9 @@ export interface CatalogItem {
   approx_location?: CatalogApproxLocation | null;
 }
 
+export type CatalogOrderBy = "followers" | "engagement" | "name" | "recent";
+export type CatalogOrderDir = "asc" | "desc";
+
 export interface CreatorsCatalogFilters {
   q?: string;
   social_network?: string;
@@ -56,6 +59,14 @@ export interface CreatorsCatalogFilters {
   city?: string;
   followers_min?: number;
   followers_max?: number;
+  /** Gênero do criador (male | female | other | prefer_not_to_say). */
+  gender?: string;
+  /** Engajamento mínimo/máximo em % (ex.: 2.5). */
+  engagement_min?: number;
+  engagement_max?: number;
+  /** Campo e direção de ordenação. */
+  order_by?: CatalogOrderBy;
+  order_dir?: CatalogOrderDir;
   /** Latitude do admin (origem da busca "perto de mim"). Range: [-90, 90]. */
   lat?: number;
   /** Longitude do admin. Range: [-180, 180]. */
@@ -194,6 +205,13 @@ export async function getCreatorsCatalog(
     url.searchParams.set("followers_min", String(filters.followers_min));
   if (filters.followers_max)
     url.searchParams.set("followers_max", String(filters.followers_max));
+  if (filters.gender) url.searchParams.set("gender", filters.gender);
+  if (filters.engagement_min != null)
+    url.searchParams.set("engagement_min", String(filters.engagement_min));
+  if (filters.engagement_max != null)
+    url.searchParams.set("engagement_max", String(filters.engagement_max));
+  if (filters.order_by) url.searchParams.set("order_by", filters.order_by);
+  if (filters.order_dir) url.searchParams.set("order_dir", filters.order_dir);
 
   // Filtro geo ("perto de mim") — só envia se os 3 vierem juntos.
   // Backend exige os três ou nenhum (ver docs/api-creators-near-me.md §2.1).

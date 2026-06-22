@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
-import { getUploadUrl } from "@/lib/utils/api";
 import { getSocialNetworkProfileUrl, getNetworkLabel } from "@/shared/constants/network-labels";
 import {
   computePriceData,
@@ -164,7 +164,6 @@ export function InfluencerProfileCard({
       : data.influencerFollowers;
   const followers = Number(rawFollowers ?? 0);
   const engagementDisplay = formatEngagement(data.influencerEngagement);
-  const avatarSrc = data.influencerAvatar ? getUploadUrl(data.influencerAvatar) : undefined;
   const networkLabel = getNetworkLabel(data.profileType, data.profileTypeLabel || "Rede social");
   const socialUrl = getSocialNetworkProfileUrl(data.profileType, data.profileUsername);
 
@@ -203,17 +202,12 @@ export function InfluencerProfileCard({
       {/* Topo: avatar + [ícone rede + bookmark] */}
       <div className="flex items-start justify-between gap-2">
         <div className="relative shrink-0">
-          {avatarSrc ? (
-            <img
-              src={avatarSrc}
-              alt={data.influencerName}
-              className="size-[60px] rounded-2xl object-cover bg-neutral-200"
-            />
-          ) : (
-            <div className="flex size-[60px] items-center justify-center rounded-2xl bg-neutral-200 text-lg font-medium text-neutral-500">
-              {data.influencerName.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <UserAvatar
+            name={data.influencerName}
+            src={data.influencerAvatar}
+            className="size-[60px] rounded-2xl"
+            textClassName="text-lg"
+          />
 
           {selectable && (
             <button

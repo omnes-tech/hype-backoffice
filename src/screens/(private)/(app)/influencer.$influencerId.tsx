@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { useInfluencerProfile } from "@/hooks/use-influencer-profile";
 import { getUploadUrl } from "@/lib/utils/api";
 import { AudienceByAgePanel } from "@/components/audience-by-age-panel";
 import { CampaignEvaluationViewModal } from "@/components/campaign-tabs/shared/campaign-evaluation-view-modal";
+import { ListMembershipModal } from "@/components/influencer-lists/list-membership-modal";
+import { CampaignPickerModal } from "@/components/influencer-lists/campaign-picker-modal";
 import { StarRating } from "@/components/ui/star-rating";
 
 export const Route = createFileRoute("/(private)/(app)/influencer/$influencerId")({
@@ -20,12 +24,6 @@ const NETWORK_CONFIG: Record<string, { icon: string; bg: string; iconColor: stri
   instagram: { icon: "Instagram", bg: "bg-gradient-to-br from-pink-100 to-purple-100", iconColor: "#e1306c", label: "Instagram" },
   tiktok: { icon: "Music2", bg: "bg-neutral-800", iconColor: "#ffffff", label: "TikTok" },
   youtube: { icon: "Youtube", bg: "bg-red-100", iconColor: "#ff0000", label: "YouTube" },
-};
-
-const NETWORK_AVATAR_BG: Record<string, string> = {
-  instagram: "bg-gradient-to-br from-amber-400 via-rose-500 to-purple-600",
-  tiktok: "bg-black",
-  youtube: "bg-red-600",
 };
 
 function networkTypeToMetricsTab(type: string): (typeof METRIC_NETWORKS)[number] | null {
@@ -157,6 +155,8 @@ function InfluencerProfileScreen() {
   const { data, isLoading, isError, error } = useInfluencerProfile(influencerId ?? "", metricsPosts);
   const [metricsTab, setMetricsTab] = useState<(typeof METRIC_NETWORKS)[number]>("Instagram");
   const [evaluationTarget, setEvaluationTarget] = useState<{ id: string; name: string } | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [campaignAction, setCampaignAction] = useState<"invite" | "preselection" | null>(null);
 
   const availableNetworks = METRIC_NETWORKS.filter(
     (n) => data?.metrics_by_network?.[n.toLowerCase()] != null
@@ -319,6 +319,21 @@ function InfluencerProfileScreen() {
     navigate({ to: "/campaigns" });
   };
 
+  // `users.id` canônico (vem do backend) — usado para salvar em lista e convidar.
+  const userIdNum = influencer?.id != null ? Number(influencer.id) : NaN;
+  const profileIds = (influencer?.social_networks ?? [])
+    .map((sn) => String(sn.id))
+    .filter((id) => id.trim() !== "");
+
+  const handleCopyProfileLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link do perfil copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o link.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-11 max-w-[1151px] mx-auto pb-8 pt-6 px-6">
@@ -381,7 +396,9 @@ function InfluencerProfileScreen() {
           <Button
             variant="outline"
             className="h-11 rounded-full font-semibold border-neutral-200 min-w-max"
-            onClick={() => { }}
+            onClick={() => setShowSaveModal(true)}
+            disabled={Number.isNaN(userIdNum)}
+            title="Salvar este influenciador em uma lista"
           >
             Salvar influenciador
           </Button>
@@ -391,19 +408,13 @@ function InfluencerProfileScreen() {
       <div className="bg-white rounded-xl px-4 py-5 flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            {influencer.avatar ? (
-              <img
-                src={getUploadUrl(influencer.avatar) ?? undefined}
-                alt={influencer.name ?? "Avatar do influenciador"}
-                className="size-[130px] rounded-full object-cover bg-neutral-200"
-              />
-            ) : (
-              <div className="size-[130px] rounded-full bg-neutral-200 flex items-center justify-center">
-                <span className="text-neutral-950 text-2xl font-medium">
-                  {influencer.name?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
+            <UserAvatar
+              name={influencer.name}
+              src={influencer.avatar}
+              alt={influencer.name ?? "Avatar do influenciador"}
+              className="size-[130px] rounded-full"
+              textClassName="text-2xl"
+            />
             <div className="absolute -bottom-1 -right-1 size-8 rounded-full bg-primary-600 flex items-center justify-center">
               <Icon name="Check" size={16} color="#fff" />
             </div>
@@ -567,22 +578,13 @@ function InfluencerProfileScreen() {
 
             {/* Content */}
             <div className="flex flex-wrap items-start gap-5 p-5">
-              {/* Network-branded avatar */}
-              <div
-                className={`size-[96px] rounded-full shrink-0 overflow-hidden flex items-center justify-center ${NETWORK_AVATAR_BG[activeTab] ?? "bg-neutral-800"}`}
-              >
-                {activeSN?.photo ? (
-                  <img
-                    src={activeSN.photo}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <span className="text-white text-2xl font-medium">
-                    {influencer.name?.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
+              {/* Avatar do perfil na rede — fallback: inicial em fundo cinza */}
+              <UserAvatar
+                name={influencer.name}
+                src={activeSN?.photo}
+                className="size-[96px] rounded-full"
+                textClassName="text-2xl"
+              />
 
               {/* Info */}
               <div className="flex flex-col flex-1 min-w-0">
@@ -988,14 +990,27 @@ function InfluencerProfileScreen() {
         )}
       </div>
 
-      <div className="bg-white border-t border-neutral-200 px-4 py-4 flex items-center justify-center rounded-full gap-4 z-10">
-        <Button variant="outline" className="rounded-full font-semibold min-w-max" onClick={() => { }}>
+      <div className="bg-white border-t border-neutral-200 px-4 py-4 flex flex-wrap items-center justify-center rounded-full gap-4 z-10">
+        <Button
+          variant="outline"
+          className="rounded-full font-semibold min-w-max"
+          onClick={handleCopyProfileLink}
+        >
           Copiar link do perfil
         </Button>
-        <Button variant="outline" className="rounded-full font-semibold min-w-max" onClick={() => { }}>
+        <Button
+          variant="outline"
+          className="rounded-full font-semibold min-w-max"
+          onClick={() => setCampaignAction("preselection")}
+          disabled={Number.isNaN(userIdNum)}
+        >
           Convidar para pré-seleção
         </Button>
-        <Button className="rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0 min-w-max">
+        <Button
+          className="rounded-full font-semibold bg-primary-600 hover:bg-primary-700 text-white border-0 min-w-max disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => setCampaignAction("invite")}
+          disabled={Number.isNaN(userIdNum)}
+        >
           Enviar convite
         </Button>
       </div>
@@ -1006,6 +1021,24 @@ function InfluencerProfileScreen() {
           influencerId={influencerId}
           campaignName={evaluationTarget.name}
           onClose={() => setEvaluationTarget(null)}
+        />
+      )}
+
+      {showSaveModal && !Number.isNaN(userIdNum) && (
+        <ListMembershipModal
+          userId={userIdNum}
+          influencerName={influencer.name ?? "Influenciador"}
+          onClose={() => setShowSaveModal(false)}
+        />
+      )}
+
+      {campaignAction && !Number.isNaN(userIdNum) && (
+        <CampaignPickerModal
+          mode={campaignAction}
+          influencerId={String(influencer.id)}
+          influencerName={influencer.name ?? "Influenciador"}
+          profileIds={profileIds}
+          onClose={() => setCampaignAction(null)}
         />
       )}
     </div>

@@ -24,14 +24,17 @@ import type {
  * fallback elegante sem quebrar (campos legados continuam funcionando).
  */
 
+// Apenas tipos com fonte de dados real no backend (asaas_charges +
+// influencer_balance_entries). "Ajustes (+/−)" foram removidos: o endpoint
+// /movements é virtual e não há tabela/feature de ajuste manual de saldo —
+// enviá-los caía em 400 (`@IsIn(MOVEMENT_TYPES)`). Reintroduzir só quando o
+// backend expuser uma fonte de ajustes.
 const TYPE_FILTERS: { value: MovementType | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "top_up_confirmed", label: "Depósitos" },
   { value: "reserve_created", label: "Reservas" },
   { value: "reserve_cancelled", label: "Devoluções" },
   { value: "payout", label: "Pagamentos" },
-  { value: "adjustment_credit", label: "Ajustes (+)" },
-  { value: "adjustment_debit", label: "Ajustes (−)" },
 ];
 
 const TYPE_BADGE: Record<MovementType, { bg: string; text: string; label: string }> = {

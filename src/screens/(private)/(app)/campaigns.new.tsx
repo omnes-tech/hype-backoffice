@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -68,13 +68,70 @@ const initialFormData: CampaignFormData = {
   campaignVisibility: "public",
 };
 
+/** Chave do rascunho de criação no localStorage (escopo deste navegador). */
+const DRAFT_KEY = "hypeapp-campaign-draft-new";
+
+interface CampaignDraft {
+  data: CampaignFormData;
+  step: number;
+}
+
+/**
+ * Lê o rascunho salvo no localStorage. Retorna `null` quando não há rascunho,
+ * o JSON é inválido ou o localStorage está indisponível (modo privado/quota).
+ * Mescla sobre `initialFormData` para tolerar rascunhos de versões antigas do
+ * formulário (campos novos entram com default em vez de ficar `undefined`).
+ */
+function loadCampaignDraft(): CampaignDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CampaignDraft> | null;
+    if (parsed && typeof parsed === "object" && parsed.data && typeof parsed.data === "object") {
+      return {
+        data: { ...initialFormData, ...(parsed.data as CampaignFormData) },
+        step: typeof parsed.step === "number" ? parsed.step : 1,
+      };
+    }
+  } catch {
+    // JSON inválido / localStorage indisponível — começa do zero.
+  }
+  return null;
+}
+
 function CreateCampaignPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [currentStep, setCurrentStep] = useState(1);
+
+  // Lê o rascunho UMA vez na montagem (ref-guard) e reusa nos inicializadores
+  // de estado — evita ler o localStorage a cada render.
+  const initialDraftRef = useRef<CampaignDraft | null | undefined>(undefined);
+  if (initialDraftRef.current === undefined) {
+    initialDraftRef.current = loadCampaignDraft();
+  }
+  const initialDraft = initialDraftRef.current;
+
+  const [currentStep, setCurrentStep] = useState(initialDraft?.step ?? 1);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
-  const [formData, setFormData] = useState<CampaignFormData>(initialFormData);
+  const [formData, setFormData] = useState<CampaignFormData>(
+    initialDraft?.data ?? initialFormData,
+  );
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
+  // Controla a visibilidade do "Descartar rascunho": só faz sentido quando há
+  // um rascunho (restaurado na montagem ou salvo durante esta sessão).
+  const [hasDraft, setHasDraft] = useState<boolean>(!!initialDraft);
+
+  // Avisa (uma vez) que o rascunho foi restaurado, para o usuário não achar que
+  // entrou num formulário "sujo" por engano.
+  useEffect(() => {
+    if (initialDraft) {
+      toast.info("Rascunho restaurado", {
+        description: "Continuamos de onde você parou neste navegador.",
+        duration: 5000,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const createCampaignMutation = useCreateCampaign();
   const isSwap = formData.paymentType === "swap";
@@ -349,6 +406,15 @@ function CreateCampaignPage() {
         }
       }
 
+      // Campanha criada → descarta o rascunho para não reabrir dados obsoletos
+      // na próxima "Nova campanha".
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // localStorage indisponível — sem efeito colateral.
+      }
+      setHasDraft(false);
+
       toast.success("Campanha criada com sucesso!", {
         ...(successDescription ? { description: successDescription } : {}),
       });
@@ -361,8 +427,6 @@ function CreateCampaignPage() {
     }
   };
 
-  const DRAFT_KEY = "hypeapp-campaign-draft-new";
-
   const handleSaveDraft = () => {
     try {
       const { bannerFile: _bf, ...rest } = formData as CampaignFormData & {
@@ -372,6 +436,7 @@ function CreateCampaignPage() {
         DRAFT_KEY,
         JSON.stringify({ savedAt: new Date().toISOString(), step: STEP_REVISAO, data: rest })
       );
+      setHasDraft(true);
       toast.success("Rascunho salvo", {
         description:
           "Os dados foram guardados neste navegador. Conclua e envie a campanha quando quiser.",
@@ -380,6 +445,21 @@ function CreateCampaignPage() {
     } catch {
       toast.error("Não foi possível salvar o rascunho. Tente de novo.");
     }
+  };
+
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // localStorage indisponível — sem efeito colateral.
+    }
+    setFormData(initialFormData);
+    setFieldErrors(new Set());
+    setCurrentStep(1);
+    setHasDraft(false);
+    toast.success("Rascunho descartado", {
+      description: "O formulário foi reiniciado.",
+    });
   };
 
   const handleContinue = () => {
@@ -488,6 +568,7 @@ function CreateCampaignPage() {
             onEdit={(step) => setCurrentStep(step)}
             onSubmitCampaign={handleSubmitCampaign}
             onSaveDraft={handleSaveDraft}
+            onDiscardDraft={hasDraft ? handleDiscardDraft : undefined}
             isLoading={isCreatingCampaign || createCampaignMutation.isPending}
           />
         )}

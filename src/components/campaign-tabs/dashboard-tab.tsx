@@ -8,7 +8,9 @@ import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "@/components/ui/modal";
 import { InfluencerEvaluationSection } from "./influencer-evaluation-section";
+import { CampaignPendingTasks } from "./dashboard-pending-tasks";
 import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
+import type { Influencer, CampaignContent } from "@/shared/types";
 
 /** Skeleton do layout da aba Dashboard — espelha a estrutura real para transição suave */
 export function DashboardTabSkeleton() {
@@ -151,6 +153,14 @@ interface DashboardTabProps {
   /** Nomes dos subnichos (filhos) — vem direto da API, sem lookup. */
   subNicheNames?: string[];
   participants?: CampaignManagementParticipant[];
+  /** Influenciadores do dashboard — usados para derivar pendências. */
+  influencers?: Influencer[];
+  /** Conteúdos do dashboard — usados para derivar aprovações pendentes. */
+  contents?: CampaignContent[];
+  /** Troca a aba ativa da campanha (navegação in-page das pendências). */
+  onNavigateTab?: (tab: string) => void;
+  /** IDs das abas visíveis (gating de navegação das pendências por permissão). */
+  visibleTabIds?: string[];
 }
 
 
@@ -245,7 +255,7 @@ function timestampFromPhaseCreatedAt(iso: string): number {
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
 }
 
-export function DashboardTab({ campaignId, campaign, metrics, progressPercentage, nicheNames: nicheNamesProp, subNicheNames: subNicheNamesProp, participants = [] }: DashboardTabProps) {
+export function DashboardTab({ campaignId, campaign, metrics, progressPercentage, nicheNames: nicheNamesProp, subNicheNames: subNicheNamesProp, participants = [], influencers = [], contents = [], onNavigateTab, visibleTabIds }: DashboardTabProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [nicheModalOpen, setNicheModalOpen] = useState(false);
   const [subNicheModalOpen, setSubNicheModalOpen] = useState(false);
@@ -387,6 +397,14 @@ export function DashboardTab({ campaignId, campaign, metrics, progressPercentage
           </div>
         </div>
       </div>
+
+      {/* Tarefas e aprovações pendentes — filtrado a esta campanha */}
+      <CampaignPendingTasks
+        influencers={influencers}
+        contents={contents}
+        onNavigateTab={onNavigateTab}
+        visibleTabIds={visibleTabIds}
+      />
 
       {/* Duas colunas: Resumo (esquerda) | Fases + Segmentação + Benefícios (direita) */}
       <div className="flex flex-col lg:flex-row gap-6">

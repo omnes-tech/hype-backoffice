@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getApiUrl } from "@/lib/utils/api";
 
 interface ShareCampaignModalProps {
   isOpen: boolean;
@@ -21,7 +22,10 @@ export function ShareCampaignModal({
 }: ShareCampaignModalProps) {
   const [copied, setCopied] = useState(false);
 
-  const campaignUrl = `${window.location.origin}/campaigns/${campaignId}/invite`;
+  // URL de PRÉVIA de compartilhamento (backend): serve Open Graph p/ crawlers e
+  // redireciona humanos à landing pública. Compartilhar o link da SPA direto não
+  // gera preview (crawler não executa JS). Ver `GET /public/campaigns/:id/invite/share`.
+  const campaignUrl = getApiUrl(`/public/campaigns/${campaignId}/invite/share`);
   const shareText = `Convite para a campanha: ${campaignTitle}`;
 
   const handleCopyLink = async () => {
@@ -35,30 +39,50 @@ export function ShareCampaignModal({
     }
   };
 
-  const shareOnWhatsApp = () => {
-    const url = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${campaignUrl}`)}`;
-    window.open(url, "_blank");
+  /**
+   * Abre uma URL externa resiliente a bloqueio de pop-up. Se o navegador
+   * bloquear o `window.open`, copia o link para o usuário colar manualmente —
+   * evita o clique "que não faz nada".
+   */
+  const openExternal = (url: string) => {
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      void navigator.clipboard?.writeText(campaignUrl).catch(() => {});
+      toast.error("Não foi possível abrir o app. Link copiado — cole no destino.");
+    }
   };
 
-  const shareOnFacebook = () => {
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(campaignUrl)}`;
-    window.open(url, "_blank", "width=600,height=400");
+  // Web Share API: caminho mais confiável p/ compartilhar externamente — delega
+  // à folha de compartilhamento do sistema (cada destino abre corretamente).
+  const canNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({
+        title: campaignTitle,
+        text: shareText,
+        url: campaignUrl,
+      });
+    } catch {
+      // Usuário cancelou ou navegador recusou — silencioso (sem erro).
+    }
   };
 
-  const shareOnTwitter = () => {
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(campaignUrl)}`;
-    window.open(url, "_blank", "width=600,height=400");
-  };
+  const shareOnWhatsApp = () =>
+    openExternal(
+      `https://wa.me/?text=${encodeURIComponent(`${shareText} ${campaignUrl}`)}`,
+    );
 
-  const shareOnLinkedIn = () => {
-    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(campaignUrl)}`;
-    window.open(url, "_blank", "width=600,height=400");
-  };
+  const shareOnLinkedIn = () =>
+    openExternal(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(campaignUrl)}`,
+    );
 
-  const shareOnTelegram = () => {
-    const url = `https://t.me/share/url?url=${encodeURIComponent(campaignUrl)}&text=${encodeURIComponent(shareText)}`;
-    window.open(url, "_blank");
-  };
+  const shareOnTelegram = () =>
+    openExternal(
+      `https://t.me/share/url?url=${encodeURIComponent(campaignUrl)}&text=${encodeURIComponent(shareText)}`,
+    );
 
   const shareViaEmail = () => {
     const subject = encodeURIComponent(`Convite — ${campaignTitle}`);
@@ -66,6 +90,10 @@ export function ShareCampaignModal({
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
+  // Facebook (sharer) e X/Twitter (intent) foram removidos: dependem de scrape
+  // de prévia/intent de uma URL de convite AUTENTICADA do backoffice, então não
+  // abrem corretamente. Mantidos apenas os canais por link direto (deep-link),
+  // que pré-preenchem texto+URL sem depender de scraping.
   const shareChannels = [
     {
       key: "whatsapp",
@@ -73,20 +101,6 @@ export function ShareCampaignModal({
       icon: "MessageCircle" as const,
       color: "#25D366",
       onClick: shareOnWhatsApp,
-    },
-    {
-      key: "facebook",
-      label: "Facebook",
-      icon: "Share2" as const,
-      color: "#1877F2",
-      onClick: shareOnFacebook,
-    },
-    {
-      key: "twitter",
-      label: "X / Twitter",
-      icon: "Share2" as const,
-      color: "#1DA1F2",
-      onClick: shareOnTwitter,
     },
     {
       key: "linkedin",
@@ -149,9 +163,24 @@ export function ShareCampaignModal({
           </div>
         </div>
 
+        {canNativeShare && (
+          <Button
+            type="button"
+            onClick={handleNativeShare}
+            className="w-full"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Icon name="Share2" size={16} color="#fff" />
+              Compartilhar…
+            </span>
+          </Button>
+        )}
+
         <div className="flex flex-col gap-3">
           <div>
-            <label className="text-sm font-medium text-neutral-950">Compartilhar em</label>
+            <label className="text-sm font-medium text-neutral-950">
+              {canNativeShare ? "Ou compartilhar em" : "Compartilhar em"}
+            </label>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {shareChannels.map((ch) => (

@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 
 import { clsx } from "clsx";
 import { getUploadUrl } from "@/lib/utils/api";
@@ -23,6 +23,12 @@ const sizeStyles = {
 export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
   // Normalizar a URL da imagem usando getUploadUrl
   const normalizedSrc = src ? getUploadUrl(src) : undefined;
+  const [broken, setBroken] = useState(false);
+
+  // Nova URL → tenta carregar de novo (limpa erro anterior).
+  useEffect(() => {
+    setBroken(false);
+  }, [normalizedSrc]);
 
   return (
     <div
@@ -31,11 +37,12 @@ export function Avatar({ src, alt, size = "md", ...props }: AvatarProps) {
         sizeStyles[size]
       )}
     >
-      {normalizedSrc ? (
+      {normalizedSrc && !broken ? (
         <img
           src={normalizedSrc}
           alt={alt}
           {...props}
+          onError={() => setBroken(true)}
           className="w-full h-full object-cover"
         />
       ) : (

@@ -112,9 +112,6 @@ export function CampaignConsumptionSection() {
                 <th className="text-center px-4 py-3 font-medium">Modalidade</th>
                 <th className="text-right px-4 py-3 font-medium">Reservado</th>
                 <th className="text-right px-4 py-3 font-medium">Gasto</th>
-                <th className="text-left px-4 py-3 font-medium w-[200px]">
-                  Orçamento
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -135,9 +132,6 @@ export function CampaignConsumptionSection() {
 
 function CampaignRow({ item }: { item: CampaignConsumptionItem }) {
   const bannerUrl = getUploadUrl(item.banner_url ?? undefined);
-  const budget = item.max_budget_cents ?? 0;
-  const spentPct =
-    budget > 0 ? Math.min(100, Math.round((item.spent_cents / budget) * 100)) : 0;
 
   return (
     <tr className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/50">
@@ -185,35 +179,6 @@ function CampaignRow({ item }: { item: CampaignConsumptionItem }) {
       </td>
       <td className="px-4 py-3 text-right font-medium tabular-nums text-neutral-950 whitespace-nowrap">
         {formatBRL(item.spent_cents)}
-      </td>
-      <td className="px-4 py-3">
-        {budget > 0 ? (
-          <div className="flex flex-col gap-1">
-            <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-              <div
-                className={clsx(
-                  "h-full rounded-full transition-all",
-                  spentPct >= 90
-                    ? "bg-danger-500"
-                    : spentPct >= 70
-                      ? "bg-amber-500"
-                      : "bg-success-500",
-                )}
-                style={{ width: `${spentPct}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-neutral-500 tabular-nums">
-                {spentPct}%
-              </span>
-              <span className="text-xs text-neutral-500 tabular-nums">
-                de {formatBRL(budget)}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <span className="text-xs text-neutral-400">Sem teto</span>
-        )}
       </td>
     </tr>
   );

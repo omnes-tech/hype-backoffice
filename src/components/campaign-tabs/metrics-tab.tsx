@@ -24,6 +24,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { getUploadUrl } from "@/lib/utils/api";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   buildAudienceBarSeries,
   topAgeBracketLabel,
@@ -664,7 +665,6 @@ export function MetricsTab({
                       .filter(Boolean)
                   )
                 );
-                const avatarSrc = getUploadUrl(inf.influencerAvatar) ?? inf.influencerAvatar;
                 return (
                   <div
                     key={inf.influencerId}
@@ -672,10 +672,10 @@ export function MetricsTab({
                     style={{ backgroundColor: top4CardBg[idx] ?? "#f2f2f2" }}
                   >
                     <div className="flex w-full items-center gap-2">
-                      <img
-                        src={avatarSrc}
-                        alt={inf.influencerName}
-                        className="size-10 shrink-0 rounded-lg object-cover bg-neutral-200"
+                      <UserAvatar
+                        name={inf.influencerName}
+                        src={inf.influencerAvatar}
+                        className="size-10 rounded-lg"
                       />
                       <p className="truncate text-lg font-medium text-black">{inf.influencerName}</p>
                     </div>
@@ -772,8 +772,6 @@ export function MetricsTab({
                 const phaseOrder =
                   content.phase?.order ??
                   ((campaignPhases.findIndex((p) => p.id === content.phase_id) + 1) || "?");
-                const avatarSrc =
-                  getUploadUrl(content.influencerAvatar) ?? content.influencerAvatar;
                 const previewSrc = getUploadUrl(content.previewUrl) ?? content.previewUrl;
                 return (
                   <div
@@ -786,10 +784,10 @@ export function MetricsTab({
                       onClick={() => handleContentClick(content)}
                     >
                       <div className="flex w-full items-center gap-2">
-                        <img
-                          src={avatarSrc}
-                          alt={content.influencerName}
-                          className="size-10 shrink-0 rounded-lg object-cover bg-neutral-200"
+                        <UserAvatar
+                          name={content.influencerName}
+                          src={content.influencerAvatar}
+                          className="size-10 rounded-lg"
                         />
                         <p className="truncate text-lg font-medium text-black">{content.influencerName}</p>
                       </div>

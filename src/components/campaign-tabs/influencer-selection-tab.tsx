@@ -10,6 +10,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Icon } from "@/components/ui/icon";
 import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
@@ -191,22 +192,105 @@ function formatEngagementPercent(value: number | null | undefined): string {
 }
 
 
+/** Opções de gênero — espelham o catálogo de Criadores. */
+const SELECTION_GENDER_OPTIONS = [
+  { value: "", label: "Todos os gêneros" },
+  { value: "male", label: "Masculino" },
+  { value: "female", label: "Feminino" },
+  { value: "other", label: "Outro" },
+  { value: "prefer_not_to_say", label: "Prefiro não dizer" },
+];
+
+/**
+ * Ordenação local. Sem "Mais recentes": o payload de seleção não traz data de
+ * cadastro do perfil, então oferecê-la seria enganoso (vide [[memory]] de
+ * "No silent caps" — não prometer o que não há dado para cumprir).
+ */
+const SELECTION_ORDER_OPTIONS = [
+  { value: "", label: "Padrão" },
+  { value: "followers_desc", label: "Seguidores (maior)" },
+  { value: "followers_asc", label: "Seguidores (menor)" },
+  { value: "engagement_desc", label: "Engajamento (maior)" },
+  { value: "engagement_asc", label: "Engajamento (menor)" },
+  { value: "name_asc", label: "Nome (A–Z)" },
+];
+
+interface SelectionFilters {
+  searchTerm: string;
+  filterNiche: string;
+  filterGender: string;
+  followersMin: number | null;
+  followersMax: number | null;
+  engagementMin: number | null;
+  engagementMax: number | null;
+}
+
 function selectionItemMatchesFilters(
   item: InfluencerSelectionProfileItem,
-  searchTerm: string,
-  filterNiche: string
+  f: SelectionFilters
 ): boolean {
-  if (searchTerm.trim()) {
-    const q = searchTerm.toLowerCase();
+  if (f.searchTerm.trim()) {
+    const q = f.searchTerm.toLowerCase();
     const name = item.user.name.toLowerCase();
     const handle = item.social_network.username.toLowerCase().replace(/^@/, "");
     if (!name.includes(q) && !handle.includes(q)) return false;
   }
-  if (filterNiche) {
-    const n = parseInt(filterNiche, 10);
+  if (f.filterNiche) {
+    const n = parseInt(f.filterNiche, 10);
     if (!Number.isNaN(n) && !(item.niche_ids ?? []).includes(n)) return false;
   }
+  if (f.filterGender) {
+    if ((item.user.gender ?? "").toLowerCase() !== f.filterGender) return false;
+  }
+  const members = item.social_network.members ?? 0;
+  if (f.followersMin != null && members < f.followersMin) return false;
+  if (f.followersMax != null && members > f.followersMax) return false;
+  // Engajamento sem dado (null) fica fora de qualquer faixa — não é 0% real.
+  const eng = item.engagement;
+  if (f.engagementMin != null && (eng == null || eng < f.engagementMin)) return false;
+  if (f.engagementMax != null && (eng == null || eng > f.engagementMax)) return false;
   return true;
+}
+
+/** Quebra "campo_direção" (ex.: "followers_desc") em campo + direção. */
+function parseSelectionOrder(order: string): {
+  by: "followers" | "engagement" | "name" | null;
+  dir: 1 | -1;
+} {
+  if (!order) return { by: null, dir: 1 };
+  const idx = order.lastIndexOf("_");
+  if (idx <= 0) return { by: null, dir: 1 };
+  const by = order.slice(0, idx) as "followers" | "engagement" | "name";
+  const dir = order.slice(idx + 1) === "asc" ? 1 : -1;
+  return { by, dir };
+}
+
+/** Ordena pares {item,type} pelos campos crus (preserva null de engajamento). */
+function sortSelectionPairs<T extends { item: InfluencerSelectionProfileItem }>(
+  pairs: T[],
+  order: string
+): T[] {
+  const { by, dir } = parseSelectionOrder(order);
+  if (!by) return pairs;
+  return [...pairs].sort((a, b) => {
+    if (by === "followers") {
+      return (
+        ((a.item.social_network.members ?? 0) -
+          (b.item.social_network.members ?? 0)) *
+        dir
+      );
+    }
+    if (by === "engagement") {
+      const ea = a.item.engagement;
+      const eb = b.item.engagement;
+      // Sem dado sempre por último, independente da direção.
+      if (ea == null && eb == null) return 0;
+      if (ea == null) return 1;
+      if (eb == null) return -1;
+      return (ea - eb) * dir;
+    }
+    return a.item.user.name.localeCompare(b.item.user.name, "pt-BR") * dir;
+  });
 }
 
 /** IDs de perfil para convite/pré-seleção: o card da seleção já traz `socialNetworkId`. */
@@ -234,7 +318,7 @@ function selectionItemToExtended(
     username: (sn.username || "").replace(/^@/, "").trim() || displayName,
     avatar: (sn.photo || u.photo || "").trim(),
     followers: sn.members ?? 0,
-    engagement: 0,
+    engagement: item.engagement ?? 0,
     niche: firstNiche != null ? String(firstNiche) : "",
     nicheName: item.niche_name,
     selectionNicheIds:
@@ -366,8 +450,12 @@ export function InfluencerSelectionTab({
   const { data: niches = [] } = useNiches();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiche, setFilterNiche] = useState("");
-  const [filterLocation, setFilterLocation] = useState("");
-  const [filterAge, setFilterAge] = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [followersMinInput, setFollowersMinInput] = useState("");
+  const [followersMaxInput, setFollowersMaxInput] = useState("");
+  const [engagementMinInput, setEngagementMinInput] = useState("");
+  const [engagementMaxInput, setEngagementMaxInput] = useState("");
+  const [order, setOrder] = useState("");
   const [showMuralDateModal, setShowMuralDateModal] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<ExtendedInfluencer | null>(null);
   const [modalType, setModalType] = useState<
@@ -619,47 +707,71 @@ export function InfluencerSelectionTab({
     return status === "invited" || status === "convidados";
   };
 
-  const ageFilterOptions = useMemo(
-    () => [
-      { value: "", label: "Selecione a idade" },
-      { value: "18-24", label: "18–24 anos" },
-      { value: "25-34", label: "25–34 anos" },
-      { value: "35-44", label: "35–44 anos" },
-      { value: "45+", label: "45+ anos" },
-    ],
-    []
-  );
+  // Filtros consolidados. Numéricos parseados aqui (string vazia → sem limite).
+  // A lista de seleção é client-side (≤240 itens) → filtrar/ordenar é barato e
+  // não exige debounce.
+  const selectionFilters = useMemo<SelectionFilters>(() => {
+    const toNum = (v: string): number | null => {
+      const n = Number(v);
+      return v.trim() !== "" && Number.isFinite(n) ? n : null;
+    };
+    return {
+      searchTerm,
+      filterNiche,
+      filterGender,
+      followersMin: toNum(followersMinInput),
+      followersMax: toNum(followersMaxInput),
+      engagementMin: toNum(engagementMinInput),
+      engagementMax: toNum(engagementMaxInput),
+    };
+  }, [
+    searchTerm,
+    filterNiche,
+    filterGender,
+    followersMinInput,
+    followersMaxInput,
+    engagementMinInput,
+    engagementMaxInput,
+  ]);
 
-  const locationFilterOptions = useMemo(
-    () => [{ value: "", label: "Selecione o local" }],
-    []
-  );
+  const hasActiveFilters =
+    !!selectionFilters.searchTerm.trim() ||
+    !!selectionFilters.filterNiche ||
+    !!selectionFilters.filterGender ||
+    selectionFilters.followersMin != null ||
+    selectionFilters.followersMax != null ||
+    selectionFilters.engagementMin != null ||
+    selectionFilters.engagementMax != null;
 
   const flattenedRecommended = useMemo(() => {
     if (!selectionData?.networks?.length) return [] as ExtendedInfluencer[];
-    const out: ExtendedInfluencer[] = [];
+    const pairs: { item: InfluencerSelectionProfileItem; type: string }[] = [];
     for (const net of selectionData.networks) {
       for (const item of net.recommended) {
-        if (selectionItemMatchesFilters(item, searchTerm, filterNiche)) {
-          out.push(selectionItemToExtended(item, net.type, "recommended"));
+        if (selectionItemMatchesFilters(item, selectionFilters)) {
+          pairs.push({ item, type: net.type });
         }
       }
     }
-    return out;
-  }, [selectionData, searchTerm, filterNiche]);
+    return sortSelectionPairs(pairs, order).map(({ item, type }) =>
+      selectionItemToExtended(item, type, "recommended")
+    );
+  }, [selectionData, selectionFilters, order]);
 
   const flattenedCatalog = useMemo(() => {
     if (!selectionData?.networks?.length) return [] as ExtendedInfluencer[];
-    const out: ExtendedInfluencer[] = [];
+    const pairs: { item: InfluencerSelectionProfileItem; type: string }[] = [];
     for (const net of selectionData.networks) {
       for (const item of net.catalog) {
-        if (selectionItemMatchesFilters(item, searchTerm, filterNiche)) {
-          out.push(selectionItemToExtended(item, net.type, "catalog"));
+        if (selectionItemMatchesFilters(item, selectionFilters)) {
+          pairs.push({ item, type: net.type });
         }
       }
     }
-    return out;
-  }, [selectionData, searchTerm, filterNiche]);
+    return sortSelectionPairs(pairs, order).map(({ item, type }) =>
+      selectionItemToExtended(item, type, "catalog")
+    );
+  }, [selectionData, selectionFilters, order]);
 
   const rawTotalProfiles = useMemo(() => {
     if (!selectionData?.networks?.length) return 0;
@@ -1120,24 +1232,94 @@ export function InfluencerSelectionTab({
                       isSearchable
                     />
                   </div>
-                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1">
                     <label className="text-base font-medium leading-5 text-neutral-950">
-                      Localização
+                      Gênero
                     </label>
                     <Select
-                      placeholder="Selecione o local"
-                      options={locationFilterOptions}
-                      value={filterLocation}
-                      onChange={setFilterLocation}
+                      placeholder="Todos os gêneros"
+                      options={SELECTION_GENDER_OPTIONS}
+                      value={filterGender}
+                      onChange={setFilterGender}
                     />
                   </div>
-                  <div className="flex min-w-[160px] flex-1 flex-col gap-1">
-                    <label className="text-base font-medium leading-5 text-neutral-950">Idade</label>
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">
+                      Seguidores
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-11 flex-1 items-center rounded-full bg-neutral-100 px-4">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="mín"
+                          value={followersMinInput}
+                          onChange={(e) =>
+                            setFollowersMinInput(e.target.value.replace(/\D/g, ""))
+                          }
+                          className="w-full bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
+                        />
+                      </div>
+                      <span className="text-neutral-400">–</span>
+                      <div className="flex h-11 flex-1 items-center rounded-full bg-neutral-100 px-4">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="máx"
+                          value={followersMaxInput}
+                          onChange={(e) =>
+                            setFollowersMaxInput(e.target.value.replace(/\D/g, ""))
+                          }
+                          className="w-full bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">
+                      Engajamento (%)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-11 flex-1 items-center rounded-full bg-neutral-100 px-4">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="mín"
+                          value={engagementMinInput}
+                          onChange={(e) =>
+                            setEngagementMinInput(
+                              e.target.value.replace(/[^\d.,]/g, "").replace(",", ".")
+                            )
+                          }
+                          className="w-full bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
+                        />
+                      </div>
+                      <span className="text-neutral-400">–</span>
+                      <div className="flex h-11 flex-1 items-center rounded-full bg-neutral-100 px-4">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="máx"
+                          value={engagementMaxInput}
+                          onChange={(e) =>
+                            setEngagementMaxInput(
+                              e.target.value.replace(/[^\d.,]/g, "").replace(",", ".")
+                            )
+                          }
+                          className="w-full bg-transparent text-base text-neutral-950 placeholder:text-neutral-400 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1">
+                    <label className="text-base font-medium leading-5 text-neutral-950">
+                      Ordenar por
+                    </label>
                     <Select
-                      placeholder="Selecione a idade"
-                      options={ageFilterOptions}
-                      value={filterAge}
-                      onChange={setFilterAge}
+                      placeholder="Padrão"
+                      options={SELECTION_ORDER_OPTIONS}
+                      value={order}
+                      onChange={setOrder}
                     />
                   </div>
                   <Button
@@ -1152,9 +1334,7 @@ export function InfluencerSelectionTab({
                 {rawTotalProfiles > 0 ? (
                   <p className="mt-3 text-sm text-neutral-500">
                     {totalFilteredProfiles} de {rawTotalProfiles} perfis
-                    {(searchTerm.trim() || filterNiche || filterLocation || filterAge)
-                      ? " (filtros aplicados)"
-                      : ""}
+                    {hasActiveFilters ? " (filtros aplicados)" : ""}
                   </p>
                 ) : null}
               </section>
@@ -1235,7 +1415,7 @@ export function InfluencerSelectionTab({
 
               {totalFilteredProfiles === 0 &&
               rawTotalProfiles > 0 &&
-              (searchTerm.trim() || filterNiche || filterLocation || filterAge) ? (
+              hasActiveFilters ? (
                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 py-12 text-center text-neutral-500">
                   Nenhum perfil corresponde aos filtros selecionados.
                 </div>
@@ -1381,19 +1561,12 @@ export function InfluencerSelectionTab({
                 {/* Figma 2387:12772 — resumo do convite (rede já definida pelo card) */}
                 <div className="rounded-xl bg-neutral-100 p-3">
                   <div className="flex items-center gap-3">
-                    <div className="size-11 shrink-0 overflow-hidden rounded-xl bg-neutral-200">
-                      {selectedInfluencer.avatar ? (
-                        <img
-                          src={getUploadUrl(selectedInfluencer.avatar) ?? ""}
-                          alt={selectedInfluencer.name}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex size-full items-center justify-center text-lg font-medium text-neutral-500">
-                          {selectedInfluencer.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <UserAvatar
+                      name={selectedInfluencer.name}
+                      src={selectedInfluencer.avatar}
+                      className="size-11 rounded-xl"
+                      textClassName="text-lg"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold leading-5 text-neutral-950">
                         {selectedInfluencer.name}
