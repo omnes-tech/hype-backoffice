@@ -268,6 +268,11 @@ export interface InfluencerInviteData {
   influencer_id: string;
   message?: string;
   profile_ids?: string[]; // IDs dos perfis selecionados
+  /**
+   * Valor proposto ao criador, em centavos (BRL). Obrigatório quando a campanha
+   * usa `payment_method === "individual_price"`; ignorado nos demais métodos.
+   */
+  proposed_price_cents?: number;
 }
 
 /**
@@ -622,6 +627,55 @@ export async function moveToPreSelectionCuration(
       errorData = { message: "Failed to move to pre-selection curation" };
     }
     throw errorData || "Failed to move to pre-selection curation";
+  }
+}
+
+/** Resposta do backoffice a uma contraproposta de "valor individual por criador". */
+export interface CampaignPriceResponseData {
+  action: "accept" | "counter" | "reject";
+  /** Obrigatório quando action = "counter" (centavos BRL). */
+  proposed_price_cents?: number;
+  message?: string;
+}
+
+/**
+ * Responde a uma contraproposta de preço do criador.
+ * POST .../campaigns/:campaignId/users/:userId/price-response
+ * `userId` é o `users.id` do influenciador.
+ */
+export async function respondToPriceCounter(
+  campaignId: string,
+  userId: string,
+  data: CampaignPriceResponseData,
+): Promise<void> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/users/${userId}/price-response`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify(data),
+    },
+  );
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to respond to price counter" };
+    }
+    throw errorData || "Failed to respond to price counter";
   }
 }
 

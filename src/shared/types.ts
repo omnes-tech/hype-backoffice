@@ -522,6 +522,8 @@ export interface Influencer {
     | "pre_selection_curation"
     | "curation"
     | "invited"
+    | "price_proposed"
+    | "price_countered"
     | "contract_pending"
     | "approved"
     | "awaiting_shipment"
@@ -537,6 +539,19 @@ export interface Influencer {
   phase?: string;
   /** campaign_users.id — quando a lista de inscrições vem da API enriquecida */
   campaign_user_id?: string;
+  /**
+   * Negociação de "valor individual por criador" (payment_method
+   * `individual_price`). Presente só quando há negociação em curso/fechada.
+   */
+  price_negotiation?: {
+    proposed_price_cents: number | null;
+    counter_price_cents: number | null;
+    agreed_price_cents: number | null;
+    /** "proposed" | "countered" | "accepted" | "rejected" */
+    price_status: string | null;
+    /** "invite" | "pre_selection" */
+    origin: string | null;
+  } | null;
   updated_at?: string;
   is_external?: boolean;
   // Perfis de rede social que se inscreveram na campanha (vem direto da API)

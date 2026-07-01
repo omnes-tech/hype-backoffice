@@ -5,9 +5,11 @@ import {
   inviteInfluencer,
   addToPreSelection,
   moveToPreSelectionCuration,
+  respondToPriceCounter,
   type InfluencerStatusUpdate,
   type InfluencerInviteData,
   type MoveToPreSelectionCurationData,
+  type CampaignPriceResponseData,
 } from "@/shared/services/influencer";
 import {
   useWorkspaceQueryKey,
@@ -81,6 +83,26 @@ export function useAddToPreSelection(campaignId: string) {
   return useMutation({
     mutationFn: (data: InfluencerInviteData) =>
       addToPreSelection(campaignId, data),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Responde a uma contraproposta de "valor individual por criador"
+ * (aceitar/recontrapropor/recusar). `userId` é o `users.id` do influenciador.
+ * Aceitar reserva o saldo do workspace → invalida o balance também.
+ */
+export function useRespondToPriceCounter(campaignId: string) {
+  const invalidate = useInvalidateCampaignInfluencerCaches(campaignId);
+
+  return useMutation({
+    mutationFn: ({
+      userId,
+      data,
+    }: {
+      userId: string;
+      data: CampaignPriceResponseData;
+    }) => respondToPriceCounter(campaignId, userId, data),
     onSuccess: invalidate,
   });
 }

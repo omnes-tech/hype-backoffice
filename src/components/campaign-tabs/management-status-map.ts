@@ -10,6 +10,8 @@ export function mapUserStatusToKanbanColumn(status: string): string {
     pre_selection_curation: "pre_selection_curation",
     curation: "curation",
     invited: "invited",
+    price_proposed: "price_proposed",
+    price_countered: "price_countered",
     contract_pending: "contract_pending",
     approved: "approved",
     pending_approval: "script_pending",

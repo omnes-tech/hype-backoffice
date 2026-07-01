@@ -50,6 +50,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNiches } from "@/hooks/use-niches";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
+import { PriceNegotiationSection } from "./shared/price-negotiation-section";
 
 interface ManagementTabProps {
   participants: CampaignManagementParticipant[];
@@ -1250,6 +1251,13 @@ export function ManagementTab({
                   </div>
                 </div>
               )}
+
+            <PriceNegotiationSection
+              campaignId={campaignId}
+              userId={selectedInfluencer.user_id}
+              status={selectedInfluencer.status}
+              negotiation={selectedInfluencer.price_negotiation}
+            />
 
             <div className="flex gap-3">
               <Button

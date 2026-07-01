@@ -47,6 +47,7 @@ import { useWorkspaceBalance } from "@/hooks/use-balance";
 import {
   computeApprovalCostCents,
   fmtBRL,
+  parsePriceBRLToCents,
   type CampaignPhaseForCost,
 } from "@/components/campaign-tabs/shared/prices-utils";
 import { ReserveBalancePreview } from "@/components/campaign-tabs/shared/reserve-balance-modal";
@@ -462,6 +463,8 @@ export function InfluencerSelectionTab({
     "discover" | "invite" | "curation" | "selectList" | "preselection" | null
   >(null);
   const [inviteMessage, setInviteMessage] = useState("");
+  // Valor proposto (BRL, string mascarada) — só para `individual_price`.
+  const [proposedPriceInput, setProposedPriceInput] = useState("");
   const [curationNotes, setCurationNotes] = useState("");
   const [tempMuralEndDate, setTempMuralEndDate] = useState("");
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
@@ -547,6 +550,8 @@ export function InfluencerSelectionTab({
   }, [phasesWithFormats]);
 
   const isPriceMode = paymentMethod === "price";
+  const isIndividualPrice = paymentMethod === "individual_price";
+  const proposedPriceCents = parsePriceBRLToCents(proposedPriceInput);
 
   // ── Gating monetário (BRL) — mesmo padrão da aba de Inscrições ────────────
   // Convidar leva ao aceite que debita o saldo na aprovação. Bloqueamos a
@@ -840,6 +845,7 @@ export function InfluencerSelectionTab({
     setModalType(null);
     setSelectedInfluencer(null);
     setInviteMessage("");
+    setProposedPriceInput("");
     setCurationNotes("");
     setSelectedProfileIds([]);
   };
@@ -875,6 +881,17 @@ export function InfluencerSelectionTab({
   const handleConfirm = async () => {
     if (!selectedInfluencer) return;
 
+    // Campanha "valor individual por criador": exige valor proposto no convite
+    // e na pré-seleção.
+    if (
+      isIndividualPrice &&
+      (modalType === "invite" || modalType === "preselection") &&
+      proposedPriceCents <= 0
+    ) {
+      toast.error("Informe o valor proposto para o criador.");
+      return;
+    }
+
     if (modalType === "preselection") {
       const preProfileIds = resolveInviteProfileIds(
         selectedInfluencer,
@@ -885,6 +902,7 @@ export function InfluencerSelectionTab({
           influencer_id: selectedInfluencer.id,
           message: inviteMessage || undefined,
           profile_ids: preProfileIds.length > 0 ? preProfileIds : undefined,
+          ...(isIndividualPrice ? { proposed_price_cents: proposedPriceCents } : {}),
         },
         {
           onSuccess: () => {
@@ -939,6 +957,7 @@ export function InfluencerSelectionTab({
           influencer_id: selectedInfluencer.id,
           message: inviteMessage || undefined,
           profile_ids: inviteProfileIds,
+          ...(isIndividualPrice ? { proposed_price_cents: proposedPriceCents } : {}),
         },
         {
           onSuccess: () => {
@@ -1111,6 +1130,7 @@ export function InfluencerSelectionTab({
       (needsInviteProfilePicker
         ? isLoadingProfiles || modalInvitePreProfileIds.length === 0
         : modalInvitePreProfileIds.length === 0)) ||
+    (inviteOrPreselection && isIndividualPrice && proposedPriceCents <= 0) ||
     modalInviteGate.disabled;
 
   return (
@@ -1605,6 +1625,35 @@ export function InfluencerSelectionTab({
                     </span>
                   </div>
                 </div>
+
+                {isIndividualPrice && (
+                  <div className="flex flex-col gap-2 rounded-xl bg-primary-50 p-4">
+                    <label className="text-base font-medium text-neutral-950">
+                      Valor proposto ao criador{" "}
+                      <span className="text-danger-600" aria-hidden>*</span>
+                    </label>
+                    <p className="text-xs text-neutral-500">
+                      Campanha de <strong>valor individual por criador</strong>: o
+                      criador poderá aceitar ou enviar uma contraproposta. O saldo
+                      só é reservado quando o valor fecha.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-neutral-500">R$</span>
+                      <input
+                        inputMode="decimal"
+                        value={proposedPriceInput}
+                        onChange={(e) => setProposedPriceInput(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full rounded-xl border-0 bg-white px-4 py-2.5 text-base text-neutral-950 outline-none focus:ring-2 focus:ring-primary-500/30"
+                      />
+                    </div>
+                    {proposedPriceCents > 0 && (
+                      <span className="text-xs text-neutral-500">
+                        Valor: {fmtBRL(proposedPriceCents)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {modalType === "invite" && showApprovalCost && (
                   <div className="flex flex-col gap-2">

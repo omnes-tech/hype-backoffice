@@ -140,6 +140,17 @@ export function CreateCampaignStepThree({
         return null;
       case "price":
         return null;
+      case "individual_price":
+        return (
+          <div className="rounded-[12px] bg-[#F5F3FF] p-4">
+            <p className="text-sm text-[#404040]">
+              O valor será <strong>negociado individualmente</strong> com cada
+              criador no momento do convite. Você propõe um valor e o criador
+              pode aceitar ou enviar uma contraproposta — o saldo só é reservado
+              quando o valor é fechado.
+            </p>
+          </div>
+        );
       case "swap":
         return null;
       case "cpa":
@@ -226,6 +237,7 @@ export function CreateCampaignStepThree({
               options={[
                 { label: "Valor fixo por conteúdo", value: "fixed" },
                 { label: "Preço definido pelo influenciador", value: "price" },
+                { label: "Valor individual por criador", value: "individual_price" },
                 { label: "Permuta", value: "swap" },
                 { label: "CPA (Custo Por Ação)", value: "cpa" },
                 { label: "CPM (Custo Por Mil)", value: "cpm" },

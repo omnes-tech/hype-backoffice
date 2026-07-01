@@ -35,6 +35,14 @@ export interface CampaignManagementParticipant {
   }>;
   status?: string;
   phase?: string;
+  /** Negociação de "valor individual por criador" (quando presente). */
+  price_negotiation?: {
+    proposed_price_cents: number | null;
+    counter_price_cents: number | null;
+    agreed_price_cents: number | null;
+    price_status: string | null;
+    origin: string | null;
+  } | null;
   status_history: CampaignManagementStatusHistoryItem[];
 }
 
@@ -90,7 +98,25 @@ function normalizeParticipant(raw: Record<string, unknown>): CampaignManagementP
       : undefined,
     status: raw.status != null ? String(raw.status) : undefined,
     phase: raw.phase != null ? String(raw.phase) : undefined,
+    price_negotiation: normalizePriceNegotiation(raw.price_negotiation),
     status_history,
+  };
+}
+
+/** Normaliza o bloco de negociação de preço (tolera ausência/nulos da API). */
+function normalizePriceNegotiation(
+  raw: unknown,
+): CampaignManagementParticipant["price_negotiation"] {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const num = (v: unknown): number | null =>
+    typeof v === "number" ? v : v == null || v === "" ? null : Number(v);
+  return {
+    proposed_price_cents: num(r.proposed_price_cents),
+    counter_price_cents: num(r.counter_price_cents),
+    agreed_price_cents: num(r.agreed_price_cents),
+    price_status: r.price_status != null ? String(r.price_status) : null,
+    origin: r.origin != null ? String(r.origin) : null,
   };
 }
 

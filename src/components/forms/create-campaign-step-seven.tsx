@@ -35,6 +35,7 @@ const getPaymentTypeLabel = (value: string) => {
   const types: Record<string, string> = {
     fixed: "Valor fixo",
     price: "Preço definido pelo influenciador",
+    individual_price: "Valor individual por criador",
     swap: "Permuta",
     cpa: "CPA (Custo Por Ação)",
     cpm: "CPM (Custo Por Mil)",

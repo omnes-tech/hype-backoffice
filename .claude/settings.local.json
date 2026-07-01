@@ -37,7 +37,11 @@
       "Bash(find src *)",
       "Bash(sed -n '1,80p' src/common/guards/workspace-permission.guard.ts)",
       "Bash(grep -rln \"community_lives\\\\|ROLE_PERMISSIONS\\\\|rolePermissions\\\\|owner.*admin.*member\" src/modules/workspaces/workspaces.service.ts src/resources/backoffice/workspace.resource.ts)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx drizzle-kit *)",
+      "Bash(grep -rln \"toLocaleString\\\\|Intl.NumberFormat\\\\|formatCurrency\\\\|R\\\\\\\\$\" shared/utils)",
+      "Bash(echo \"API_EXIT=$?\")",
+      "Bash(echo \"APP_EXIT=$?\")"
     ]
   }
 }

@@ -27,6 +27,8 @@ export const INFLUENCER_STATUS = {
   PRE_SELECTION_CURATION: "pre_selection_curation",
   CURATION: "curation",
   INVITED: "invited",
+  PRICE_PROPOSED: "price_proposed",
+  PRICE_COUNTERED: "price_countered",
   CONTRACT_PENDING: "contract_pending",
   APPROVED: "approved",
   AWAITING_SHIPMENT: "awaiting_shipment",

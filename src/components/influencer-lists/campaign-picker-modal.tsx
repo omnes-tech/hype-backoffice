@@ -5,13 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import { InputSearch } from "@/components/ui/input-search";
-import { useCampaigns } from "@/hooks/use-campaigns";
+import { useCampaigns, useCampaign } from "@/hooks/use-campaigns";
 import {
   useInviteInfluencer,
   useAddToPreSelection,
 } from "@/hooks/use-campaign-influencers";
 import { getUploadUrl } from "@/lib/utils/api";
 import { getCampaignStatusDisplayLabel } from "@/shared/utils/campaign-status";
+import {
+  parsePriceBRLToCents,
+  fmtBRL,
+} from "@/components/campaign-tabs/shared/prices-utils";
 
 interface CampaignPickerModalProps {
   mode: "invite" | "preselection";
@@ -43,6 +47,7 @@ export function CampaignPickerModal({
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [priceInput, setPriceInput] = useState("");
 
   // Os hooks recebem o campaignId selecionado; ao trocar a seleção, o
   // re-render rebinda a mutation ao novo id. A mutation só dispara no confirmar.
@@ -52,6 +57,14 @@ export function CampaignPickerModal({
 
   const isInvite = mode === "invite";
 
+  // Detalhe da campanha selecionada — a lista (`/campaigns`) não traz o método
+  // de pagamento, então buscamos o detalhe só quando há seleção.
+  const { data: selectedCampaign } = useCampaign(selectedId ?? "");
+  const isIndividualPrice =
+    selectedCampaign?.payment_method === "individual_price";
+  const proposedCents = parsePriceBRLToCents(priceInput);
+  const priceValid = !isIndividualPrice || proposedCents > 0;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return campaigns;
@@ -60,11 +73,16 @@ export function CampaignPickerModal({
 
   async function handleConfirm() {
     if (!selectedId) return;
+    if (isIndividualPrice && proposedCents <= 0) {
+      toast.error("Informe o valor proposto para o criador.");
+      return;
+    }
     const mut = isInvite ? inviteMut : preselectMut;
     const data = {
       influencer_id: influencerId,
       ...(profileIds.length ? { profile_ids: profileIds } : {}),
       ...(isInvite && message.trim() ? { message: message.trim() } : {}),
+      ...(isIndividualPrice ? { proposed_price_cents: proposedCents } : {}),
     };
     try {
       await mut.mutateAsync(data);
@@ -149,6 +167,34 @@ export function CampaignPickerModal({
           )}
         </div>
 
+        {isIndividualPrice && (
+          <div className="flex flex-col gap-1.5 rounded-2xl bg-primary-50 p-4">
+            <label className="text-sm font-medium text-neutral-800">
+              Valor proposto ao criador{" "}
+              <span className="text-red-500" aria-hidden>*</span>
+            </label>
+            <p className="text-xs text-neutral-500">
+              Esta campanha usa <strong>valor individual por criador</strong>. O
+              criador poderá aceitar ou enviar uma contraproposta.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-neutral-500">R$</span>
+              <input
+                inputMode="decimal"
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                placeholder="0,00"
+                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+            {proposedCents > 0 && (
+              <p className="text-xs text-neutral-500">
+                Valor: {fmtBRL(proposedCents)}
+              </p>
+            )}
+          </div>
+        )}
+
         {isInvite && (
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-neutral-700">
@@ -171,7 +217,7 @@ export function CampaignPickerModal({
           <Button
             className="rounded-full bg-primary-600 hover:bg-primary-700"
             onClick={handleConfirm}
-            disabled={!selectedId || isPending}
+            disabled={!selectedId || isPending || !priceValid}
           >
             {isPending
               ? "Enviando..."
