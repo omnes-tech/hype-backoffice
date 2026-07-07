@@ -202,6 +202,15 @@ export const formatCnpjInput = (value: string): string => {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 };
 
+/**
+ * Máscara de CEP: 00000-000 (até 9 chars com máscara, 8 dígitos).
+ */
+export const formatCepInput = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+};
+
 /** Conta apenas dígitos — útil para validar comprimento de CPF/CNPJ. */
 export const digitCount = (value: string): number =>
   value.replace(/\D/g, "").length;

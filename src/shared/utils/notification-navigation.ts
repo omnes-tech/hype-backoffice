@@ -6,6 +6,7 @@ export const CAMPAIGN_TAB_IDS = [
   "selection",
   "applications",
   "curation",
+  "shipment",
   "management",
   "contracts",
   "script-approval",
@@ -92,6 +93,10 @@ export function resolveNotificationCampaignDeepLink(
     case "content_submitted":
     case "new_content_submission":
       return { tab: "approval" };
+    case "shipment_receipt_confirmed": {
+      const focus = focusFromMetadata(m);
+      return { tab: "shipment", ...(focus ? { focusCampaignUser: focus } : {}) };
+    }
     default:
       break;
   }

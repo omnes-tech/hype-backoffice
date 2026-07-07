@@ -10,6 +10,7 @@ import {
   validatePhase1Date,
   validateSubsequentPhaseDate,
   getPhase1MinDate,
+  getSubsequentPhaseMinDate,
 } from "@/shared/utils/date-validations";
 import {
   CAMPAIGN_SOCIAL_NETWORKS,
@@ -190,20 +191,14 @@ export function CreateCampaignStepSix({
   // Redes e formatos vêm do vocabulário canônico compartilhado
   // (`@/shared/constants/campaign-formats`).
 
-  // Calcular data mínima para cada fase
-  const getPhaseMinDate = (phaseIndex: number, phaseDate: string): string | undefined => {
+  // Calcular data mínima para cada fase (bloqueia o seletor mesmo com a data ainda vazia)
+  const getPhaseMinDate = (phaseIndex: number): string | undefined => {
     if (phaseIndex === 0) {
       // Fase 1: mínimo 10 dias da data atual (sempre calcula da mesma forma)
       return getPhase1MinDate();
-    } else {
-      // Fases subsequentes: mínimo 3 dias da fase anterior
-      const previousPhase = phases[phaseIndex - 1];
-      if (previousPhase?.postDate) {
-        const validation = validateSubsequentPhaseDate(phaseDate, previousPhase.postDate);
-        return validation.minDate;
-      }
     }
-    return undefined;
+    // Fases subsequentes: mínimo 3 dias da fase anterior
+    return getSubsequentPhaseMinDate(phases[phaseIndex - 1]?.postDate ?? "");
   };
 
   // Validar data da fase e retornar erro se houver
@@ -272,11 +267,11 @@ export function CreateCampaignStepSix({
                 label="Data prevista de postagem"
                 value={phase.postDate ?? ""}
                 onChange={(v) => updatePhase(phase.id, "postDate", v)}
-                min={getPhaseMinDate(phaseIndex, phase.postDate)}
+                min={getPhaseMinDate(phaseIndex)}
                 error={getPhaseDateError(phaseIndex, phase.postDate)}
               />
               {(() => {
-                const minDateStr = getPhaseMinDate(phaseIndex, phase.postDate);
+                const minDateStr = getPhaseMinDate(phaseIndex);
                 if (!minDateStr) return null;
                 const [y, m, d] = minDateStr.split("-").map(Number);
                 const minDateFormatted = new Date(y, m - 1, d).toLocaleDateString("pt-BR");

@@ -95,10 +95,16 @@ export interface CreateShipmentDto {
   notes?: string;
 }
 
+/** Status exibido na aba Envios (derivado no backend do envio + etapa). */
+export type ShipmentStageStatus =
+  | "awaiting_shipment"
+  | "awaiting_receipt"
+  | "received";
+
 interface CampaignShipmentRaw {
   campaign_user_id: number;
   user_id: number;
-  status: "awaiting_shipment" | "awaiting_receipt";
+  status: ShipmentStageStatus;
   user: {
     name: string;
     email: string;
@@ -113,7 +119,7 @@ export interface CampaignShipmentEntry {
   name: string;
   email: string;
   avatar: string | null;
-  status: "awaiting_shipment" | "awaiting_receipt";
+  status: ShipmentStageStatus;
   shipment: ShipmentRecord | null;
 }
 

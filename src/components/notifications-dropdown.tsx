@@ -10,6 +10,7 @@ import {
   useMarkAllNotificationsAsRead,
   useUnreadNotificationsCount,
 } from "@/hooks/use-notifications";
+import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import { clsx } from "clsx";
 import type { Notification } from "@/shared/services/notifications";
 import { resolveNotificationCampaignDeepLink } from "@/shared/utils/notification-navigation";
@@ -27,6 +28,9 @@ export function NotificationsDropdown() {
   const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } =
     useMarkAllNotificationsAsRead();
   const unreadCount = useUnreadNotificationsCount();
+
+  // Tempo real: revalida o sininho ao receber `notification:new` via socket.
+  useNotificationsSocket();
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -111,6 +115,7 @@ export function NotificationsDropdown() {
       new_content_submission: "Bell",
       new_message: "MessageCircle",
       influencer_approved: "UserCheck",
+      shipment_receipt_confirmed: "PackageCheck",
     };
     return icons[type] ?? "Bell";
   };
@@ -123,6 +128,7 @@ export function NotificationsDropdown() {
       new_content_submission: { bg: "bg-primary-50", text: "text-primary-900" },
       new_message: { bg: "bg-blue-50", text: "text-blue-900" },
       influencer_approved: { bg: "bg-success-50", text: "text-success-900" },
+      shipment_receipt_confirmed: { bg: "bg-success-50", text: "text-success-900" },
     };
     return colors[type] ?? { bg: "bg-neutral-50", text: "text-neutral-900" };
   };

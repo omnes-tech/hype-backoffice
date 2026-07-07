@@ -105,7 +105,7 @@ export async function bulkAddInfluencersToCampaign(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencers/bulk-add`),
+    getApiUrl(`/campaigns/${campaignId}/users/bulk/add`),
     {
       method: "POST",
       headers: {

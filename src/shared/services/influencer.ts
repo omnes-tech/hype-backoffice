@@ -742,7 +742,7 @@ export async function bulkApproveInfluencers(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/users/bulk-approve`),
+    getApiUrl(`/campaigns/${campaignId}/users/bulk/approve`),
     {
       method: "POST",
       headers: {
@@ -786,7 +786,7 @@ export async function bulkRejectInfluencers(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/users/bulk-reject`),
+    getApiUrl(`/campaigns/${campaignId}/users/bulk/reject`),
     {
       method: "POST",
       headers: {

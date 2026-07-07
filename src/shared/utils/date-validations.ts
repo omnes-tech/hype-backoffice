@@ -92,6 +92,29 @@ export const validatePhase1Date = (date: string): { valid: boolean; error?: stri
   return { valid: true, minDate: minDateStr };
 };
 
+/** Dias mínimos entre uma fase e a fase anterior. */
+export const MIN_DAYS_BETWEEN_PHASES = 3;
+
+/**
+ * Data mínima de uma fase subsequente: 3 dias após a fase anterior.
+ *
+ * Independe da data já escolhida na fase atual — é isso que permite BLOQUEAR o
+ * seletor desde o início (o `min` do input não pode depender do valor ainda vazio).
+ * Retorna `undefined` se a fase anterior ainda não tem data.
+ */
+export const getSubsequentPhaseMinDate = (
+  previousPhaseDate: string
+): string | undefined => {
+  if (!previousPhaseDate) return undefined;
+  const [prevYear, prevMonth, prevDay] = previousPhaseDate.split("-").map(Number);
+  if (!prevYear || !prevMonth || !prevDay) return undefined;
+  const prevDate = new Date(prevYear, prevMonth - 1, prevDay);
+  prevDate.setHours(0, 0, 0, 0);
+  const minDate = addDays(prevDate, MIN_DAYS_BETWEEN_PHASES);
+  minDate.setHours(0, 0, 0, 0);
+  return formatDateForInput(minDate);
+};
+
 /**
  * Valida data de fases subsequentes: não pode ser menor que 3 dias da fase anterior
  */
@@ -103,7 +126,8 @@ export const validateSubsequentPhaseDate = (
     return { valid: true }; // Permite campo vazio
   }
 
-  if (!previousPhaseDate) {
+  const minDateStr = getSubsequentPhaseMinDate(previousPhaseDate);
+  if (!minDateStr) {
     return { valid: true }; // Se não há fase anterior, não valida
   }
 
@@ -111,12 +135,9 @@ export const validateSubsequentPhaseDate = (
   const [year, month, day] = date.split("-").map(Number);
   const selectedDate = new Date(year, month - 1, day);
   selectedDate.setHours(0, 0, 0, 0);
-  
-  const [prevYear, prevMonth, prevDay] = previousPhaseDate.split("-").map(Number);
-  const prevDate = new Date(prevYear, prevMonth - 1, prevDay);
-  prevDate.setHours(0, 0, 0, 0);
-  
-  const minDate = addDays(prevDate, 3);
+
+  const [minYear, minMonth, minDay] = minDateStr.split("-").map(Number);
+  const minDate = new Date(minYear, minMonth - 1, minDay);
   minDate.setHours(0, 0, 0, 0);
 
   // Comparar apenas as datas (sem horas)
@@ -124,11 +145,11 @@ export const validateSubsequentPhaseDate = (
     return {
       valid: false,
       error: `Use uma data a partir de ${minDate.toLocaleDateString("pt-BR")}`,
-      minDate: formatDateForInput(minDate),
+      minDate: minDateStr,
     };
   }
 
-  return { valid: true, minDate: formatDateForInput(minDate) };
+  return { valid: true, minDate: minDateStr };
 };
 
 /**

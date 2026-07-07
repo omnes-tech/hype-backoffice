@@ -24,6 +24,42 @@ import {
 } from "@/components/social-network-icon";
 import { formatDateForInput } from "@/shared/utils/date-validations";
 
+/**
+ * Prazo fixo (horas) para reenvio de conteúdo reprovado. Espelha a regra
+ * autoritativa do backend (`content-correction-deadline.ts`). Não editável.
+ */
+const CORRECTION_DEADLINE_HOURS = 72;
+
+/** Rótulo da nova data limite (agora + 72h), formatado em pt-BR com hora. */
+function fixedCorrectionDeadlineLabel(from: Date = new Date()): string {
+  const d = new Date(from.getTime() + CORRECTION_DEADLINE_HOURS * 60 * 60 * 1000);
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Bloco read-only informando a nova data limite fixa (72h) na reprovação. */
+function FixedDeadlineNotice({ label }: { label: string }) {
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon name="CalendarClock" size={16} color="#525252" />
+        <p className="text-xs font-medium text-neutral-700">
+          Nova data limite para reenvio
+        </p>
+      </div>
+      <p className="text-sm font-semibold text-neutral-900">{label}</p>
+      <p className="text-xs text-neutral-500 mt-1">
+        Prazo fixo de 72 horas a partir da reprovação — não editável.
+      </p>
+    </div>
+  );
+}
+
 interface ContentApprovalTabProps {
   campaignPhases?: CampaignPhase[];
   /** Abre o modal de detalhe deste conteúdo (ex.: notificação). */
@@ -227,6 +263,12 @@ export function ContentApprovalTab({
     isAllSelected: isAllContentsSelected,
   } = useBulkSelection(filteredContentIds);
 
+  // Rótulo da nova data limite (72h) — recalculado ao abrir cada modal de reprovação.
+  const correctionDeadlineLabel = useMemo(
+    () => fixedCorrectionDeadlineLabel(),
+    [isRejectModalOpen, isBulkActionModalOpen],
+  );
+
   // Hooks para mutations
   const { mutate: approveContent, isPending: isApproving } = useApproveContent(campaignId || "");
   const { mutate: rejectContent, isPending: isRejecting } = useRejectContent(campaignId || "");
@@ -332,9 +374,7 @@ export function ContentApprovalTab({
         contentIds,
         feedback: bulkRejectionFeedback,
         ...(bulkCaptionFeedback.trim() && { caption_feedback: bulkCaptionFeedback }),
-        ...(bulkNewSubmissionDeadline && {
-          new_submission_deadline: bulkNewSubmissionDeadline, // Formato YYYY-MM-DD
-        }),
+        // Nova data limite é fixa (72h) e definida no backend — não enviada aqui.
       },
       {
         onSuccess: () => {
@@ -388,9 +428,7 @@ export function ContentApprovalTab({
           content_id: selectedContent.id,
           feedback: rejectionFeedback,
           ...(captionFeedback.trim() && { caption_feedback: captionFeedback }),
-          ...(newSubmissionDeadline && {
-            new_submission_deadline: newSubmissionDeadline, // Formato YYYY-MM-DD
-          }),
+          // Nova data limite é fixa (72h) e definida no backend — não enviada aqui.
         },
         {
           onSuccess: () => {
@@ -946,13 +984,7 @@ export function ContentApprovalTab({
               onChange={(e) => setCaptionFeedback(e.target.value)}
             />
 
-            <InputDate
-              label="Nova data limite para reenvio (opcional)"
-              value={newSubmissionDeadline}
-              onChange={setNewSubmissionDeadline}
-              placeholder="Selecione uma data limite para o reenvio"
-              min={formatDateForInput(new Date())}
-            />
+            <FixedDeadlineNotice label={correctionDeadlineLabel} />
 
             <div className="flex gap-3">
               <Button
@@ -1308,13 +1340,17 @@ export function ContentApprovalTab({
                   value={bulkCaptionFeedback}
                   onChange={(e) => setBulkCaptionFeedback(e.target.value)}
                 />
-                <InputDate
-                  label="Nova data limite para reenvio (opcional)"
-                  value={bulkNewSubmissionDeadline}
-                  onChange={setBulkNewSubmissionDeadline}
-                  placeholder="Selecione uma data limite para o reenvio"
-                  min={formatDateForInput(new Date())}
-                />
+                {bulkActionType === "reject" ? (
+                  <FixedDeadlineNotice label={correctionDeadlineLabel} />
+                ) : (
+                  <InputDate
+                    label="Nova data limite para reenvio (opcional)"
+                    value={bulkNewSubmissionDeadline}
+                    onChange={setBulkNewSubmissionDeadline}
+                    placeholder="Selecione uma data limite para o reenvio"
+                    min={formatDateForInput(new Date())}
+                  />
+                )}
               </>
             )}
 

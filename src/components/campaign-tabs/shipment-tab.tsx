@@ -1,5 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
+
+import { lookupPostalCode } from "@/shared/utils/postal-code";
+import { formatCepInput } from "@/shared/utils/masks";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,13 +18,14 @@ import type {
   CampaignShipmentEntry,
   ShipmentItemDto,
   ShipmentAddress,
+  ShipmentStageStatus,
 } from "@/shared/services/campaign-shipment";
 
 // ---------------------------------------------------------------------------
 // Tipos e constantes
 // ---------------------------------------------------------------------------
 
-type ShipmentStage = "awaiting_shipment" | "awaiting_receipt";
+type ShipmentStage = ShipmentStageStatus;
 
 const STAGE_CONFIG: Record<
   ShipmentStage,
@@ -39,9 +43,19 @@ const STAGE_CONFIG: Record<
     color: "bg-[#fef3c7] text-[#92400e]",
     iconName: "PackageCheck",
   },
+  received: {
+    label: "Entregue",
+    actionLabel: "",
+    color: "bg-[#dcfce7] text-[#166534]",
+    iconName: "CircleCheck",
+  },
 };
 
-const SHIPMENT_STAGES: ShipmentStage[] = ["awaiting_shipment", "awaiting_receipt"];
+const SHIPMENT_STAGES: ShipmentStage[] = [
+  "awaiting_shipment",
+  "awaiting_receipt",
+  "received",
+];
 
 const KIND_OPTIONS: { value: ShipmentKind; label: string }[] = [
   { value: "physical", label: "Físico (produto)" },
@@ -751,6 +765,42 @@ function AddressFields({
   address: ShipmentAddress;
   onChange: <K extends keyof ShipmentAddress>(field: K, value: ShipmentAddress[K]) => void;
 }) {
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  // Guarda o último CEP consultado para descartar respostas obsoletas (race).
+  const lastLookupRef = useRef<string>("");
+
+  /**
+   * Consulta o CEP no ViaCEP e preenche rua/bairro/cidade/UF.
+   * Só sobrescreve rua/bairro quando a API retorna valor (CEPs de cidade única
+   * não trazem logradouro — preserva o que o usuário já digitou).
+   */
+  const handleCepLookup = async (rawZip: string) => {
+    const digits = rawZip.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+
+    lastLookupRef.current = digits;
+    setCepLoading(true);
+    setCepError(null);
+    try {
+      const result = await lookupPostalCode(digits);
+      if (lastLookupRef.current !== digits) return; // resposta obsoleta
+      if (!result) {
+        setCepError("CEP não encontrado. Preencha o endereço manualmente.");
+        return;
+      }
+      if (result.logradouro) onChange("street", result.logradouro);
+      if (result.bairro) onChange("neighborhood", result.bairro);
+      onChange("city", result.localidade || "");
+      onChange("state", (result.uf || "").toUpperCase().slice(0, 2));
+    } catch {
+      if (lastLookupRef.current !== digits) return;
+      setCepError("Erro ao buscar o CEP. Preencha o endereço manualmente.");
+    } finally {
+      if (lastLookupRef.current === digits) setCepLoading(false);
+    }
+  };
+
   return (
     <fieldset className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-3 flex flex-col gap-2.5">
       <legend className="text-xs font-semibold uppercase tracking-wider text-neutral-500 px-1">
@@ -758,14 +808,29 @@ function AddressFields({
       </legend>
 
       <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
-        <input
-          type="text"
-          placeholder="CEP *"
-          value={address.zip}
-          onChange={(e) => onChange("zip", e.target.value.replace(/[^\d-]/g, ""))}
-          maxLength={9}
-          className={inputClass}
-        />
+        <div className="flex flex-col gap-1">
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="CEP *"
+              value={address.zip}
+              onChange={(e) => {
+                setCepError(null);
+                onChange("zip", formatCepInput(e.target.value));
+              }}
+              onBlur={(e) => handleCepLookup(e.target.value)}
+              maxLength={9}
+              className={inputClass}
+            />
+            {cepLoading && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Icon name="Loader" size={14} color="#737373" className="animate-spin" />
+              </span>
+            )}
+          </div>
+          {cepError && <span className="text-xs text-danger-500">{cepError}</span>}
+        </div>
         <input
           type="text"
           placeholder="Rua *"

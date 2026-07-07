@@ -11,6 +11,7 @@ import {
   validatePhase1Date,
   validateSubsequentPhaseDate,
   getPhase1MinDate,
+  getSubsequentPhaseMinDate,
 } from "@/shared/utils/date-validations";
 import { handleNumberInput, unformatNumber, handleCurrencyInput } from "@/shared/utils/masks";
 import {
@@ -217,14 +218,9 @@ export function CreateCampaignStepFive({
     }
   };
 
-  const getPhaseMinDate = (phaseIndex: number, phaseDate: string): string | undefined => {
+  const getPhaseMinDate = (phaseIndex: number): string | undefined => {
     if (phaseIndex === 0) return getPhase1MinDate();
-    const prev = phases[phaseIndex - 1];
-    if (prev?.postDate) {
-      const v = validateSubsequentPhaseDate(phaseDate, prev.postDate);
-      return v.minDate;
-    }
-    return undefined;
+    return getSubsequentPhaseMinDate(phases[phaseIndex - 1]?.postDate ?? "");
   };
 
   const getPhaseDateError = (phaseIndex: number, phaseDate: string): string | undefined => {
@@ -503,7 +499,7 @@ export function CreateCampaignStepFive({
                           label="Data prevista de postagem"
                           value={phase.postDate ?? ""}
                           onChange={(v) => updatePhase(phase.id, "postDate", v)}
-                          min={getPhaseMinDate(phaseIndex, phase.postDate)}
+                          min={getPhaseMinDate(phaseIndex)}
                           error={getPhaseDateError(phaseIndex, phase.postDate)}
                         />
                       </div>

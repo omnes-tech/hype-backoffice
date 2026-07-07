@@ -63,7 +63,6 @@ const CAMPAIGN_TAB_DEFS: Array<{
     },
     { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
     { id: "curation", label: "Curadoria", visible: (p) => p.influencers_approve || p.influencers_reject },
-    { id: "shipment", label: "Envios", visible: (p) => p.campaigns_read },
     { id: "management", label: "Gerenciamento", visible: (p) => p.campaigns_read },
     { id: "contracts", label: "Contratos", visible: (p) => p.contracts_read },
     {
@@ -71,6 +70,8 @@ const CAMPAIGN_TAB_DEFS: Array<{
       label: "Aprovações de roteiro",
       visible: (p) => p.scripts_read,
     },
+    // Envio ocorre após a aprovação do roteiro e antes da aprovação do conteúdo
+    { id: "shipment", label: "Envios", visible: (p) => p.campaigns_read },
     {
       id: "approval",
       label: "Aprovações de conteúdo",
