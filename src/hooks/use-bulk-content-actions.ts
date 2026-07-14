@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { bulkApproveContents, bulkRejectContents } from "@/shared/services/content";
+import { invalidateCampaignTaskBoards } from "@/hooks/use-invalidate-task-boards";
 import { toast } from "sonner";
 
 interface BulkContentActionsParams {
@@ -23,7 +24,7 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
     }) => bulkApproveContents(campaignId, contentIds, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "contents"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
       toast.success("Conteúdos aprovados com sucesso");
     },
     onError: (error: Error) => {
@@ -54,7 +55,7 @@ export function useBulkContentActions({ campaignId }: BulkContentActionsParams) 
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "contents"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
       toast.success("Conteúdos reprovados com sucesso");
     },
     onError: (error: Error) => {

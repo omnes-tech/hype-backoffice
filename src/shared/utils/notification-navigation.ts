@@ -4,6 +4,7 @@ import type { Notification } from "@/shared/services/notifications";
 export const CAMPAIGN_TAB_IDS = [
   "dashboard",
   "selection",
+  "proposals",
   "applications",
   "curation",
   "shipment",
@@ -97,6 +98,10 @@ export function resolveNotificationCampaignDeepLink(
       const focus = focusFromMetadata(m);
       return { tab: "shipment", ...(focus ? { focusCampaignUser: focus } : {}) };
     }
+    case "campaign_price_countered": {
+      const focus = focusFromMetadata(m);
+      return { tab: "proposals", ...(focus ? { focusCampaignUser: focus } : {}) };
+    }
     default:
       break;
   }
@@ -109,6 +114,14 @@ export function resolveNotificationCampaignDeepLink(
   ) {
     const focus = focusFromMetadata(m);
     return { tab: "curation", ...(focus ? { focusCampaignUser: focus } : {}) };
+  }
+  if (
+    haystack.includes("contraproposta") ||
+    haystack.includes("proposta") ||
+    haystack.includes("negocia")
+  ) {
+    const focus = focusFromMetadata(m);
+    return { tab: "proposals", ...(focus ? { focusCampaignUser: focus } : {}) };
   }
   if (
     /\binscri/.test(haystack) ||

@@ -51,6 +51,7 @@ import { useNiches } from "@/hooks/use-niches";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { PriceNegotiationSection } from "./shared/price-negotiation-section";
+import { reconcileSelectedById } from "./shared/reconcile-selected";
 
 interface ManagementTabProps {
   participants: CampaignManagementParticipant[];
@@ -445,6 +446,14 @@ export function ManagementTab({
     }
     setInfluencersState(participants.map(participantToExtended));
   }, [participants]);
+
+  // Mantém o influenciador aberto no modal em sincronia com a lista recém-buscada.
+  // Sem isso, ações que refetcham a lista (ex.: responder à negociação de preço)
+  // não refletiam no modal — os valores só atualizavam ao fechar e reabrir, pois
+  // `selectedInfluencer` era um snapshot congelado. Ver `reconcileSelectedById`.
+  useEffect(() => {
+    setSelectedInfluencer((prev) => reconcileSelectedById(prev, influencersState));
+  }, [influencersState]);
 
   const extendedInfluencers = influencersState;
 

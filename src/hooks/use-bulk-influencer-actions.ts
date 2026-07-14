@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { bulkApproveInfluencers, bulkRejectInfluencers } from "@/shared/services/influencer";
+import { invalidateCampaignTaskBoards } from "@/hooks/use-invalidate-task-boards";
 import { toast } from "sonner";
 
 interface BulkInfluencerActionsParams {
@@ -15,7 +16,7 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "inscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores aprovados com sucesso");
@@ -32,7 +33,7 @@ export function useBulkInfluencerActions({ campaignId }: BulkInfluencerActionsPa
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "influencers"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "dashboard"] });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "inscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "curation"] });
       toast.success("Influenciadores reprovados com sucesso");

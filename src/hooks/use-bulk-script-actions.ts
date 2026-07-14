@@ -3,6 +3,7 @@ import {
   bulkApproveScripts,
   bulkRejectScripts,
 } from "@/shared/services/script";
+import { invalidateCampaignTaskBoards } from "@/hooks/use-invalidate-task-boards";
 
 interface UseBulkScriptActionsProps {
   campaignId: string;
@@ -20,9 +21,7 @@ export function useBulkScriptActions({
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "scripts"],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
     },
   });
 
@@ -38,9 +37,7 @@ export function useBulkScriptActions({
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "scripts"],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
     },
   });
 

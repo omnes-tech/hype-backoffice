@@ -116,6 +116,8 @@ export function NotificationsDropdown() {
       new_message: "MessageCircle",
       influencer_approved: "UserCheck",
       shipment_receipt_confirmed: "PackageCheck",
+      campaign_application: "UserPlus",
+      new_script_submission: "FileText",
     };
     return icons[type] ?? "Bell";
   };
@@ -129,6 +131,8 @@ export function NotificationsDropdown() {
       new_message: { bg: "bg-blue-50", text: "text-blue-900" },
       influencer_approved: { bg: "bg-success-50", text: "text-success-900" },
       shipment_receipt_confirmed: { bg: "bg-success-50", text: "text-success-900" },
+      campaign_application: { bg: "bg-primary-50", text: "text-primary-900" },
+      new_script_submission: { bg: "bg-info-50", text: "text-info-900" },
     };
     return colors[type] ?? { bg: "bg-neutral-50", text: "text-neutral-900" };
   };

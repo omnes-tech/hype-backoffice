@@ -10,6 +10,7 @@ import {
   useWorkspaceQueryKey,
   withWorkspaceKey,
 } from "@/hooks/use-workspace-query-key";
+import { invalidateCampaignTaskBoards } from "@/hooks/use-invalidate-task-boards";
 
 export function useCampaignScripts(
   campaignId: string,
@@ -35,9 +36,7 @@ export function useApproveScript(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "scripts"],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
     },
   });
 }
@@ -51,9 +50,7 @@ export function useRejectScript(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["campaigns", campaignId, "scripts"],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["campaigns", campaignId, "dashboard"],
-      });
+      invalidateCampaignTaskBoards(queryClient, campaignId);
     },
   });
 }

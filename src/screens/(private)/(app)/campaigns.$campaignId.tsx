@@ -11,6 +11,7 @@ import { DashboardTab, DashboardTabSkeleton } from "@/components/campaign-tabs/d
 import { ManagementTab } from "@/components/campaign-tabs/management-tab";
 import { InfluencerSelectionTab } from "@/components/campaign-tabs/influencer-selection-tab";
 import { ApplicationsTab } from "@/components/campaign-tabs/applications-tab";
+import { ProposalsTab } from "@/components/campaign-tabs/proposals-tab";
 import { CurationTab } from "@/components/campaign-tabs/curation-tab";
 import { ShipmentTab } from "@/components/campaign-tabs/shipment-tab";
 import { ContentApprovalTab } from "@/components/campaign-tabs/content-approval-tab";
@@ -59,6 +60,13 @@ const CAMPAIGN_TAB_DEFS: Array<{
     {
       id: "selection",
       label: "Seleção de influenciadores",
+      visible: (p) => p.influencers_read,
+    },
+    // Só aparece em campanhas "valor individual por criador" (gate por
+    // payment_method no filtro de visibleTabs, além da permissão).
+    {
+      id: "proposals",
+      label: "Propostas",
       visible: (p) => p.influencers_read,
     },
     { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
@@ -127,14 +135,17 @@ function RouteComponent() {
   } = useCampaign(campaignId);
 
   const isSwapCampaign = campaign?.payment_method === "swap";
+  const isIndividualPrice = campaign?.payment_method === "individual_price";
 
   const visibleTabs = useMemo(
     () =>
       CAMPAIGN_TAB_DEFS.filter((t) => {
         if (t.id === "shipment" && !isSwapCampaign) return false;
+        // Aba de propostas só faz sentido em "valor individual por criador".
+        if (t.id === "proposals" && !isIndividualPrice) return false;
         return t.visible(permissions);
       }).map(({ id, label }) => ({ id, label })),
-    [permissions, isSwapCampaign],
+    [permissions, isSwapCampaign, isIndividualPrice],
   );
 
   useEffect(() => {
@@ -537,6 +548,8 @@ function RouteComponent() {
             paymentMethod={campaign?.payment_method}
           />
         );
+      case "proposals":
+        return <ProposalsTab campaignId={campaignId} />;
       case "applications":
         return (
           <ApplicationsTab

@@ -19,6 +19,7 @@ import {
   useWorkspaceQueryKey,
   withWorkspaceKey,
 } from "@/hooks/use-workspace-query-key";
+import { invalidateCampaignTaskBoards } from "@/hooks/use-invalidate-task-boards";
 
 // ---------------------------------------------------------------------------
 // Listagem / status
@@ -114,9 +115,7 @@ function invalidateCampaignContracts(
   queryClient.invalidateQueries({
     queryKey: ["campaigns", campaignId, "contracts"],
   });
-  queryClient.invalidateQueries({
-    queryKey: ["campaigns", campaignId, "dashboard"],
-  });
+  invalidateCampaignTaskBoards(queryClient, campaignId);
 }
 
 export function useSendContractTemplate(campaignId: string) {

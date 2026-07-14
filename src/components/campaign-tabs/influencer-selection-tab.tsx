@@ -1801,6 +1801,7 @@ export function InfluencerSelectionTab({
       {modalType === "selectList" && (
         <ListSelector
           campaignId={campaignId}
+          paymentMethod={paymentMethod}
           defaultOpen
           onClose={handleCloseModal}
         />

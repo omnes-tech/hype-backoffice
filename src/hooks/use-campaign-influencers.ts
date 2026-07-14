@@ -16,6 +16,7 @@ import {
   withWorkspaceKey,
 } from "@/hooks/use-workspace-query-key";
 import { useInvalidateWorkspaceBalance } from "@/hooks/use-balance";
+import { WORKSPACE_OVERVIEW_QUERY_KEY } from "@/hooks/use-invalidate-task-boards";
 
 export function useCampaignInfluencers(campaignId: string) {
   const workspaceId = useWorkspaceQueryKey();
@@ -53,6 +54,9 @@ function useInvalidateCampaignInfluencerCaches(campaignId: string) {
         queryKey: ["campaigns", campaignId, scope],
       });
     }
+    // Board agregado da home ("Tarefas e aprovações") — não é filho da chave da
+    // campanha, então precisa ser invalidado explicitamente.
+    queryClient.invalidateQueries({ queryKey: WORKSPACE_OVERVIEW_QUERY_KEY });
     invalidateBalance();
   };
 }
