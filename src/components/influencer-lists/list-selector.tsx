@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -6,6 +6,10 @@ import {
   useInfluencerList,
   useBulkAddInfluencers,
 } from "@/hooks/use-influencer-lists";
+import {
+  getCampaignImportPreview,
+  type ImportPreviewProfile,
+} from "@/shared/services/influencer-lists";
 import {
   inviteInfluencer,
   addToPreSelection,
@@ -87,8 +91,6 @@ export function ListSelector({
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [mode, setMode] = useState<AddMode>("invite");
   const [message, setMessage] = useState("");
-  /** Valores propostos por criador (BRL mascarado), chave = userId. */
-  const [priceInputs, setPriceInputs] = useState<Record<number, string>>({});
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
     null
   );
@@ -101,18 +103,75 @@ export function ListSelector({
   const members = listDetail?.influencers ?? [];
   const isSubmitting = progress !== null;
 
-  // Validação: no modo individual, todo membro precisa de valor > 0.
+  // ── individual_price: preview POR PERFIL (influenciador × rede da campanha) ──
+  const profileKey = (p: { user_id: number; social_network_id: number }) =>
+    `${p.user_id}-${p.social_network_id}`;
+
+  const [profiles, setProfiles] = useState<ImportPreviewProfile[]>([]);
+  const [discardedCount, setDiscardedCount] = useState(0);
+  const [removedKeys, setRemovedKeys] = useState<Set<string>>(new Set());
+  const [profilePrices, setProfilePrices] = useState<Record<string, string>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // Carrega o preview ao entrar no passo de configuração (só individual_price).
+  useEffect(() => {
+    if (!isIndividualPrice || !selectedListId) {
+      setProfiles([]);
+      setDiscardedCount(0);
+      setRemovedKeys(new Set());
+      setProfilePrices({});
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    getCampaignImportPreview(campaignId, { list_id: selectedListId })
+      .then((res) => {
+        if (cancelled) return;
+        setProfiles(res.profiles);
+        setDiscardedCount(res.summary.discarded);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPreviewError(
+          (err as { message?: string })?.message || "Erro ao carregar perfis"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isIndividualPrice, selectedListId, campaignId]);
+
+  const keptProfiles = useMemo(
+    () => profiles.filter((p) => !removedKeys.has(profileKey(p))),
+    [profiles, removedKeys]
+  );
+
+  // Validação: individual → cada PERFIL mantido precisa de valor > 0.
   const allPricesValid = useMemo(() => {
     if (!isIndividualPrice) return true;
-    if (members.length === 0) return false;
-    return members.every((m) => parsePriceBRLToCents(priceInputs[m.id]) > 0);
-  }, [isIndividualPrice, members, priceInputs]);
+    if (keptProfiles.length === 0) return false;
+    return keptProfiles.every(
+      (p) => parsePriceBRLToCents(profilePrices[profileKey(p)]) > 0
+    );
+  }, [isIndividualPrice, keptProfiles, profilePrices]);
+
+  const removeProfile = (key: string) =>
+    setRemovedKeys((prev) => new Set(prev).add(key));
 
   const resetAll = () => {
     setSelectedListId(null);
     setMode("invite");
     setMessage("");
-    setPriceInputs({});
+    setProfiles([]);
+    setDiscardedCount(0);
+    setRemovedKeys(new Set());
+    setProfilePrices({});
+    setPreviewError(null);
     setProgress(null);
   };
 
@@ -121,10 +180,6 @@ export function ListSelector({
     setIsOpen(false);
     resetAll();
     onClose?.();
-  };
-
-  const handlePriceChange = (userId: number, value: string) => {
-    setPriceInputs((prev) => ({ ...prev, [userId]: value }));
   };
 
   const handleConfirm = async () => {
@@ -147,32 +202,74 @@ export function ListSelector({
       return;
     }
 
-    // Caminho por membro: pré-seleção (qualquer método) ou valor individual.
-    // Reaproveita os endpoints individuais (notificação real + negociação de
-    // valor). Sem reserva no convite individual (só no fechamento) e pré-seleção
-    // nunca reserva → concorrência é segura.
+    const trimmedMessage = message.trim();
+    const action = mode === "invite" ? inviteInfluencer : addToPreSelection;
+    const verb = mode === "invite" ? "convidado(s)" : "adicionado(s) à pré-seleção";
+
+    // ── individual_price: 1 convite por criador, com network_prices (por rede) ──
+    if (isIndividualPrice) {
+      if (keptProfiles.length === 0) {
+        toast.error("Nenhum perfil compatível com a campanha para convidar.");
+        return;
+      }
+      if (!allPricesValid) {
+        toast.error("Informe o valor de cada perfil (rede).");
+        return;
+      }
+
+      // Agrupa os perfis mantidos por influenciador.
+      const byUser = new Map<
+        number,
+        { network_id: number; proposed_price_cents: number }[]
+      >();
+      for (const p of keptProfiles) {
+        const arr = byUser.get(p.user_id) ?? [];
+        arr.push({
+          network_id: p.social_network_id,
+          proposed_price_cents: parsePriceBRLToCents(
+            profilePrices[profileKey(p)]
+          ),
+        });
+        byUser.set(p.user_id, arr);
+      }
+      const entries = [...byUser.entries()];
+      setProgress({ done: 0, total: entries.length });
+
+      const results = await runPool(
+        entries,
+        async ([userId, items]) => {
+          await action(campaignId, {
+            influencer_id: String(userId),
+            ...(trimmedMessage ? { message: trimmedMessage } : {}),
+            network_prices: items,
+          });
+          setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev));
+        },
+        4
+      );
+
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      if (succeeded > 0) toast.success(`${succeeded} criador(es) ${verb}.`);
+      if (failed > 0)
+        toast.error(`${failed} não puderam ser processados (já na campanha ou erro).`);
+      if (succeeded > 0) handleClose();
+      else setProgress(null);
+      return;
+    }
+
+    // ── Não-individual: pré-seleção por membro (fluxo existente) ──
     if (members.length === 0) {
       toast.error("A lista selecionada não possui influenciadores.");
       return;
     }
-    if (isIndividualPrice && !allPricesValid) {
-      toast.error("Informe o valor proposto para cada criador.");
-      return;
-    }
-
-    const trimmedMessage = message.trim();
     setProgress({ done: 0, total: members.length });
-
-    const action = mode === "invite" ? inviteInfluencer : addToPreSelection;
     const results = await runPool(
       members,
       async (member) => {
         await action(campaignId, {
           influencer_id: String(member.id),
           ...(trimmedMessage ? { message: trimmedMessage } : {}),
-          ...(isIndividualPrice
-            ? { proposed_price_cents: parsePriceBRLToCents(priceInputs[member.id]) }
-            : {}),
         });
         setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev));
       },
@@ -181,8 +278,6 @@ export function ListSelector({
 
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - succeeded;
-
-    const verb = mode === "invite" ? "convidado(s)" : "adicionado(s) à pré-seleção";
     if (succeeded > 0) {
       toast.success(`${succeeded} influenciador(es) ${verb}.`);
     }
@@ -313,77 +408,149 @@ export function ListSelector({
         />
       </div>
 
-      {/* Membros: no modo individual, valor por criador */}
-      {isLoadingDetail ? (
+      {/* individual_price → um card por PERFIL (rede) com valor + remover.
+          Demais métodos → lista simples de membros. */}
+      {isIndividualPrice ? (
+        previewLoading || isLoadingDetail ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500" />
+          </div>
+        ) : previewError ? (
+          <p className="text-sm text-red-600">{previewError}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-neutral-800">
+                {keptProfiles.length} perfil(is) convidável(is)
+              </span>
+              <span className="text-xs text-primary-700">
+                Valor individual por criador
+              </span>
+            </div>
+
+            <p className="text-xs text-neutral-500">
+              Cada perfil é uma rede da campanha. Informe o valor de cada um — o
+              criador poderá aceitar ou contrapropor por rede; o saldo só é
+              reservado quando o valor fecha.
+            </p>
+
+            {discardedCount > 0 && (
+              <p className="text-xs text-amber-600">
+                {discardedCount} perfil(is) descartado(s) por não terem rede
+                compatível com a campanha.
+              </p>
+            )}
+
+            {keptProfiles.length === 0 ? (
+              <div className="rounded-xl border border-neutral-200 p-4 text-center text-sm text-neutral-500">
+                Nenhum perfil da lista é compatível com as redes da campanha.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                {keptProfiles.map((p) => {
+                  const key = profileKey(p);
+                  const cents = parsePriceBRLToCents(profilePrices[key]);
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 rounded-xl border border-neutral-200 p-3"
+                    >
+                      {p.photo ? (
+                        <img
+                          src={getUploadUrl(p.photo) ?? undefined}
+                          alt=""
+                          className="size-9 shrink-0 rounded-full bg-neutral-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-medium text-neutral-600">
+                          {p.name?.charAt(0).toUpperCase() ?? "?"}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-neutral-900">
+                          {p.name}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          <Badge
+                            text={p.network_type}
+                            backgroundColor="bg-primary-50"
+                            textColor="text-primary-700"
+                          />
+                          {p.username && (
+                            <span className="truncate text-xs text-neutral-500">
+                              @{p.username}
+                            </span>
+                          )}
+                          {cents > 0 && (
+                            <span className="text-xs text-neutral-500">
+                              · {fmtBRL(cents)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-neutral-500">R$</span>
+                        <input
+                          inputMode="decimal"
+                          value={profilePrices[key] ?? ""}
+                          onChange={(e) =>
+                            setProfilePrices((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          disabled={isSubmitting}
+                          placeholder="0,00"
+                          className="w-24 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeProfile(key)}
+                          disabled={isSubmitting}
+                          aria-label="Remover perfil"
+                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500"
+                        >
+                          <Icon name="X" size={16} color="currentColor" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )
+      ) : isLoadingDetail ? (
         <div className="flex items-center justify-center py-6">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500" />
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-neutral-800">
-              {members.length} influenciador(es)
-            </span>
-            {isIndividualPrice && (
-              <span className="text-xs text-primary-700">
-                Valor individual por criador
-              </span>
-            )}
-          </div>
-
-          {isIndividualPrice && (
-            <p className="text-xs text-neutral-500">
-              Informe o valor proposto de cada criador. Ele poderá aceitar ou
-              enviar uma contraproposta; o saldo só é reservado quando o valor
-              fecha.
-            </p>
-          )}
-
+          <span className="text-sm font-medium text-neutral-800">
+            {members.length} influenciador(es)
+          </span>
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
-            {members.map((member) => {
-              const cents = parsePriceBRLToCents(priceInputs[member.id]);
-              return (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 rounded-xl border border-neutral-200 p-3"
-                >
-                  {member.photo ? (
-                    <img
-                      src={getUploadUrl(member.photo) ?? undefined}
-                      alt=""
-                      className="size-9 shrink-0 rounded-full bg-neutral-200 object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-medium text-neutral-600">
-                      {member.name?.charAt(0).toUpperCase() ?? "?"}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-900">
-                      {member.name}
-                    </p>
-                    {isIndividualPrice && cents > 0 && (
-                      <p className="text-xs text-neutral-500">{fmtBRL(cents)}</p>
-                    )}
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center gap-3 rounded-xl border border-neutral-200 p-3"
+              >
+                {member.photo ? (
+                  <img
+                    src={getUploadUrl(member.photo) ?? undefined}
+                    alt=""
+                    className="size-9 shrink-0 rounded-full bg-neutral-200 object-cover"
+                  />
+                ) : (
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-medium text-neutral-600">
+                    {member.name?.charAt(0).toUpperCase() ?? "?"}
                   </div>
-                  {isIndividualPrice && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-neutral-500">R$</span>
-                      <input
-                        inputMode="decimal"
-                        value={priceInputs[member.id] ?? ""}
-                        onChange={(e) =>
-                          handlePriceChange(member.id, e.target.value)
-                        }
-                        disabled={isSubmitting}
-                        placeholder="0,00"
-                        className="w-28 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                )}
+                <p className="truncate text-sm font-medium text-neutral-900">
+                  {member.name}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -408,8 +575,9 @@ export function ListSelector({
           disabled={
             isSubmitting ||
             isLoadingDetail ||
-            members.length === 0 ||
-            (isIndividualPrice && !allPricesValid)
+            (isIndividualPrice
+              ? previewLoading || keptProfiles.length === 0 || !allPricesValid
+              : members.length === 0)
           }
           className="flex-1"
         >

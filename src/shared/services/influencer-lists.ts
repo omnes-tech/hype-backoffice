@@ -24,6 +24,66 @@ export interface BulkAddInfluencersRequest {
   list_id?: string;
 }
 
+/** Um perfil (influenciador × rede) convidável, resolvido pelo preview de import. */
+export interface ImportPreviewProfile {
+  user_id: number;
+  name: string | null;
+  photo: string | null;
+  social_network_id: number;
+  network_type: string;
+  username: string | null;
+}
+
+export interface ImportPreviewResult {
+  payment_method: string;
+  allowed_networks: string[];
+  profiles: ImportPreviewProfile[];
+  discarded: { user_id: number; name: string | null; reason: string }[];
+  summary: { members: number; profiles: number; discarded: number };
+}
+
+/**
+ * Preview de import: expande a lista em perfis convidáveis (1 por rede da
+ * campanha), descartando perfis/redes que não fazem parte da campanha.
+ */
+export async function getCampaignImportPreview(
+  campaignId: string,
+  data: BulkAddInfluencersRequest
+): Promise<ImportPreviewResult> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const request = await fetch(
+    getApiUrl(`/campaigns/${campaignId}/users/import-preview`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get import preview" };
+    }
+    throw errorData || "Failed to get import preview";
+  }
+
+  const response = await request.json();
+  return response.data;
+}
+
 /**
  * Lista todas as listas de influenciadores do workspace
  */

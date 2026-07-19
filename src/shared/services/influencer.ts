@@ -273,6 +273,11 @@ export interface InfluencerInviteData {
    * usa `payment_method === "individual_price"`; ignorado nos demais métodos.
    */
   proposed_price_cents?: number;
+  /**
+   * Preço POR REDE (individual_price por rede). Quando presente, abre uma
+   * negociação por rede. Redes fora da campanha são descartadas no backend.
+   */
+  network_prices?: { network_id: number; proposed_price_cents: number }[];
 }
 
 /**
