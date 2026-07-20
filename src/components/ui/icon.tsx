@@ -1,5 +1,7 @@
 import { icons } from "lucide-react";
 
+export type IconName = keyof typeof icons;
+
 export function Icon({
   name,
   color,
@@ -7,7 +9,7 @@ export function Icon({
   onClick,
   className,
 }: {
-  name: keyof typeof icons;
+  name: IconName;
   color: string;
   size: number;
   onClick?: () => void;

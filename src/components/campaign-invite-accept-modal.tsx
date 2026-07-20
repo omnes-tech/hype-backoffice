@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import {
   confirmInstagramVerify,
@@ -50,7 +50,7 @@ interface VerifiedAccount {
   followers?: number | null;
 }
 
-const NETWORK_ICON: Record<string, string> = {
+const NETWORK_ICON: Record<string, IconName> = {
   instagram: "Instagram",
   youtube: "Youtube",
   tiktok: "Music2",
