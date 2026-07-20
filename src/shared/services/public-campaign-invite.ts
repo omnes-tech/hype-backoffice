@@ -371,8 +371,121 @@ export interface PublicInvitePreRegisterPayload {
   email: string;
   /** Apenas dígitos; opcional conforme contrato da API */
   phone?: string;
-  /** Links dos perfis nas redes aceitas pela campanha */
+  /** @deprecated Links livres (não verificados). Use verification_tokens. */
   social_profiles?: PublicInviteSocialProfile[];
+  /** JWTs de verificação (um por rede conectada), emitidos pelo social-connect. */
+  verification_tokens?: string[];
+}
+
+/** Redes que suportam OAuth efêmero (Instagram usa bio-code). */
+export type SocialConnectNetwork = "tiktok" | "youtube" | "instagram";
+
+/**
+ * Origem do backend (onde a página de callback do popup é servida). O
+ * `postMessage` do popup chega com `event.origin` = esta origem; o listener do
+ * front valida contra ela.
+ */
+export function getBackendOrigin(): string {
+  const serverUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
+  if (!serverUrl) return "";
+  try {
+    return new URL(serverUrl).origin;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Pede a URL de autorização OAuth (TikTok/YouTube) para conectar a conta no
+ * convite. O front abre `auth_url` num popup.
+ */
+export async function getSocialConnectRedirect(
+  campaignPublicId: string,
+  network: "tiktok" | "youtube",
+): Promise<{ auth_url: string; state: string }> {
+  const url = new URL(getApiUrl(`/public/social-connect/${network}/redirect`));
+  url.searchParams.set("campaign_public_id", campaignPublicId);
+
+  const request = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  if (!request.ok) {
+    throw new Error("Não foi possível iniciar a conexão. Tente novamente.");
+  }
+  const response = await request.json();
+  const data = response?.data ?? response;
+  if (!data?.auth_url) {
+    throw new Error("Resposta inválida do servidor.");
+  }
+  return { auth_url: String(data.auth_url), state: String(data.state ?? "") };
+}
+
+async function postIgVerify(
+  path: "start" | "confirm",
+  campaignPublicId: string,
+  username: string,
+): Promise<Record<string, unknown>> {
+  const request = await fetch(
+    getApiUrl(`/public/social-connect/instagram/verify/${path}`),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ campaign_public_id: campaignPublicId, username }),
+    },
+  );
+  const response = await request.json().catch(() => ({}));
+  if (!request.ok) {
+    const message = String(
+      response?.message ?? response?.error ?? "Não foi possível verificar a conta.",
+    );
+    const err = new Error(message) as Error & { status?: number };
+    err.status = request.status;
+    throw err;
+  }
+  return (response?.data ?? response) as Record<string, unknown>;
+}
+
+/** Instagram: inicia o desafio de bio e retorna o código a colar. */
+export async function startInstagramVerify(
+  campaignPublicId: string,
+  username: string,
+): Promise<{ handle: string; code: string; instructions: string; expires_in_minutes: number }> {
+  const data = await postIgVerify("start", campaignPublicId, username);
+  return {
+    handle: String(data.handle ?? username),
+    code: String(data.code ?? ""),
+    instructions: String(data.instructions ?? ""),
+    expires_in_minutes: Number(data.expires_in_minutes ?? 30),
+  };
+}
+
+/** Instagram: confere a bio e retorna o token de verificação. */
+export async function confirmInstagramVerify(
+  campaignPublicId: string,
+  username: string,
+): Promise<{ verification_token: string; username: string; followers: number | null }> {
+  const data = await postIgVerify("confirm", campaignPublicId, username);
+  return {
+    verification_token: String(data.verification_token ?? ""),
+    username: String(data.username ?? username),
+    followers: data.followers == null ? null : Number(data.followers),
+  };
+}
+
+/** Payload do `postMessage` da página de callback do popup (TikTok/YouTube). */
+export interface SocialConnectMessage {
+  type: "hypeapp:social-connect";
+  ok: boolean;
+  network?: string;
+  username?: string;
+  verification_token?: string;
+  followers?: number | null;
+  avatar?: string | null;
+  error?: string;
 }
 
 /**
@@ -391,6 +504,11 @@ export async function postPublicCampaignInvitePreRegister(
     target_stage: "applications",
   };
   if (phoneDigits.length >= 10) body.phone = phoneDigits;
+  if (payload.verification_tokens?.length) {
+    body.verification_tokens = payload.verification_tokens.filter(
+      (t) => typeof t === "string" && t.trim().length > 0,
+    );
+  }
   if (payload.social_profiles?.length) {
     body.social_profiles = payload.social_profiles.map((p) => ({
       network: p.network.trim().toLowerCase(),

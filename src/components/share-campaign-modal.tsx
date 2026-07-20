@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getApiUrl } from "@/lib/utils/api";
 
 interface ShareCampaignModalProps {
   isOpen: boolean;
@@ -22,10 +21,10 @@ export function ShareCampaignModal({
 }: ShareCampaignModalProps) {
   const [copied, setCopied] = useState(false);
 
-  // URL de PRÉVIA de compartilhamento (backend): serve Open Graph p/ crawlers e
-  // redireciona humanos à landing pública. Compartilhar o link da SPA direto não
-  // gera preview (crawler não executa JS). Ver `GET /public/campaigns/:id/invite/share`.
-  const campaignUrl = getApiUrl(`/public/campaigns/${campaignId}/invite/share`);
+  // Link da tela pública de convite (rota da SPA). É esta rota que renderiza o
+  // convite e busca `GET /public/campaigns/:id/invite`. Apontar direto para ela
+  // garante que colar o link no navegador abra a página de convite.
+  const campaignUrl = `${window.location.origin}/campaigns/${campaignId}/invite`;
   const shareText = `Convite para a campanha: ${campaignTitle}`;
 
   const handleCopyLink = async () => {

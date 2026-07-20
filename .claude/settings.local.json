@@ -42,7 +42,11 @@
       "Bash(grep -rln \"toLocaleString\\\\|Intl.NumberFormat\\\\|formatCurrency\\\\|R\\\\\\\\$\" shared/utils)",
       "Bash(echo \"API_EXIT=$?\")",
       "Bash(echo \"APP_EXIT=$?\")",
-      "PowerShell(npx tsc -b --noEmit 2>&1 | Select-Object -First 40; \"exit: $LASTEXITCODE\")"
+      "PowerShell(npx tsc -b --noEmit 2>&1 | Select-Object -First 40; \"exit: $LASTEXITCODE\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/jose/package.json'\\).version\\)\")",
+      "Bash(npx jest *)",
+      "Bash(node -e ' *)",
+      "Bash(echo \"TSC_EXIT=$?\")"
     ]
   }
 }

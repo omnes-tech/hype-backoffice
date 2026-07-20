@@ -7,12 +7,17 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Icon } from "@/components/ui/icon";
 import { Modal } from "@/components/ui/modal";
 import {
+  confirmInstagramVerify,
+  getBackendOrigin,
+  getSocialConnectRedirect,
   postPublicCampaignInvitePreRegister,
+  startInstagramVerify,
   type PublicCampaignInviteData,
+  type SocialConnectMessage,
 } from "@/shared/services/public-campaign-invite";
-import { isValidProfileUrlForNetwork } from "@/shared/utils/social-profile-url";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { formatBrazilianPhoneInput } from "@/shared/utils/masks";
 
@@ -26,41 +31,271 @@ function hrefOpenHypeappApp(): string {
   return /Android/i.test(navigator.userAgent) ? HYPEAPP_ANDROID_OPEN_INTENT : HYPEAPP_PLAY_STORE_URL;
 }
 
-function createAcceptSchema(networks: string[]) {
-  const phoneSchema = z
+/** Dados de identificação (name/email/phone). Redes são verificadas à parte. */
+const identitySchema = z.object({
+  name: z.string().min(2, "Informe seu nome"),
+  email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
+  phone: z
     .string()
     .min(1, "Celular é obrigatório")
-    .refine((v) => v.replace(/\D/g, "").length >= 10, "Informe o celular com DDD");
+    .refine((v) => v.replace(/\D/g, "").length >= 10, "Informe o celular com DDD"),
+});
 
-  return z
-    .object({
-      name: z.string().min(2, "Informe seu nome"),
-      email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
-      phone: phoneSchema,
-      profile: z.record(z.string(), z.string()),
-    })
-    .superRefine((data, ctx) => {
-      for (const net of networks) {
-        const v = String(data.profile[net] ?? "").trim();
-        const label = getNetworkLabel(net, net);
-        if (!v) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Informe o link do seu perfil no ${label}`,
-            path: ["profile", net],
-          });
-        } else if (!isValidProfileUrlForNetwork(v, net)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `O link não parece ser um perfil válido de ${label}`,
-            path: ["profile", net],
-          });
-        }
-      }
-    });
+type IdentityFormValues = z.infer<typeof identitySchema>;
+
+/** Estado de verificação de uma rede (token emitido pelo backend). */
+interface VerifiedAccount {
+  token: string;
+  username: string;
+  followers?: number | null;
 }
 
-type AcceptFormValues = z.infer<ReturnType<typeof createAcceptSchema>>;
+const NETWORK_ICON: Record<string, string> = {
+  instagram: "Instagram",
+  youtube: "Youtube",
+  tiktok: "Music2",
+};
+
+/**
+ * Abre o popup de forma síncrona (dentro do gesto do clique, evita bloqueio),
+ * navega para a `auth_url` e resolve quando o callback devolve o token via
+ * `postMessage` — validando a origem contra o backend.
+ */
+function connectViaPopup(
+  campaignPublicId: string,
+  network: "tiktok" | "youtube",
+): Promise<VerifiedAccount> {
+  return new Promise<VerifiedAccount>((resolve, reject) => {
+    const popup = window.open(
+      "",
+      "hypeapp-social-connect",
+      "width=520,height=680,menubar=no,toolbar=no,location=no,status=no",
+    );
+    if (!popup) {
+      reject(new Error("Popup bloqueado. Permita popups e tente novamente."));
+      return;
+    }
+
+    const backendOrigin = getBackendOrigin();
+    let settled = false;
+
+    const cleanup = () => {
+      window.removeEventListener("message", onMessage);
+      window.clearInterval(timer);
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      // Só aceita mensagens da página de callback servida pelo backend.
+      if (backendOrigin && event.origin !== backendOrigin) return;
+      const data = event.data as SocialConnectMessage | undefined;
+      if (!data || data.type !== "hypeapp:social-connect") return;
+      if (data.network && data.network !== network) return;
+
+      settled = true;
+      cleanup();
+      try {
+        popup.close();
+      } catch {
+        /* noop */
+      }
+
+      if (data.ok && data.verification_token) {
+        resolve({
+          token: data.verification_token,
+          username: data.username ?? "",
+          followers: data.followers ?? null,
+        });
+      } else {
+        reject(new Error(data.error || "Não foi possível conectar a conta."));
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    // Detecta o fechamento do popup sem mensagem (usuário desistiu).
+    const timer = window.setInterval(() => {
+      if (popup.closed && !settled) {
+        cleanup();
+        reject(new Error("Conexão cancelada."));
+      }
+    }, 600);
+
+    // Navega o popup já aberto (mantém o gesto do usuário).
+    getSocialConnectRedirect(campaignPublicId, network)
+      .then(({ auth_url }) => {
+        if (!settled) popup.location.href = auth_url;
+      })
+      .catch((err) => {
+        settled = true;
+        cleanup();
+        try {
+          popup.close();
+        } catch {
+          /* noop */
+        }
+        reject(err instanceof Error ? err : new Error("Falha ao iniciar a conexão."));
+      });
+  });
+}
+
+interface NetworkConnectRowProps {
+  campaignPublicId: string;
+  network: string;
+  verified?: VerifiedAccount;
+  onVerified: (network: string, account: VerifiedAccount) => void;
+}
+
+/** Linha de conexão de UMA rede. OAuth (TikTok/YouTube) ou bio-code (Instagram). */
+function NetworkConnectRow({
+  campaignPublicId,
+  network,
+  verified,
+  onVerified,
+}: NetworkConnectRowProps) {
+  const label = getNetworkLabel(network, network);
+  const iconName = NETWORK_ICON[network] ?? "Link";
+
+  const [connecting, setConnecting] = useState(false);
+  // Estado do desafio de bio (apenas Instagram).
+  const [igUsername, setIgUsername] = useState("");
+  const [igCode, setIgCode] = useState<string | null>(null);
+  const [igInstructions, setIgInstructions] = useState("");
+  const [igBusy, setIgBusy] = useState(false);
+
+  const isInstagram = network === "instagram";
+
+  const handleOAuthConnect = async () => {
+    setConnecting(true);
+    try {
+      const account = await connectViaPopup(
+        campaignPublicId,
+        network as "tiktok" | "youtube",
+      );
+      onVerified(network, account);
+      toast.success(`${label} conectado como @${account.username}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível conectar.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleIgStart = async () => {
+    const clean = igUsername.trim().replace(/^@+/, "").toLowerCase();
+    if (!clean) {
+      toast.error("Informe seu @ do Instagram.");
+      return;
+    }
+    setIgBusy(true);
+    try {
+      const res = await startInstagramVerify(campaignPublicId, clean);
+      setIgCode(res.code);
+      setIgInstructions(res.instructions);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar.");
+    } finally {
+      setIgBusy(false);
+    }
+  };
+
+  const handleIgConfirm = async () => {
+    const clean = igUsername.trim().replace(/^@+/, "").toLowerCase();
+    setIgBusy(true);
+    try {
+      const res = await confirmInstagramVerify(campaignPublicId, clean);
+      onVerified(network, {
+        token: res.verification_token,
+        username: res.username,
+        followers: res.followers,
+      });
+      toast.success(`Instagram verificado como @${res.username}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível verificar.");
+    } finally {
+      setIgBusy(false);
+    }
+  };
+
+  if (verified) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 min-w-0">
+          <Icon name={iconName} size={18} color="#059669" className="shrink-0" />
+          <span className="flex flex-col min-w-0">
+            <span className="text-sm font-medium text-neutral-950">{label}</span>
+            <span className="text-xs text-neutral-500 truncate">@{verified.username}</span>
+          </span>
+        </span>
+        <span className="flex items-center gap-1 text-emerald-700 text-xs font-medium shrink-0">
+          <Icon name="CircleCheck" size={16} color="#059669" />
+          Verificado
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 px-3 py-2.5 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <Icon name={iconName} size={18} color="#404040" className="shrink-0" />
+          <span className="text-sm font-medium text-neutral-950">{label}</span>
+        </span>
+        {!isInstagram && (
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            onClick={handleOAuthConnect}
+            disabled={connecting}
+          >
+            {connecting ? "Conectando…" : "Conectar"}
+          </Button>
+        )}
+      </div>
+
+      {isInstagram && (
+        <div className="flex flex-col gap-2">
+          <Input
+            label="Seu @ do Instagram"
+            placeholder="ex.: maria.silva"
+            value={igUsername}
+            onChange={(e) => setIgUsername(e.target.value)}
+            disabled={igBusy || !!igCode}
+          />
+          {!igCode ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full min-w-full"
+              onClick={handleIgStart}
+              disabled={igBusy}
+            >
+              {igBusy ? "Gerando código…" : "Gerar código de verificação"}
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                <p className="leading-relaxed">{igInstructions}</p>
+                <p className="mt-1 font-mono text-base font-semibold text-neutral-950">
+                  {igCode}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="w-full min-w-full"
+                onClick={handleIgConfirm}
+                disabled={igBusy}
+              >
+                {igBusy ? "Verificando…" : "Já colei o código — verificar"}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface CampaignInviteAcceptModalProps {
   isOpen: boolean;
@@ -78,17 +313,11 @@ export function CampaignInviteAcceptModal({
   inviteData,
 }: CampaignInviteAcceptModalProps) {
   const [preRegisterSuccess, setPreRegisterSuccess] = useState(false);
+  const [verified, setVerified] = useState<Record<string, VerifiedAccount>>({});
 
   const allowedNetworks = useMemo(
     () => inviteData.allowed_social_networks ?? [],
     [inviteData.allowed_social_networks],
-  );
-
-  const schema = useMemo(() => createAcceptSchema(allowedNetworks), [allowedNetworks]);
-
-  const defaultProfile = useMemo(
-    () => Object.fromEntries(allowedNetworks.map((n) => [n, ""])),
-    [allowedNetworks],
   );
 
   const {
@@ -97,42 +326,32 @@ export function CampaignInviteAcceptModal({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<AcceptFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      profile: defaultProfile,
-    },
+  } = useForm<IdentityFormValues>({
+    resolver: zodResolver(identitySchema),
+    defaultValues: { name: "", email: "", phone: "" },
   });
 
   useEffect(() => {
     if (isOpen) {
-      reset({
-        name: "",
-        email: "",
-        phone: "",
-        profile: { ...defaultProfile },
-      });
+      reset({ name: "", email: "", phone: "" });
+      setVerified({});
       setPreRegisterSuccess(false);
     }
-  }, [isOpen, reset, defaultProfile]);
+  }, [isOpen, reset]);
+
+  const missingNetworks = allowedNetworks.filter((n) => !verified[n]);
+  const allConnected = missingNetworks.length === 0;
 
   const preRegisterMutation = useMutation({
-    mutationFn: (data: AcceptFormValues) => {
-      const social_profiles =
-        allowedNetworks.length > 0
-          ? allowedNetworks.map((net) => ({
-            network: net,
-            profile_url: String(data.profile[net] ?? "").trim(),
-          }))
-          : undefined;
+    mutationFn: (data: IdentityFormValues) => {
+      const verification_tokens = allowedNetworks
+        .map((n) => verified[n]?.token)
+        .filter((t): t is string => !!t);
       return postPublicCampaignInvitePreRegister(campaignPublicId, {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        social_profiles,
+        verification_tokens: verification_tokens.length ? verification_tokens : undefined,
       });
     },
     onSuccess: () => {
@@ -144,7 +363,17 @@ export function CampaignInviteAcceptModal({
     },
   });
 
-  const profileErrors = errors.profile as Record<string, { message?: string }> | undefined;
+  const onSubmit = (data: IdentityFormValues) => {
+    if (!allConnected) {
+      toast.error("Conecte todas as redes exigidas para continuar.");
+      return;
+    }
+    preRegisterMutation.mutate(data);
+  };
+
+  const handleVerified = (network: string, account: VerifiedAccount) => {
+    setVerified((prev) => ({ ...prev, [network]: account }));
+  };
 
   if (!isOpen) return null;
 
@@ -176,13 +405,13 @@ export function CampaignInviteAcceptModal({
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-neutral-600 leading-relaxed">
-            Preencha os dados e os links dos seus perfis nas redes desta campanha. Os links são
-            validados por rede. Ao confirmar, você entra nas <strong>inscrições</strong> desta
-            campanha.
+            Preencha seus dados e <strong>conecte</strong> as contas das redes desta campanha. A
+            conexão confirma que o perfil é seu. Ao concluir, você entra nas{" "}
+            <strong>inscrições</strong>.
           </p>
           <form
             className="flex flex-col gap-4"
-            onSubmit={handleSubmit((data) => preRegisterMutation.mutate(data))}
+            onSubmit={handleSubmit(onSubmit)}
           >
             <Input
               label="Nome completo"
@@ -217,32 +446,36 @@ export function CampaignInviteAcceptModal({
               )}
             />
 
-            {allowedNetworks.length > 0 ? (
+            {allowedNetworks.length > 0 && (
               <div className="flex flex-col gap-3 pt-1 border-t border-neutral-100">
-                <p className="text-sm font-medium text-neutral-950">Links dos perfis</p>
-                <p className="text-xs text-neutral-500 -mt-2">
-                  Cole a URL completa do seu perfil em cada rede participante da campanha.
-                </p>
+                <div>
+                  <p className="text-sm font-medium text-neutral-950">Conecte suas contas</p>
+                  <p className="text-xs text-neutral-500">
+                    Conecte cada rede participante para comprovar a posse do perfil.
+                  </p>
+                </div>
                 {allowedNetworks.map((net) => (
-                  <Input
+                  <NetworkConnectRow
                     key={net}
-                    label={`${getNetworkLabel(net, net)}`}
-                    type="url"
-                    inputMode="url"
-                    placeholder="https://..."
-                    error={profileErrors?.[net]?.message}
-                    {...register(`profile.${net}`)}
+                    campaignPublicId={campaignPublicId}
+                    network={net}
+                    verified={verified[net]}
+                    onVerified={handleVerified}
                   />
                 ))}
               </div>
-            ) : null}
+            )}
 
             <Button
               type="submit"
               className="w-full min-w-full mt-1"
-              disabled={preRegisterMutation.isPending}
+              disabled={preRegisterMutation.isPending || !allConnected}
             >
-              {preRegisterMutation.isPending ? "Enviando…" : "Confirmar e aceitar convite"}
+              {preRegisterMutation.isPending
+                ? "Enviando…"
+                : !allConnected
+                  ? `Conecte ${missingNetworks.length} rede(s) para continuar`
+                  : "Confirmar e aceitar convite"}
             </Button>
           </form>
           <div className="border-t border-neutral-100 pt-4 flex flex-col gap-3">
