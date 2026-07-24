@@ -47,7 +47,8 @@
       "Bash(npx jest *)",
       "Bash(node -e ' *)",
       "Bash(echo \"TSC_EXIT=$?\")",
-      "Bash(grep -E \"^\\(pg|postgres\\)$\")"
+      "Bash(grep -E \"^\\(pg|postgres\\)$\")",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

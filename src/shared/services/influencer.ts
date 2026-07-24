@@ -185,6 +185,50 @@ export async function getInfluencerProfile(
   return response.data;
 }
 
+/**
+ * Perfil PÚBLICO do influenciador (página compartilhável `/u/:username`).
+ * GET /backoffice/public/influencers/:username — SEM auth/workspace (endpoint
+ * aberto no backend, `PublicInfluencersController`). Mesmo shape do perfil do
+ * backoffice (portfólio global). `username` aqui é o `users.username` (app),
+ * não o handle da rede social.
+ */
+export async function getPublicInfluencerProfile(
+  username: string
+): Promise<CampaignInfluencerProfileResponse> {
+  const request = await fetch(
+    getApiUrl(`/public/influencers/${encodeURIComponent(username)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+      },
+    }
+  );
+
+  if (!request.ok) {
+    if (request.status === 404) {
+      const error = new Error("Influenciador não encontrado") as Error & { status?: number };
+      error.status = 404;
+      throw error;
+    }
+    let errorData: { message?: string } | undefined;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to get public influencer profile" };
+    }
+    const error = new Error(
+      errorData?.message || "Failed to get public influencer profile"
+    ) as Error & { status?: number };
+    error.status = request.status;
+    throw error;
+  }
+
+  const response = await request.json();
+  return response.data;
+}
+
 export interface InfluencerStatusUpdate {
   influencer_id: string;
   status: string;

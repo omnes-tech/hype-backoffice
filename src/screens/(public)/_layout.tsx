@@ -9,9 +9,13 @@ export const Route = createFileRoute("/(public)")({
 
 function RouteComponent() {
   const { pathname } = useLocation();
-  const isCampaignPublicInvite = /\/campaigns\/[^/]+\/invite\/?$/.test(pathname);
+  // Páginas públicas full-width (sem o split de auth com imagem lateral):
+  // convite de campanha e perfil público do influenciador `/u/:username`.
+  const isFullWidthPublic =
+    /\/campaigns\/[^/]+\/invite\/?$/.test(pathname) ||
+    /\/u\/[^/]+\/?$/.test(pathname);
 
-  if (isCampaignPublicInvite) {
+  if (isFullWidthPublic) {
     return (
       <div className="min-h-screen w-full bg-neutral-100 overflow-y-auto">
         <Outlet />

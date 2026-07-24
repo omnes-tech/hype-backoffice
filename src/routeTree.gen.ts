@@ -20,6 +20,7 @@ import { Route as privateappLayoutRouteImport } from './screens/(private)/(app)/
 import { Route as privateadminLayoutRouteImport } from './screens/(private)/(admin)/_layout'
 import { Route as privateOnboardingIndexRouteImport } from './screens/(private)/onboarding/index'
 import { Route as privateappIndexRouteImport } from './screens/(private)/(app)/index'
+import { Route as publicUUsernameRouteImport } from './screens/(public)/u.$username'
 import { Route as privateOnboardingWelcomeRouteImport } from './screens/(private)/onboarding/welcome'
 import { Route as privateOnboardingVerifyPhoneRouteImport } from './screens/(private)/onboarding/verify-phone'
 import { Route as privateOnboardingCreateWorkspaceRouteImport } from './screens/(private)/onboarding/create-workspace'
@@ -94,6 +95,11 @@ const privateappIndexRoute = privateappIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => privateappLayoutRoute,
+} as any)
+const publicUUsernameRoute = publicUUsernameRouteImport.update({
+  id: '/u/$username',
+  path: '/u/$username',
+  getParentRoute: () => publicLayoutRoute,
 } as any)
 const privateOnboardingWelcomeRoute =
   privateOnboardingWelcomeRouteImport.update({
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
+  '/u/$username': typeof publicUUsernameRoute
   '/': typeof privateappIndexRoute
   '/onboarding/': typeof privateOnboardingIndexRoute
   '/admin/dashboard': typeof privateadminAdminDashboardRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/onboarding/welcome': typeof privateOnboardingWelcomeRoute
+  '/u/$username': typeof publicUUsernameRoute
   '/': typeof privateappIndexRoute
   '/onboarding': typeof privateOnboardingIndexRoute
   '/admin/dashboard': typeof privateadminAdminDashboardRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/(private)/onboarding/create-workspace': typeof privateOnboardingCreateWorkspaceRoute
   '/(private)/onboarding/verify-phone': typeof privateOnboardingVerifyPhoneRoute
   '/(private)/onboarding/welcome': typeof privateOnboardingWelcomeRoute
+  '/(public)/u/$username': typeof publicUUsernameRoute
   '/(private)/(app)/': typeof privateappIndexRoute
   '/(private)/onboarding/': typeof privateOnboardingIndexRoute
   '/(private)/(admin)/admin/dashboard': typeof privateadminAdminDashboardRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
+    | '/u/$username'
     | '/'
     | '/onboarding/'
     | '/admin/dashboard'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
     | '/onboarding/create-workspace'
     | '/onboarding/verify-phone'
     | '/onboarding/welcome'
+    | '/u/$username'
     | '/'
     | '/onboarding'
     | '/admin/dashboard'
@@ -408,6 +419,7 @@ export interface FileRouteTypes {
     | '/(private)/onboarding/create-workspace'
     | '/(private)/onboarding/verify-phone'
     | '/(private)/onboarding/welcome'
+    | '/(public)/u/$username'
     | '/(private)/(app)/'
     | '/(private)/onboarding/'
     | '/(private)/(admin)/admin/dashboard'
@@ -509,6 +521,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof privateappIndexRouteImport
       parentRoute: typeof privateappLayoutRoute
+    }
+    '/(public)/u/$username': {
+      id: '/(public)/u/$username'
+      path: '/u/$username'
+      fullPath: '/u/$username'
+      preLoaderRoute: typeof publicUUsernameRouteImport
+      parentRoute: typeof publicLayoutRoute
     }
     '/(private)/onboarding/welcome': {
       id: '/(private)/onboarding/welcome'
@@ -820,6 +839,7 @@ interface publicLayoutRouteChildren {
   publicResetPasswordRoute: typeof publicResetPasswordRoute
   publicSignInRoute: typeof publicSignInRoute
   publicSignUpRoute: typeof publicSignUpRoute
+  publicUUsernameRoute: typeof publicUUsernameRoute
   publicCampaignsCampaignIdInviteRoute: typeof publicCampaignsCampaignIdInviteRoute
 }
 
@@ -828,6 +848,7 @@ const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   publicResetPasswordRoute: publicResetPasswordRoute,
   publicSignInRoute: publicSignInRoute,
   publicSignUpRoute: publicSignUpRoute,
+  publicUUsernameRoute: publicUUsernameRoute,
   publicCampaignsCampaignIdInviteRoute: publicCampaignsCampaignIdInviteRoute,
 }
 
