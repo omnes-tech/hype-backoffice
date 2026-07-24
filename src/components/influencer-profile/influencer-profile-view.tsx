@@ -162,7 +162,8 @@ export interface InfluencerProfileViewProps {
  */
 export function InfluencerProfileView({
   data,
-  mode,
+  // `mode` fica na interface p/ autodocumentar os call sites (mode="public"),
+  // mas o comportamento é dirigido pelas props opcionais abaixo — não lido aqui.
   metricsPosts = 10,
   onMetricsPostsChange,
   onEvaluate,
