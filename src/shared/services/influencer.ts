@@ -90,6 +90,8 @@ export interface CampaignInfluencerProfileResponse {
     id: string;
     name: string;
     username: string;
+    /** Username único do app (chave da URL pública /u/:username). */
+    app_username?: string | null;
     avatar: string | null;
     followers: number;
     engagement: number;
@@ -524,8 +526,15 @@ export async function inviteInfluencer(
     throw new Error("Workspace ID é obrigatório");
   }
 
+  // Usa a rota do recurso `users` (campaign-users.controller): é o endpoint
+  // canônico que suporta `network_prices` (negociação individual_price POR REDE)
+  // além do escalar, e dispara a notificação real ao criador — simétrico ao
+  // `addToPreSelection` (/users/pre-selection). A rota legada
+  // `/influencers/invite` (campaigns.controller) é escalar-only e ignorava
+  // `network_prices` → convidar lista em campanha individual_price falhava com
+  // "informe proposed_price_cents".
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencers/invite`),
+    getApiUrl(`/campaigns/${campaignId}/users/invite`),
     {
       method: "POST",
       headers: {
@@ -641,6 +650,11 @@ export interface CampaignPriceResponseData {
   /** Obrigatório quando action = "counter" (centavos BRL). */
   proposed_price_cents?: number;
   message?: string;
+  /**
+   * Rede-alvo (individual_price POR REDE). Quando presente, a resposta afeta só
+   * essa rede; ausente = negociação única (legada/escalar).
+   */
+  social_network_id?: number;
 }
 
 /**

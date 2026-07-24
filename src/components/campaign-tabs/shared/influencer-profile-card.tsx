@@ -4,6 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { useWorkspacePermissions } from "@/contexts/workspace-context";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { getSocialNetworkProfileUrl, getNetworkLabel } from "@/shared/constants/network-labels";
 import {
@@ -548,6 +549,7 @@ function PricesTriggerAndModal({
   allowedPriceFormats,
 }: PricesTriggerAndModalProps) {
   const [open, setOpen] = useState(false);
+  const { influencer_values_read } = useWorkspacePermissions();
 
   const data = computePriceData(prices, allowedPriceFormats, network);
 
@@ -571,6 +573,9 @@ function PricesTriggerAndModal({
     console.groupEnd();
   }, [open, influencerName, network, prices, allowedPriceFormats, data]);
 
+  // Sem permissão de ver valores, o bloco de preços do criador é omitido.
+  // (O backend já não envia os preços; este gate é defesa em profundidade.)
+  if (!influencer_values_read) return null;
   if (!data) return null;
 
   return (

@@ -56,7 +56,7 @@ export async function getCampaignImportPreview(
   }
 
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/users/import-preview`),
+    getApiUrl(`/campaigns/${campaignId}/users/import/preview`),
     {
       method: "POST",
       headers: {

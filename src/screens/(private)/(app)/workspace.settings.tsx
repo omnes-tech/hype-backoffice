@@ -156,6 +156,7 @@ const PERMISSION_GROUPS: Array<{
     label: "Influenciadores",
     items: [
       { key: "influencers_read", label: "Ver influenciadores" },
+      { key: "influencer_values_read", label: "Ver valores dos influenciadores" },
       { key: "influencers_invite", label: "Convidar influenciadores" },
       { key: "influencers_approve", label: "Aprovar influenciadores" },
       { key: "influencers_reject", label: "Rejeitar influenciadores" },

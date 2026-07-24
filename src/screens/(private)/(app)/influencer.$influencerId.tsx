@@ -278,7 +278,10 @@ function InfluencerProfileScreen() {
     {
       key: "alcance",
       label: "Alcance Médio",
-      value: metrics?.average_reach != null ? formatCompact(metrics.average_reach) : "—",
+      // Reach real é privado (insights Meta); o backend já cai para média de
+      // views como proxy (mesma convenção de buildTabContentMetrics). "—" só
+      // quando não há nem reach nem views.
+      value: metrics?.average_reach ? formatCompact(metrics.average_reach) : "—",
       icon: "Eye" as const,
       iconBg: "bg-sky-100",
     },

@@ -1,5 +1,6 @@
 import { Icon } from "@/components/ui/icon";
 
+import { useWorkspacePermissions } from "@/contexts/workspace-context";
 import { fmtBRL } from "./prices-utils";
 
 interface ApprovalCostBadgeProps {
@@ -39,6 +40,13 @@ export function ApprovalCostBadge({
   reason,
   isLoading,
 }: ApprovalCostBadgeProps) {
+  const { influencer_values_read } = useWorkspacePermissions();
+
+  // Custo de aprovação deriva do preço do criador → oculto sem permissão de
+  // ver valores. O bloqueio de aprovação por saldo continua sendo aplicado
+  // pelo componente pai (disableApprove) e pelo backend.
+  if (!influencer_values_read) return null;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-between rounded-xl bg-primary-50">

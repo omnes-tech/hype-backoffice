@@ -20,6 +20,7 @@ const PERMISSIVE_DEFAULT: WorkspacePermissions = {
   influencers_invite: true,
   influencers_approve: true,
   influencers_reject: true,
+  influencer_values_read: true,
   scripts_read: true,
   scripts_write: true,
   scripts_approve: true,

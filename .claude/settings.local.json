@@ -46,7 +46,8 @@
       "Bash(node -e \"console.log\\(require\\('./node_modules/jose/package.json'\\).version\\)\")",
       "Bash(npx jest *)",
       "Bash(node -e ' *)",
-      "Bash(echo \"TSC_EXIT=$?\")"
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(grep -E \"^\\(pg|postgres\\)$\")"
     ]
   }
 }

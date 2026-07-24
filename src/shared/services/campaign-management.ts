@@ -42,6 +42,20 @@ export interface CampaignManagementParticipant {
     agreed_price_cents: number | null;
     price_status: string | null;
     origin: string | null;
+    /**
+     * Detalhe POR REDE (individual_price por rede). Presente quando a negociação
+     * vive em linhas por rede; os escalares acima trazem os somatórios. A marca
+     * responde por rede enviando `social_network_id`.
+     */
+    networks?: Array<{
+      social_network_id: number | null;
+      network_type: string;
+      proposed_price_cents: number | null;
+      counter_price_cents: number | null;
+      agreed_price_cents: number | null;
+      price_status: string | null;
+      awaiting_creator: boolean;
+    }>;
   } | null;
   status_history: CampaignManagementStatusHistoryItem[];
 }
@@ -111,12 +125,35 @@ function normalizePriceNegotiation(
   const r = raw as Record<string, unknown>;
   const num = (v: unknown): number | null =>
     typeof v === "number" ? v : v == null || v === "" ? null : Number(v);
+  const networks = Array.isArray(r.networks)
+    ? (r.networks as Record<string, unknown>[])
+        .map((n) => {
+          if (n == null || typeof n !== "object") return null;
+          return {
+            social_network_id: num(n.social_network_id),
+            network_type: String(n.network_type ?? ""),
+            proposed_price_cents: num(n.proposed_price_cents),
+            counter_price_cents: num(n.counter_price_cents),
+            agreed_price_cents: num(n.agreed_price_cents),
+            price_status: n.price_status != null ? String(n.price_status) : null,
+            awaiting_creator: n.awaiting_creator === true,
+          };
+        })
+        .filter(Boolean)
+    : undefined;
   return {
     proposed_price_cents: num(r.proposed_price_cents),
     counter_price_cents: num(r.counter_price_cents),
     agreed_price_cents: num(r.agreed_price_cents),
     price_status: r.price_status != null ? String(r.price_status) : null,
     origin: r.origin != null ? String(r.origin) : null,
+    ...(networks && networks.length > 0
+      ? {
+          networks: networks as NonNullable<
+            CampaignManagementParticipant["price_negotiation"]
+          >["networks"],
+        }
+      : {}),
   };
 }
 

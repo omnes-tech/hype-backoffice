@@ -252,6 +252,8 @@ export interface WorkspacePermissions {
   influencers_invite: boolean;
   influencers_approve: boolean;
   influencers_reject: boolean;
+  /** Ver valores/preços dos criadores (custo por criador, negociação, preços por formato). */
+  influencer_values_read: boolean;
   // Roteiros
   scripts_read: boolean;
   scripts_write: boolean;

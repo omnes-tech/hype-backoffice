@@ -24,8 +24,8 @@ import { Modal } from "@/components/ui/modal";
 import { InputDate } from "@/components/ui/input-date";
 import { validateMuralEndDate, formatDateForInput, addDays } from "@/shared/utils/date-validations";
 
-import { useCampaign, useUpdateCampaign } from "@/hooks/use-campaigns";
-import { useActivateMural } from "@/hooks/use-campaign-mural";
+import { useCampaign } from "@/hooks/use-campaigns";
+import { useActivateMural, useDeactivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignDashboard } from "@/hooks/use-campaign-dashboard";
 import {
   useIdentifiedPosts,
@@ -143,6 +143,9 @@ function RouteComponent() {
         if (t.id === "shipment" && !isSwapCampaign) return false;
         // Aba de propostas só faz sentido em "valor individual por criador".
         if (t.id === "proposals" && !isIndividualPrice) return false;
+        // …e só para quem tem permissão de ver valores dos criadores.
+        if (t.id === "proposals" && !permissions.influencer_values_read)
+          return false;
         return t.visible(permissions);
       }).map(({ id, label }) => ({ id, label })),
     [permissions, isSwapCampaign, isIndividualPrice],
@@ -206,7 +209,6 @@ function RouteComponent() {
     });
   }, [location.search, location.pathname, navigate, visibleTabs]);
 
-  const updateCampaignMutation = useUpdateCampaign();
   const checkPublicationTrackingMutation = useMutation({
     mutationFn: () => checkCampaignPublicationTracking(campaignId),
     onSuccess: (result) => {
@@ -284,6 +286,7 @@ function RouteComponent() {
   });
 
   const { mutate: activateMural, isPending: isActivatingMural } = useActivateMural(campaignId);
+  const { mutate: deactivateMural, isPending: isDeactivatingMural } = useDeactivateMural(campaignId);
 
   // Buscar nichos para determinar o nicho principal
 
@@ -768,7 +771,7 @@ function RouteComponent() {
         <Modal
           title="Despublicar campanha"
           onClose={() =>
-            !updateCampaignMutation.isPending && setShowUnpublishModal(false)
+            !isDeactivatingMural && setShowUnpublishModal(false)
           }
           panelClassName="max-w-md"
         >
@@ -781,7 +784,7 @@ function RouteComponent() {
               type="button"
               variant="outline"
               className="flex-1 min-w-[120px]"
-              disabled={updateCampaignMutation.isPending}
+              disabled={isDeactivatingMural}
               onClick={() => setShowUnpublishModal(false)}
             >
               Cancelar
@@ -789,35 +792,38 @@ function RouteComponent() {
             <Button
               type="button"
               className="flex-1 min-w-[120px] bg-danger-600 hover:bg-danger-700 text-white border-0"
-              disabled={updateCampaignMutation.isPending}
+              disabled={isDeactivatingMural}
               onClick={() => {
-                updateCampaignMutation.mutate(
-                  { campaignId, data: { status: "draft" } },
-                  {
-                    onSuccess: () => {
-                      toast.success("Campanha despublicada.");
-                      setShowUnpublishModal(false);
-                      void queryClient.invalidateQueries({
-                        queryKey: ["campaigns", campaignId, "dashboard"],
-                      });
-                    },
-                    onError: (err: unknown) => {
-                      const e = err as {
-                        message?: string | string[];
-                        errors?: string[];
-                      };
-                      const msg = Array.isArray(e?.message)
-                        ? e.message.join(", ")
-                        : e?.message ||
-                        e?.errors?.join(", ") ||
-                        "Não foi possível despublicar a campanha.";
-                      toast.error(msg);
-                    },
-                  }
-                );
+                // Despublicar usa o endpoint dedicado do mural (simétrico ao
+                // publicar/ativar Descobrir). O PUT genérico de campanha não
+                // aceita `status` (forbidNonWhitelisted) e retornava 400.
+                deactivateMural(undefined, {
+                  onSuccess: () => {
+                    toast.success("Campanha despublicada.");
+                    setShowUnpublishModal(false);
+                    void queryClient.invalidateQueries({
+                      queryKey: ["campaigns", campaignId],
+                    });
+                    void queryClient.invalidateQueries({
+                      queryKey: ["campaigns", campaignId, "dashboard"],
+                    });
+                  },
+                  onError: (err: unknown) => {
+                    const e = err as {
+                      message?: string | string[];
+                      errors?: string[];
+                    };
+                    const msg = Array.isArray(e?.message)
+                      ? e.message.join(", ")
+                      : e?.message ||
+                      e?.errors?.join(", ") ||
+                      "Não foi possível despublicar a campanha.";
+                    toast.error(msg);
+                  },
+                });
               }}
             >
-              {updateCampaignMutation.isPending
+              {isDeactivatingMural
                 ? "Despublicando…"
                 : "Despublicar"}
             </Button>
