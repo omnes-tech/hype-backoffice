@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
@@ -18,10 +18,13 @@ interface LiveChatProps {
   comments: LiveComment[];
   /** Sala ainda não está no ar (não há chat). */
   idle?: boolean;
+  connected?: boolean;
+  onSend?: (content: string) => boolean;
 }
 
-export function LiveChat({ comments, idle }: LiveChatProps) {
+export function LiveChat({ comments, idle, connected = false, onSend }: LiveChatProps) {
   const listRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState("");
 
   // Auto-scroll para a mensagem mais recente.
   useEffect(() => {
@@ -64,7 +67,10 @@ export function LiveChat({ comments, idle }: LiveChatProps) {
                     <span className="truncate text-sm font-semibold text-neutral-900">
                       {c.author.name}
                     </span>
-                    <span className="shrink-0 text-[11px] text-neutral-400">
+                    <span
+                      className="shrink-0 text-[11px] text-neutral-400"
+                      title={new Date(c.created_at).toLocaleString("pt-BR")}
+                    >
                       {formatTime(c.created_at)}
                     </span>
                   </div>
@@ -75,6 +81,48 @@ export function LiveChat({ comments, idle }: LiveChatProps) {
           </ul>
         )}
       </div>
+      {!idle && onSend && (
+        <form
+          className="flex items-end gap-2 border-t border-neutral-100 p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (onSend(draft)) setDraft("");
+          }}
+        >
+          <label className="sr-only" htmlFor="live-chat-message">
+            Mensagem no chat da live
+          </label>
+          <textarea
+            id="live-chat-message"
+            rows={2}
+            maxLength={200}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                (event.ctrlKey || event.metaKey)
+              ) {
+                event.preventDefault();
+                if (onSend(draft)) setDraft("");
+              }
+            }}
+            placeholder={
+              connected ? "Escreva uma mensagem…" : "Reconectando ao chat…"
+            }
+            disabled={!connected}
+            className="max-h-28 min-h-11 flex-1 resize-y rounded-xl border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          />
+          <button
+            type="submit"
+            aria-label="Enviar mensagem"
+            disabled={!connected || draft.trim().length === 0}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Icon name="Send" size={18} color="#ffffff" />
+          </button>
+        </form>
+      )}
     </div>
   );
 }

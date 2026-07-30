@@ -15,6 +15,7 @@ import {
   endLive,
   getLive,
   listLives,
+  removeLive,
   refreshBroadcasterToken,
   startLive,
   updateLive,
@@ -124,6 +125,15 @@ export function useCancelLive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cancelLive(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: liveKeys.all }),
+  });
+}
+
+export function useRemoveLive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => removeLive(id),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: liveKeys.all }),
   });

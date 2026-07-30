@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   useCancelLive,
   useEndLive,
   useLive,
+  useRemoveLive,
   useRefreshBroadcasterToken,
   useStartLive,
   useUpdateLive,
@@ -43,6 +44,7 @@ function formatDateTime(iso: string | null): string | null {
 
 function RouteComponent() {
   const { liveId } = Route.useParams();
+  const navigate = useNavigate();
   const permissions = useWorkspacePermissions();
   const canBroadcast = permissions.community_lives_write;
 
@@ -51,6 +53,7 @@ function RouteComponent() {
   const startMutation = useStartLive();
   const endMutation = useEndLive();
   const cancelMutation = useCancelLive();
+  const removeMutation = useRemoveLive();
   const updateMutation = useUpdateLive(liveId);
   const refreshTokenMutation = useRefreshBroadcasterToken();
 
@@ -61,7 +64,9 @@ function RouteComponent() {
   const [views, setViews] = useState(0);
   const [likes, setLikes] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
-  const [confirm, setConfirm] = useState<"end" | "cancel" | null>(null);
+  const [confirm, setConfirm] = useState<
+    "end" | "cancel" | "remove" | null
+  >(null);
   const tokenRequestedRef = useRef(false);
 
   const isLive = live?.status === "live";
@@ -98,7 +103,7 @@ function RouteComponent() {
   }, [isLive, canBroadcast, broadcaster, liveId]);
 
   // Realtime: chat + contadores enquanto no ar.
-  useLiveSocket({
+  const liveSocket = useLiveSocket({
     liveId,
     enabled: isLive,
     onComment: (c) =>
@@ -107,6 +112,7 @@ function RouteComponent() {
       ),
     onLikeBurst: (n) => setLikes(n),
     onViewerCount: (n) => setViews(n),
+    onError: (message) => toast.error(message),
   });
 
   const handleStart = async () => {
@@ -134,6 +140,10 @@ function RouteComponent() {
       } else if (confirm === "cancel") {
         await cancelMutation.mutateAsync(liveId);
         toast.success("Agendamento cancelado.");
+      } else if (confirm === "remove") {
+        await removeMutation.mutateAsync(liveId);
+        toast.success("Live removida do histórico.");
+        await navigate({ to: "/lives" });
       }
       setConfirm(null);
     } catch (err) {
@@ -283,6 +293,17 @@ function RouteComponent() {
                   <span className="font-semibold text-white">Encerrar live</span>
                 </Button>
               )}
+              {!isLive && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirm("remove")}
+                  className="h-10 rounded-full border-red-200 px-4 text-red-700 hover:bg-red-50"
+                >
+                  <Icon name="Trash2" size={14} color="#b91c1c" />
+                  <span className="font-semibold">Remover</span>
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -380,7 +401,11 @@ function RouteComponent() {
           {isUpcoming ? (
             <LiveChat comments={[]} idle />
           ) : isLive ? (
-            <LiveChat comments={comments} />
+            <LiveChat
+              comments={comments}
+              connected={liveSocket.connected}
+              onSend={liveSocket.sendComment}
+            />
           ) : (
             <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-white p-6 text-center">
               <Icon name="MessageCircle" size={26} color="#a3a3a3" />
@@ -419,7 +444,13 @@ function RouteComponent() {
       {/* Confirmações */}
       {confirm && (
         <Modal
-          title={confirm === "end" ? "Encerrar transmissão?" : "Cancelar agendamento?"}
+          title={
+            confirm === "end"
+              ? "Encerrar transmissão?"
+              : confirm === "cancel"
+                ? "Cancelar agendamento?"
+                : "Remover live?"
+          }
           onClose={() => setConfirm(null)}
           panelClassName="max-w-md"
         >
@@ -427,7 +458,9 @@ function RouteComponent() {
             <p className="text-sm text-neutral-700">
               {confirm === "end"
                 ? "A transmissão será finalizada para todos os espectadores e a gravação ficará disponível no histórico quando processada. Esta ação não pode ser desfeita."
-                : "A live agendada será cancelada e não ficará visível para os usuários."}
+                : confirm === "cancel"
+                  ? "A live agendada será cancelada e não ficará visível para os usuários."
+                  : "A live deixará de aparecer no histórico. O registro será mantido internamente para auditoria."}
             </p>
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -441,7 +474,11 @@ function RouteComponent() {
               <Button
                 type="button"
                 onClick={handleConfirm}
-                disabled={endMutation.isPending || cancelMutation.isPending}
+                disabled={
+                  endMutation.isPending ||
+                  cancelMutation.isPending ||
+                  removeMutation.isPending
+                }
                 className={
                   confirm === "cancel"
                     ? "h-10 rounded-full px-4"
@@ -449,7 +486,11 @@ function RouteComponent() {
                 }
               >
                 <span className="font-semibold text-white">
-                  {confirm === "end" ? "Encerrar" : "Cancelar agendamento"}
+                  {confirm === "end"
+                    ? "Encerrar"
+                    : confirm === "cancel"
+                      ? "Cancelar agendamento"
+                      : "Remover live"}
                 </span>
               </Button>
             </div>

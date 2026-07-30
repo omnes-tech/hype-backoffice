@@ -8,7 +8,7 @@
  *
  * Contrato: hypeapp-api/docs/backoffice-community-lives.md
  */
-import { apiGet, apiPatch, apiPost } from "@/lib/http-client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http-client";
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type {
   BroadcasterCredentials,
@@ -137,6 +137,11 @@ export async function endLive(id: string): Promise<Live> {
 /** `upcoming → cancelled` (soft-delete; some do app). */
 export async function cancelLive(id: string): Promise<Live> {
   return apiPost<Live>(`${BASE}/${id}/cancel`);
+}
+
+/** Remove do histórico por soft delete; a API preserva auditoria e rollback. */
+export async function removeLive(id: string): Promise<void> {
+  return apiDelete(`${BASE}/${id}`);
 }
 
 // ---------------------------------------------------------------------------

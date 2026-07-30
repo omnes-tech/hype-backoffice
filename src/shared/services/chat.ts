@@ -7,6 +7,47 @@ export interface SendMessageData {
   attachments?: string[];
 }
 
+export async function uploadChatAttachment(
+  campaignId: string,
+  influencerId: string,
+  file: File,
+): Promise<{ url: string; name: string; mime_type: string; size: number }> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("Workspace ID é obrigatório");
+  }
+
+  const body = new FormData();
+  body.append("file", file);
+  const request = await fetch(
+    getApiUrl(
+      `/campaigns/${campaignId}/influencers/${influencerId}/messages/attachments`,
+    ),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken()}`,
+        "Workspace-Id": workspaceId,
+      },
+      body,
+    },
+  );
+  if (!request.ok) {
+    let message = "Não foi possível enviar o anexo";
+    try {
+      const error = await request.json();
+      if (typeof error?.message === "string") message = error.message;
+    } catch {
+      // Mantém mensagem segura.
+    }
+    throw new Error(message);
+  }
+  const response = await request.json();
+  return response.data;
+}
+
 /**
  * Obtém o campaignUserId a partir do influencerId (user_id)
  */
@@ -132,4 +173,3 @@ export async function sendMessage(
   const response = await request.json();
   return response.data;
 }
-

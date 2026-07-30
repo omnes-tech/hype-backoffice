@@ -20,15 +20,18 @@ import {
 } from "@/shared/services/public-campaign-invite";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { formatBrazilianPhoneInput } from "@/shared/utils/masks";
-
-const HYPEAPP_PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=br.com.hypeapp.v2";
-
-const HYPEAPP_ANDROID_OPEN_INTENT = `intent://#Intent;package=br.com.hypeapp.v2;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${encodeURIComponent(HYPEAPP_PLAY_STORE_URL)};end`;
+import {
+  HYPEAPP_ANDROID_PLAY_STORE_URL,
+  HYPEAPP_IOS_APP_STORE_URL,
+  resolveHypeAppDownloadUrl,
+} from "@/shared/config/app-links";
 
 function hrefOpenHypeappApp(): string {
-  if (typeof navigator === "undefined") return HYPEAPP_PLAY_STORE_URL;
-  return /Android/i.test(navigator.userAgent) ? HYPEAPP_ANDROID_OPEN_INTENT : HYPEAPP_PLAY_STORE_URL;
+  if (typeof navigator === "undefined") return HYPEAPP_IOS_APP_STORE_URL;
+  return resolveHypeAppDownloadUrl(
+    navigator.userAgent,
+    navigator.maxTouchPoints,
+  );
 }
 
 /** Dados de identificação (name/email/phone). Redes são verificadas à parte. */
@@ -489,6 +492,22 @@ export function CampaignInviteAcceptModal({
                 Baixar o app Hypeapp
               </a>
             </p>
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <a
+                href={HYPEAPP_IOS_APP_STORE_URL}
+                rel="noopener noreferrer"
+                className="text-primary-700 font-medium hover:underline"
+              >
+                App Store
+              </a>
+              <a
+                href={HYPEAPP_ANDROID_PLAY_STORE_URL}
+                rel="noopener noreferrer"
+                className="text-primary-700 font-medium hover:underline"
+              >
+                Google Play
+              </a>
+            </div>
           </div>
         </div>
       )}
