@@ -19,6 +19,7 @@ import { ScriptApprovalTab } from "@/components/campaign-tabs/script-approval-ta
 import { ContractsTab } from "@/components/campaign-tabs/contracts-tab";
 import { MetricsTab } from "@/components/campaign-tabs/metrics-tab";
 import { PricingTab } from "@/components/campaign-tabs/pricing-tab";
+import { GroupsTab } from "@/components/campaign-tabs/groups-tab";
 import { ShareCampaignModal } from "@/components/share-campaign-modal";
 import { Modal } from "@/components/ui/modal";
 import { InputDate } from "@/components/ui/input-date";
@@ -72,6 +73,7 @@ const CAMPAIGN_TAB_DEFS: Array<{
     { id: "applications", label: "Inscrições", visible: (p) => p.campaigns_read },
     { id: "curation", label: "Curadoria", visible: (p) => p.influencers_approve || p.influencers_reject },
     { id: "management", label: "Gerenciamento", visible: (p) => p.campaigns_read },
+    { id: "groups", label: "Grupo", visible: (p) => p.campaigns_read },
     { id: "contracts", label: "Contratos", visible: (p) => p.contracts_read },
     {
       id: "script-approval",
@@ -534,6 +536,13 @@ function RouteComponent() {
             openChatInfluencerId={pendingOpenChat ?? undefined}
             onOpenChatConsumed={handleOpenChatConsumed}
             paymentType={campaign?.payment_method}
+          />
+        );
+      case "groups":
+        return (
+          <GroupsTab
+            campaignId={campaignId}
+            canWrite={permissions.campaigns_write}
           />
         );
       case "selection":

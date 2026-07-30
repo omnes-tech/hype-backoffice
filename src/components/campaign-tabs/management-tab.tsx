@@ -52,6 +52,7 @@ import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { PriceNegotiationSection } from "./shared/price-negotiation-section";
 import { reconcileSelectedById } from "./shared/reconcile-selected";
+import { uploadChatAttachment } from "@/shared/services/chat";
 
 interface ManagementTabProps {
   participants: CampaignManagementParticipant[];
@@ -1470,11 +1471,25 @@ function ChatModal({
   const [attachments, setAttachments] = useState<
     Array<{ id: string; name: string; file: File }>
   >([]);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+      if (attachments.length + files.length > 5) {
+        toast.error("Você pode enviar no máximo 5 anexos por mensagem.");
+        e.target.value = "";
+        return;
+      }
+      const invalid = Array.from(files).find(
+        (file) => file.size > 25 * 1024 * 1024,
+      );
+      if (invalid) {
+        toast.error(`"${invalid.name}" excede o limite de 25 MB.`);
+        e.target.value = "";
+        return;
+      }
       const newAttachments = Array.from(files).map((file) => ({
         id: Date.now().toString() + Math.random(),
         name: file.name,
@@ -1488,27 +1503,42 @@ function ChatModal({
     setAttachments(attachments.filter((att) => att.id !== id));
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() && attachments.length === 0) return;
     if (!isConnected) {
       toast.error("Não conectado ao servidor");
       return;
     }
 
-    // Upload de arquivos: criar URLs temporárias e revogar após envio
-    const attachmentUrls = attachments.map((att) =>
-      URL.createObjectURL(att.file),
-    );
+    try {
+      setIsUploadingAttachments(true);
+      const uploaded = await Promise.all(
+        attachments.map((attachment) =>
+          uploadChatAttachment(
+            campaignId ?? "",
+            String(platformUserId),
+            attachment.file,
+          ),
+        ),
+      );
+      sendMessage(
+        newMessage.trim(),
+        uploaded.map((attachment) => attachment.url),
+      );
 
-    sendMessage(newMessage.trim(), attachmentUrls);
-
-    // Revogar URLs após envio para evitar memory leak
-    attachmentUrls.forEach((url) => URL.revokeObjectURL(url));
-
-    setNewMessage("");
-    setAttachments([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      setNewMessage("");
+      setAttachments([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível enviar os anexos.",
+      );
+    } finally {
+      setIsUploadingAttachments(false);
     }
   };
 
@@ -1594,11 +1624,10 @@ function ChatModal({
                     >
                       {/* Texto da mensagem */}
                       {msg.message && (
-                        <p
-                          className={`text-sm mb-2 ${fromInfluencer ? "text-neutral-950" : "text-neutral-50"}`}
-                        >
-                          {msg.message}
-                        </p>
+                        <ChatMessageText
+                          text={msg.message}
+                          className={`mb-2 text-sm ${fromInfluencer ? "text-neutral-950" : "text-neutral-50"}`}
+                        />
                       )}
 
                       {/* Anexos */}
@@ -1642,7 +1671,10 @@ function ChatModal({
                           : "text-neutral-200 opacity-80"
                           }`}
                       >
-                        {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
+                        {new Date(msg.created_at).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -1692,6 +1724,7 @@ function ChatModal({
             ref={fileInputRef}
             type="file"
             multiple
+            accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,video/mp4,video/quicktime,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={handleFileSelect}
             className="hidden"
             id="file-input"
@@ -1705,23 +1738,31 @@ function ChatModal({
               <Icon name="Paperclip" color="#404040" size={16} />
             </Button>
           </label>
-          <input
-            type="text"
+          <textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void handleSendMessage();
+              }
+            }}
             placeholder={
-              isConnected ? "Digite sua mensagem..." : "Conectando..."
+              isConnected
+                ? "Digite sua mensagem… (Ctrl/⌘ + Enter para enviar)"
+                : "Conectando..."
             }
-            disabled={!isConnected || !canChat}
-            className="flex-1 h-11 rounded-3xl px-4 bg-neutral-100 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
+            disabled={!isConnected || !canChat || isUploadingAttachments}
+            rows={1}
+            className="max-h-32 min-h-11 flex-1 resize-y rounded-3xl bg-neutral-100 px-4 py-3 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
           />
           <Button
-            onClick={handleSendMessage}
+            onClick={() => void handleSendMessage()}
             className="w-min"
             disabled={
               !isConnected ||
               !canChat ||
+              isUploadingAttachments ||
               (!newMessage.trim() && attachments.length === 0)
             }
           >
@@ -1730,5 +1771,35 @@ function ChatModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function ChatMessageText({
+  text,
+  className,
+}: {
+  text: string;
+  className: string;
+}) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <p className={`${className} whitespace-pre-wrap break-words`}>
+      {parts.map((part, index) => {
+        if (!/^https:\/\//i.test(part)) {
+          return <span key={index}>{part}</span>;
+        }
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            {part}
+          </a>
+        );
+      })}
+    </p>
   );
 }

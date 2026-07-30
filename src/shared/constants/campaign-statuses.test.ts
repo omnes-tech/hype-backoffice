@@ -37,8 +37,27 @@ describe("INFLUENCER_STATUS", () => {
     expect(INFLUENCER_STATUS.REJECTED).toBe("rejected");
   });
 
-  it("contém todos os 15 status esperados", () => {
-    const keys = Object.keys(INFLUENCER_STATUS);
-    expect(keys.length).toBe(15);
+  it("contém todos os 19 status esperados", () => {
+    expect(Object.values(INFLUENCER_STATUS)).toEqual([
+      "applications",
+      "pre_selection",
+      "pre_selection_curation",
+      "curation",
+      "invited",
+      "price_proposed",
+      "price_countered",
+      "contract_pending",
+      "approved",
+      "awaiting_shipment",
+      "awaiting_receipt",
+      "script_pending",
+      "content_pending",
+      "pending_approval",
+      "in_correction",
+      "content_approved",
+      "payment_pending",
+      "published",
+      "rejected",
+    ]);
   });
 });

@@ -4,6 +4,7 @@ import type { CampaignPhase } from "../types";
 export interface CreatePhaseData {
   objective: string;
   post_date: string;
+  requires_product_receipt?: boolean;
   /** `HH:MM` ou `HH:MM:SS` — opcional; padrão no servidor se omitido */
   publish_time?: string;
   formats: Array<{

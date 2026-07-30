@@ -16,6 +16,7 @@ export interface DashboardPhase {
   publish_time?: string | null;
   content_submission_deadline?: string | null;
   correction_submission_deadline?: string | null;
+  requires_product_receipt?: boolean;
   hashtag?: string | null;
   contents?: Array<{
     type: string;
@@ -234,6 +235,7 @@ export function transformDashboardPhase(phase: DashboardPhase): CampaignPhase {
       phase.content_submission_deadline?.trim() || undefined,
     correctionSubmissionDeadline:
       phase.correction_submission_deadline?.trim() || undefined,
+    requiresProductReceipt: phase.requires_product_receipt === true,
     hashtag,
     formats: (phase.contents ?? []).flatMap((content) =>
       (content.options ?? []).map((option, idx) => ({
@@ -362,4 +364,3 @@ export function transformDashboardContent(
     feedback: content.feedback || undefined,
   };
 }
-

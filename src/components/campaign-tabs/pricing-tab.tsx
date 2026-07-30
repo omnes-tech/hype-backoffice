@@ -17,6 +17,7 @@ import type {
   InfluencerQuote,
   StepBreakdown,
 } from "@/shared/services/pricing";
+import { formatDateOrInstantPtBr } from "@/shared/utils/civil-date";
 
 const formatHype = (value: string | undefined): string => {
   if (!value) return "—";
@@ -127,7 +128,7 @@ function StepCard({ step }: { step: StepBreakdown }) {
             </p>
             {step.publishDate && (
               <p className="text-xs text-neutral-500">
-                Publicação: {new Date(step.publishDate).toLocaleDateString("pt-BR")}
+                Publicação: {formatDateOrInstantPtBr(step.publishDate)}
               </p>
             )}
           </div>

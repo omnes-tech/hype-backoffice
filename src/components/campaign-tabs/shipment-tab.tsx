@@ -157,6 +157,8 @@ function emptyItem(): DraftShipmentItem {
 
 function emptyAddress(): ShipmentAddress {
   return {
+    recipient_name: "",
+    phone: "",
     street: "",
     number: "",
     complement: "",
@@ -179,7 +181,11 @@ function ShipmentFormModal({
   const [method, setMethod] = useState<ShipmentMethod>("correios");
   const [items, setItems] = useState<DraftShipmentItem[]>([emptyItem()]);
   const [trackingCode, setTrackingCode] = useState("");
-  const [address, setAddress] = useState<ShipmentAddress>(emptyAddress());
+  const [address, setAddress] = useState<ShipmentAddress>(
+    entry.shippingAddress
+      ? { ...emptyAddress(), ...entry.shippingAddress }
+      : { ...emptyAddress(), recipient_name: entry.name },
+  );
   const [deliveryTarget, setDeliveryTarget] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -265,8 +271,8 @@ function ShipmentFormModal({
     }
 
     if (requiresAddress) {
-      if (!address.street.trim() || !address.number.trim() || !address.city.trim() || !address.state.trim() || !address.zip.trim()) {
-        toast.error("Preencha rua, número, cidade, estado e CEP.");
+      if (!address.recipient_name?.trim() || !address.phone?.trim() || !address.street.trim() || !address.number.trim() || !address.city.trim() || !address.state.trim() || !address.zip.trim()) {
+        toast.error("Preencha destinatário, telefone, rua, número, cidade, estado e CEP.");
         return;
       }
     }
@@ -295,6 +301,8 @@ function ShipmentFormModal({
     };
     if (requiresAddress) {
       dto.recipient_address = {
+        recipient_name: address.recipient_name?.trim(),
+        phone: address.phone?.replace(/[^\d+]/g, ""),
         street: address.street.trim(),
         number: address.number.trim(),
         complement: address.complement?.trim() || undefined,
@@ -303,6 +311,8 @@ function ShipmentFormModal({
         state: address.state.trim().toUpperCase(),
         zip: address.zip.replace(/\D/g, ""),
         country: address.country?.trim() || "BR",
+        reference: address.reference?.trim() || undefined,
+        delivery_notes: address.delivery_notes?.trim() || undefined,
       };
     }
     if (kind === "physical" && trackingCode.trim()) {
@@ -807,6 +817,25 @@ function AddressFields({
         Endereço de entrega *
       </legend>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input
+          type="text"
+          placeholder="Nome do destinatário *"
+          value={address.recipient_name ?? ""}
+          onChange={(e) => onChange("recipient_name", e.target.value)}
+          maxLength={100}
+          className={inputClass}
+        />
+        <input
+          type="tel"
+          placeholder="Telefone *"
+          value={address.phone ?? ""}
+          onChange={(e) => onChange("phone", e.target.value)}
+          maxLength={20}
+          className={inputClass}
+        />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
         <div className="flex flex-col gap-1">
           <div className="relative">
@@ -864,6 +893,25 @@ function AddressFields({
         onChange={(e) => onChange("neighborhood", e.target.value)}
         className={inputClass}
       />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input
+          type="text"
+          placeholder="Ponto de referência"
+          value={address.reference ?? ""}
+          onChange={(e) => onChange("reference", e.target.value)}
+          maxLength={300}
+          className={inputClass}
+        />
+        <input
+          type="text"
+          placeholder="Observações de entrega"
+          value={address.delivery_notes ?? ""}
+          onChange={(e) => onChange("delivery_notes", e.target.value)}
+          maxLength={500}
+          className={inputClass}
+        />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_80px_80px] gap-2">
         <input
