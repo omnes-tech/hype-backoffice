@@ -12,7 +12,7 @@
  *      type `like_burst`   → `{ likes_count }`
  *      type `viewer_count` → `{ views_count }`
  */
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
 import { getAuthToken } from "@/lib/utils/api";
@@ -29,6 +29,7 @@ interface UseLiveSocketOptions {
   onComment?: (comment: LiveComment) => void;
   onLikeBurst?: (likesCount: number) => void;
   onViewerCount?: (viewsCount: number) => void;
+  onError?: (message: string) => void;
 }
 
 function getSocketBaseUrl(): string {
@@ -42,12 +43,15 @@ export function useLiveSocket({
   onComment,
   onLikeBurst,
   onViewerCount,
+  onError,
 }: UseLiveSocketOptions) {
+  const socketRef = useRef<Socket | null>(null);
+  const [connected, setConnected] = useState(false);
   // Refs evitam reconectar quando só a identidade dos callbacks muda.
-  const handlers = useRef({ onComment, onLikeBurst, onViewerCount });
+  const handlers = useRef({ onComment, onLikeBurst, onViewerCount, onError });
   useEffect(() => {
-    handlers.current = { onComment, onLikeBurst, onViewerCount };
-  }, [onComment, onLikeBurst, onViewerCount]);
+    handlers.current = { onComment, onLikeBurst, onViewerCount, onError };
+  }, [onComment, onLikeBurst, onViewerCount, onError]);
 
   useEffect(() => {
     if (!enabled || !liveId) return;
@@ -57,9 +61,19 @@ export function useLiveSocket({
       auth: { token: `Bearer ${token}` },
       reconnectionAttempts: 5,
     });
+    socketRef.current = socket;
 
     socket.on("connect", () => {
+      setConnected(true);
       socket.emit("join_live", { liveId });
+    });
+    socket.on("disconnect", () => setConnected(false));
+    socket.on("error", (payload: { message?: string } | string) => {
+      const message =
+        typeof payload === "string"
+          ? payload
+          : payload?.message || "Falha no chat da live.";
+      handlers.current.onError?.(message);
     });
 
     socket.on("frame", (frame: LiveFrame) => {
@@ -79,6 +93,30 @@ export function useLiveSocket({
     return () => {
       socket.emit("leave_live");
       socket.disconnect();
+      socketRef.current = null;
+      setConnected(false);
     };
   }, [liveId, enabled]);
+
+  const sendComment = useCallback((content: string): boolean => {
+    const socket = socketRef.current;
+    const clean = content.trim();
+    if (!socket?.connected || clean.length === 0 || clean.length > 200) {
+      return false;
+    }
+    const clientMessageId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `web-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    socket.emit("comment", {
+      type: "comment",
+      data: {
+        content: clean,
+        client_message_id: clientMessageId,
+      },
+    });
+    return true;
+  }, []);
+
+  return { connected, sendComment };
 }

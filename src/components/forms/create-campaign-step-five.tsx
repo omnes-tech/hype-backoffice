@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { InputDate } from "@/components/ui/input-date";
 import { Select } from "@/components/ui/select";
@@ -52,6 +53,7 @@ export function CreateCampaignStepFive({
             postDate: "",
             postTime: "18:00",
             includeImageRights: false,
+            requiresProductReceipt: false,
             imageRightsPeriod: "",
             formats: [],
             files: "",
@@ -114,6 +116,7 @@ export function CreateCampaignStepFive({
           postDate: "",
           postTime: "18:00",
           includeImageRights: false,
+          requiresProductReceipt: false,
           imageRightsPeriod: "",
           formats: [],
           files: "",
@@ -416,6 +419,30 @@ export function CreateCampaignStepFive({
                       onChange={(value) => updatePhase(phase.id, "objective", value)}
                       options={PHASE_OBJECTIVE_OPTIONS}
                     />
+
+                    {formData.paymentType === "swap" && (
+                      <label className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4">
+                        <Checkbox
+                          checked={phase.requiresProductReceipt === true}
+                          onCheckedChange={(value) =>
+                            updatePhase(
+                              phase.id,
+                              "requiresProductReceipt",
+                              value === true
+                            )
+                          }
+                        />
+                        <span className="flex flex-col gap-1">
+                          <span className="text-sm font-semibold text-neutral-900">
+                            Exigir confirmação de recebimento nesta fase
+                          </span>
+                          <span className="text-xs text-neutral-500">
+                            O conteúdo só poderá ser enviado depois que o influenciador
+                            confirmar que recebeu o produto.
+                          </span>
+                        </span>
+                      </label>
+                    )}
 
                     {/* Direitos de imagem — Figma 2283:8016 / Fase 3 */}
                     <div className="flex flex-col gap-4">

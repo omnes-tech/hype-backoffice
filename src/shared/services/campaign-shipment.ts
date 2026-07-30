@@ -13,6 +13,8 @@ export type ShipmentMethod =
  * Front coleta em campos separados; backend valida campo-a-campo.
  */
 export interface ShipmentAddress {
+  recipient_name?: string;
+  phone?: string;
   street: string;
   number: string;
   complement?: string;
@@ -22,6 +24,8 @@ export interface ShipmentAddress {
   zip: string;
   /** ISO-3166 alpha-2. Default "BR". */
   country?: string;
+  reference?: string;
+  delivery_notes?: string;
 }
 
 export interface ShipmentItemDto {
@@ -108,8 +112,10 @@ interface CampaignShipmentRaw {
   user: {
     name: string;
     email: string;
+    phone?: string | null;
     photo: string | null;
   };
+  shipping_address?: ShipmentAddress | null;
   shipment: ShipmentRecord | null;
 }
 
@@ -121,6 +127,7 @@ export interface CampaignShipmentEntry {
   avatar: string | null;
   status: ShipmentStageStatus;
   shipment: ShipmentRecord | null;
+  shippingAddress: ShipmentAddress | null;
 }
 
 function normalizeEntry(raw: CampaignShipmentRaw): CampaignShipmentEntry {
@@ -132,6 +139,7 @@ function normalizeEntry(raw: CampaignShipmentRaw): CampaignShipmentEntry {
     avatar: raw.user?.photo ?? null,
     status: raw.status,
     shipment: raw.shipment ?? null,
+    shippingAddress: raw.shipping_address ?? null,
   };
 }
 

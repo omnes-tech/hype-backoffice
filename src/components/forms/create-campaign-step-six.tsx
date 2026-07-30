@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { InputDate } from "@/components/ui/input-date";
@@ -37,6 +38,7 @@ export function CreateCampaignStepSix({
           id: "1",
           objective: "",
           postDate: "",
+          requiresProductReceipt: false,
           formats: [],
           files: "",
         },
@@ -84,6 +86,7 @@ export function CreateCampaignStepSix({
           id: i.toString(),
           objective: "",
           postDate: "",
+          requiresProductReceipt: false,
           formats: [],
           files: "",
         }
@@ -261,6 +264,30 @@ export function CreateCampaignStepSix({
               options={PHASE_OBJECTIVE_OPTIONS}
             />
 
+            {formData.paymentType === "swap" && (
+              <label className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4">
+                <Checkbox
+                  checked={phase.requiresProductReceipt === true}
+                  onCheckedChange={(value) =>
+                    updatePhase(
+                      phase.id,
+                      "requiresProductReceipt",
+                      value === true
+                    )
+                  }
+                />
+                <span className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-neutral-900">
+                    Exigir confirmação de recebimento nesta fase
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    O conteúdo só poderá ser enviado depois que o influenciador
+                    confirmar que recebeu o produto.
+                  </span>
+                </span>
+              </label>
+            )}
+
             {/* Data */}
             <div className="flex flex-col gap-1">
               <InputDate
@@ -417,4 +444,3 @@ export function CreateCampaignStepSix({
     </form>
   );
 }
-

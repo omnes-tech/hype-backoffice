@@ -447,6 +447,8 @@ export interface CampaignPhase {
   contentSubmissionDeadline?: string;
   /** Prazo para correção (YYYY-MM-DD) */
   correctionSubmissionDeadline?: string;
+  /** Bloqueia o envio de conteúdo até a confirmação de recebimento do produto. */
+  requiresProductReceipt?: boolean;
   /** Hashtag da fase (opcional) */
   hashtag?: string;
   /** Sim: incluir direitos (padrão); Não: não incluir */

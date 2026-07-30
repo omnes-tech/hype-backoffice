@@ -79,6 +79,7 @@ export function formPhaseToCreatePhaseData(
   const row: CreatePhaseData = {
     objective: phase.objective,
     post_date: phase.postDate,
+    requires_product_receipt: phase.requiresProductReceipt === true,
     formats: Object.values(formatsByNetwork).length > 0 ? Object.values(formatsByNetwork) : [],
     files: phase.files && phase.files.trim() ? [phase.files.trim()] : undefined,
   };

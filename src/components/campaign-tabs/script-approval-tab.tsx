@@ -20,6 +20,7 @@ import {
 import { RejectionModal } from "./shared/rejection-modal";
 import { BulkActionModal } from "./shared/bulk-action-modal";
 import { FilterPanel } from "./shared/filter-panel";
+import { formatDateOrInstantPtBr } from "@/shared/utils/civil-date";
 
 interface ScriptApprovalTabProps {
   campaignPhases?: CampaignPhase[];
@@ -603,7 +604,7 @@ export function ScriptApprovalTab({ campaignPhases = [] }: ScriptApprovalTabProp
                     </p>
                     {selectedScript.phase.publish_date && (
                       <p className="text-xs text-neutral-600">
-                        Data de publicação: {new Date(selectedScript.phase.publish_date).toLocaleDateString("pt-BR")}
+                        Data de publicação: {formatDateOrInstantPtBr(selectedScript.phase.publish_date)}
                         {selectedScript.phase.publish_time && ` às ${selectedScript.phase.publish_time.slice(0, 5)}`}
                       </p>
                     )}

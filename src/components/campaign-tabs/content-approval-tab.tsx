@@ -23,6 +23,7 @@ import {
   SocialNetworkIcon,
 } from "@/components/social-network-icon";
 import { formatDateForInput } from "@/shared/utils/date-validations";
+import { formatDateOrInstantPtBr } from "@/shared/utils/civil-date";
 
 /**
  * Prazo fixo (horas) para reenvio de conteúdo reprovado. Espelha a regra
@@ -532,6 +533,26 @@ export function ContentApprovalTab({
 
   // Componente para renderizar preview individual (imagem ou vídeo)
   const renderSinglePreview = (previewUrl: string, contentType?: string) => {
+    const cleanPath = previewUrl.toLowerCase().split("?")[0];
+    if (cleanPath.endsWith(".heic") || cleanPath.endsWith(".heif")) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-neutral-100 p-4 text-center">
+          <Icon name="Image" size={30} color="#737373" />
+          <p className="text-xs text-neutral-600">
+            O navegador pode não exibir HEIC/HEIF. Abra o original para revisar.
+          </p>
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className="rounded-full bg-primary-600 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Abrir arquivo original
+          </a>
+        </div>
+      );
+    }
     const isVideo = isVideoFile(previewUrl, contentType);
     
     if (isVideo) {
@@ -1056,18 +1077,18 @@ export function ContentApprovalTab({
                 </p>
                 {selectedContent.phase.publish_date && (
                   <p className="text-xs text-neutral-600">
-                    Data de publicação: {new Date(selectedContent.phase.publish_date).toLocaleDateString("pt-BR")}
+                    Data de publicação: {formatDateOrInstantPtBr(selectedContent.phase.publish_date)}
                     {selectedContent.phase.publish_time && ` às ${selectedContent.phase.publish_time.slice(0, 5)}`}
                   </p>
                 )}
                 {selectedContent.phase.content_submission_deadline && (
                   <p className="text-xs text-neutral-600 mt-1">
-                    Prazo para envio: {new Date(selectedContent.phase.content_submission_deadline).toLocaleDateString("pt-BR")}
+                    Prazo para envio: {formatDateOrInstantPtBr(selectedContent.phase.content_submission_deadline)}
                   </p>
                 )}
                 {selectedContent.phase.correction_submission_deadline && (
                   <p className="text-xs text-neutral-600 mt-1">
-                    Prazo para correção: {new Date(selectedContent.phase.correction_submission_deadline).toLocaleDateString("pt-BR")}
+                    Prazo para correção: {formatDateOrInstantPtBr(selectedContent.phase.correction_submission_deadline)}
                   </p>
                 )}
               </div>

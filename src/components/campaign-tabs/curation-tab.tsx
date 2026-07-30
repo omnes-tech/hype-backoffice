@@ -815,7 +815,11 @@ export function CurationTab({
                     metaLabel={metaLabelForCard(app)}
                     statusBadge={!isPending ? (app.profileStatus === "approved" ? "approved" : "rejected") : undefined}
                     onApprove={isPending ? () => handleApprove(app) : undefined}
-                    onReject={isPending ? () => handleReject(app) : undefined}
+                    onReject={
+                      isPending || app.profileStatus === "approved"
+                        ? () => handleReject(app)
+                        : undefined
+                    }
                     onViewProfile={() => navigate({ to: "/influencer/$influencerId", params: { influencerId: app.influencerId } })}
                     costSlot={
                       isPending && showApprovalCost ? (
