@@ -35,6 +35,8 @@ export interface CampaignManagementParticipant {
   }>;
   status?: string;
   phase?: string;
+  /** Cadastro externo (via link de premiação) — etiqueta "Externo" (#31). */
+  is_external?: boolean;
   /** Negociação de "valor individual por criador" (quando presente). */
   price_negotiation?: {
     proposed_price_cents: number | null;

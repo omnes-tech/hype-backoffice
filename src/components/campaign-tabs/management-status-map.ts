@@ -18,7 +18,7 @@ export function mapUserStatusToKanbanColumn(status: string): string {
     awaiting_content: "content_pending",
     awaiting_content_approval: "pending_approval",
     in_correction: "in_correction",
-    correction_script: "script_pending",
+    correction_script: "script_correction",
     content_approved: "content_approved",
     contents_confirmed: "content_approved",
     awaiting_publication: "content_approved",

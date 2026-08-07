@@ -48,7 +48,10 @@
       "Bash(node -e ' *)",
       "Bash(echo \"TSC_EXIT=$?\")",
       "Bash(grep -E \"^\\(pg|postgres\\)$\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(awk '/export const addresses = pgTable/,/^\\\\\\);/' lib/db/schema.ts)",
+      "Bash(awk 'NR>=514 && NR<=707' src/modules/app/controllers/campaigns.controller.ts)",
+      "Bash(grep -Ei 'lives.\\\\$liveId|shared/services/lives')"
     ]
   }
 }

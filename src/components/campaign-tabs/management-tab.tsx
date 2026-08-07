@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  listCampaignGroups,
+  type CampaignCommunityGroup,
+} from "@/shared/services/campaign-groups";
+import { markChatNotificationsAsRead } from "@/shared/services/notifications";
 import {
   DndContext,
   DragOverlay,
@@ -31,7 +37,7 @@ import { Textarea } from "@/components/ui/text-area";
 import type { CampaignManagementParticipant } from "@/shared/services/campaign-management";
 import { mapUserStatusToKanbanColumn } from "./management-status-map";
 import {
-  getKanbanColumnsForPaymentType,
+  getVisibleKanbanColumns,
   idToString,
   participantToExtended,
   type ExtendedInfluencer,
@@ -146,9 +152,16 @@ function SortableInfluencerCard({
             <Avatar src={influencer.avatar} alt={influencer.name} size="lg" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-            <p className="text-base font-medium text-neutral-950 truncate">
-              {influencer.name}
-            </p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-base font-medium text-neutral-950 truncate">
+                {influencer.name}
+              </p>
+              {influencer.isExternal && (
+                <span className="shrink-0 rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700">
+                  Externo
+                </span>
+              )}
+            </div>
             <p className="text-sm text-[#4d4d4d] truncate">
               @{influencer.username}
             </p>
@@ -330,10 +343,11 @@ export function ManagementTab({
   onOpenChatConsumed,
   paymentType,
 }: ManagementTabProps) {
-  // Colunas aplicáveis: campanhas que não são permuta omitem etapas de envio.
+  // Colunas aplicáveis: campanhas que não são permuta omitem etapas de envio,
+  // MAS qualquer coluna com participante é re-incluída para nenhum card sumir.
   const kanbanColumns = useMemo(
-    () => getKanbanColumnsForPaymentType(paymentType),
-    [paymentType],
+    () => getVisibleKanbanColumns(paymentType, participants),
+    [paymentType, participants],
   );
   const { campaignId } = useParams({
     from: "/(private)/(app)/campaigns/$campaignId",
@@ -365,7 +379,15 @@ export function ManagementTab({
     };
 
     if (influencersState.length === 0) {
-      finish();
+      // Corrida de efeitos (#3): quando os dados chegam, `isLoading` vira false
+      // e `participants` popula, mas `influencersState` (sincronizado por outro
+      // effect) ainda pode estar vazio neste render. Só consumimos o deep-link
+      // quando NÃO há participantes de verdade; caso contrário aguardamos o
+      // próximo render (o effect re-roda quando `influencersState` popular),
+      // senão o chat nunca abria sozinho e exigia um segundo clique manual.
+      if (!participants || participants.length === 0) {
+        finish();
+      }
       return;
     }
 
@@ -404,7 +426,7 @@ export function ManagementTab({
       setIsChatModalOpen(true);
     }
     finish();
-  }, [openChatInfluencerId, influencersState, isLoading, onOpenChatConsumed]);
+  }, [openChatInfluencerId, influencersState, participants, isLoading, onOpenChatConsumed]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
   /** Todas selecionadas = Geral (Kanban completo). Subconjunto = só essas colunas. */
@@ -412,15 +434,28 @@ export function ManagementTab({
     string[]
   >(() => kanbanColumns.map((c) => c.id));
 
+  // Guarda as colunas anteriores para detectar se o usuário estava em "Geral".
+  const prevColumnIdsRef = useRef<string[]>(kanbanColumns.map((c) => c.id));
+
   // Sincroniza o filtro quando o conjunto de colunas muda (ex.: paymentType
-  // mudou ou carregou tarde). Remove IDs órfãos; se ficar vazio, volta ao
-  // estado "Geral" (todas as colunas válidas).
+  // carregou tarde ou uma coluna com ocupante foi re-incluída). Se o usuário
+  // estava em "Geral" (cobria todas as colunas anteriores), mantém "Geral" com
+  // as colunas atuais — inclusive as recém-adicionadas, para nenhum card sumir.
+  // Caso contrário, apenas remove IDs órfãos, preservando a seleção manual.
   useEffect(() => {
-    const validIds = new Set(kanbanColumns.map((c) => c.id));
+    const currentIds = kanbanColumns.map((c) => c.id);
+    const currentSet = new Set(currentIds);
+    const prevIds = prevColumnIdsRef.current;
+    prevColumnIdsRef.current = currentIds;
+
     setSelectedPhaseFilterIds((prev) => {
-      const filtered = prev.filter((id) => validIds.has(id));
-      if (filtered.length === prev.length) return prev;
-      return filtered.length > 0 ? filtered : [...validIds];
+      const coveredAllPrev =
+        prevIds.length > 0 && prevIds.every((id) => prev.includes(id));
+      if (coveredAllPrev) {
+        return currentIds;
+      }
+      const kept = prev.filter((id) => currentSet.has(id));
+      return kept.length > 0 ? kept : [...currentIds];
     });
   }, [kanbanColumns]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -656,8 +691,15 @@ export function ManagementTab({
         // Sem ações - contrato deve ser gerenciado na aba de Contratos
         return [];
       case "approved":
-        // Sem ações - aprovação/recusa deve ser feita nas guias específicas
-        return [];
+        // Permite retirar manualmente um influenciador já aprovado (#30). O
+        // backend aceita a transição approved→rejected (sem guard); usa o mesmo
+        // fluxo de recusa (modal com feedback → "Removido da campanha").
+        return [
+          {
+            label: "Remover da campanha",
+            action: "reject",
+          },
+        ];
       case "script_pending":
         // Sem ações - aprovação de roteiro deve ser feita na aba "Aprovações de Roteiro"
         return [];
@@ -1453,6 +1495,24 @@ function ChatModal({
   const canChat =
     campaignUserIdNum > 0 && platformUserId != null && platformUserId > 0;
 
+  // Ao abrir o chat, marca as notificações `new_message` desta conversa como
+  // lidas e atualiza o sino (#11/#21) — antes elas só saíam clicando uma a uma.
+  const chatQueryClient = useQueryClient();
+  const markedChatReadRef = useRef(false);
+  useEffect(() => {
+    if (!campaignId || !canChat || platformUserId == null) return;
+    if (markedChatReadRef.current) return;
+    markedChatReadRef.current = true;
+    void markChatNotificationsAsRead(campaignId, platformUserId)
+      .then(() => {
+        chatQueryClient.invalidateQueries({ queryKey: ["notifications"] });
+      })
+      .catch(() => {
+        // Best-effort: não bloqueia o chat se a marcação falhar.
+        markedChatReadRef.current = false;
+      });
+  }, [campaignId, canChat, platformUserId, chatQueryClient]);
+
   const {
     messages,
     isConnected,
@@ -1473,6 +1533,22 @@ function ChatModal({
   >([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Grupos da campanha para enviar o link de acesso direto pelo chat (#16).
+  const { data: campaignGroups = [] } = useQuery({
+    queryKey: ["campaigns", campaignId, "community-groups"],
+    queryFn: () => listCampaignGroups(campaignId ?? ""),
+    enabled: !!campaignId,
+  });
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
+
+  const handleInsertGroupLink = (group: CampaignCommunityGroup) => {
+    setShowGroupPicker(false);
+    setNewMessage((prev) => {
+      const prefix = prev.trim().length ? `${prev.trim()}\n` : "";
+      return `${prefix}Acesse o grupo "${group.name}": ${group.share_url}`;
+    });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1528,6 +1604,7 @@ function ChatModal({
 
       setNewMessage("");
       setAttachments([]);
+      setShowGroupPicker(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -1738,6 +1815,36 @@ function ChatModal({
               <Icon name="Paperclip" color="#404040" size={16} />
             </Button>
           </label>
+          {campaignGroups.length > 0 && (
+            <div className="relative">
+              <Button
+                type="button"
+                variant="outline"
+                title="Enviar link de um grupo da campanha"
+                onClick={() => setShowGroupPicker((v) => !v)}
+              >
+                <Icon name="Users" color="#404040" size={16} />
+              </Button>
+              {showGroupPicker && (
+                <div className="absolute bottom-full left-0 z-10 mb-2 max-h-56 w-64 overflow-y-auto rounded-xl border border-neutral-200 bg-white p-1 shadow-lg">
+                  <p className="px-3 py-2 text-xs font-medium text-neutral-500">
+                    Enviar link do grupo
+                  </p>
+                  {campaignGroups.map((group) => (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => handleInsertGroupLink(group)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100"
+                    >
+                      <Icon name="Users" color="#404040" size={14} />
+                      <span className="truncate">{group.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}

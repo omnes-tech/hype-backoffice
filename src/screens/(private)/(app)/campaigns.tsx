@@ -59,6 +59,9 @@ function RouteComponent() {
         id: campaign.id || "",
         title: campaign.title,
         phase,
+        // Status normalizado propagado para filtrar de forma confiável (#5) —
+        // antes só sobrava `phase`, sem o status bruto para isolar rascunhos.
+        statusValue: sv,
         progressPercentage,
         banner: campaign.banner || undefined,
         influencersCount: campaign.max_influencers || 0,
@@ -77,11 +80,24 @@ function RouteComponent() {
       );
     }
 
-    // Filtrar por status
+    // Filtrar por status (usa o status normalizado, não o progresso — rascunhos
+    // têm progress 10 e antes vazavam para "Ativas").
     if (filterStatus === "active_campaigns") {
-      filtered = filtered.filter((campaign: any) => campaign.progressPercentage > 0 && campaign.progressPercentage < 100);
+      filtered = filtered.filter(
+        (campaign: any) =>
+          campaign.statusValue === "active" ||
+          campaign.statusValue === "published",
+      );
     } else if (filterStatus === "finished_campaigns") {
-      filtered = filtered.filter((campaign: any) => campaign.progressPercentage === 100);
+      filtered = filtered.filter(
+        (campaign: any) =>
+          campaign.statusValue === "finished" ||
+          campaign.statusValue === "completed",
+      );
+    } else if (filterStatus === "draft_campaigns") {
+      filtered = filtered.filter(
+        (campaign: any) => campaign.statusValue === "draft",
+      );
     }
 
     return filtered;
@@ -227,7 +243,13 @@ function RouteComponent() {
           description:
             "Altere o filtro acima para ver todas ou finalizadas, ou crie uma nova campanha.",
         }
-      : filterStatus === "finished_campaigns"
+      : filterStatus === "draft_campaigns"
+        ? {
+            title: "Nenhum rascunho por aqui",
+            description:
+              "Campanhas salvas como rascunho aparecem aqui. Altere o filtro acima para ver todas.",
+          }
+        : filterStatus === "finished_campaigns"
         ? {
             title: "Nenhuma campanha finalizada",
             description:
@@ -259,6 +281,7 @@ function RouteComponent() {
                 options={[
                   { label: "Todas as campanhas", value: "all_campaigns" },
                   { label: "Campanhas ativas", value: "active_campaigns" },
+                  { label: "Rascunhos", value: "draft_campaigns" },
                   {
                     label: "Campanhas finalizadas",
                     value: "finished_campaigns",

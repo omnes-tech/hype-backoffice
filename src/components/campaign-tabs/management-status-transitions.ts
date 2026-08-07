@@ -33,6 +33,9 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 /** Status que não podem ser movidos manualmente pelo backoffice. */
 const AUTOMATIC_STATUSES = new Set([
   "pending_approval",
+  // Roteiro reprovado (#29): resolve automaticamente quando o influenciador
+  // reenvia o roteiro (volta a "Aguardando Aprovação Roteiro").
+  "script_correction",
   "in_correction",
   "content_approved",
   "payment_pending",

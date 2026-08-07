@@ -17,6 +17,8 @@ export interface ExtendedInfluencer extends Omit<Influencer, "id" | "user_id"> {
   id: string | number;
   /** ID do usuário na plataforma (rota /influencer/$influencerId) */
   user_id?: string | number;
+  /** Cadastro externo (via link de premiação) — etiqueta "Externo" (#31). */
+  isExternal?: boolean;
   socialNetwork?: string;
   social_networks?: Array<{
     id: number | string;
@@ -43,6 +45,7 @@ export const kanbanColumns = [
   { id: "contract_pending", label: "Contrato Pendente", color: "bg-[#f1fdfa]" },
   { id: "approved", label: "Aprovado / Em Andamento", color: "bg-[#f1fdf4]" },
   { id: "script_pending", label: "Aguardando Aprovação Roteiro", color: "bg-[#eff2ff]" },
+  { id: "script_correction", label: "Roteiro em Correção", color: "bg-[#fef7ed]" },
   { id: "awaiting_shipment", label: "Aguardando Envio", color: "bg-[#fff7ed]" },
   { id: "awaiting_receipt", label: "Aguardando Recebimento", color: "bg-[#fef3c7]" },
   { id: "content_pending", label: "Aguardando Conteúdo", color: "bg-[#fefbeb]" },
@@ -83,6 +86,56 @@ export function getKanbanColumnsForPaymentType(
   return kanbanColumns.filter((c) => !SHIPMENT_COLUMN_IDS.has(c.id));
 }
 
+/**
+ * Resolve a coluna do Kanban de um participante a partir do status atual e do
+ * histórico — espelha `getCurrentStatus` do ManagementTab, mas de forma pura,
+ * para calcular ocupação de colunas sem depender do estado do componente.
+ */
+export function resolveParticipantColumnId(
+  p: Pick<CampaignManagementParticipant, "status" | "status_history">,
+): string {
+  if (p.status) {
+    const mapped = mapUserStatusToKanbanColumn(p.status);
+    if (mapped !== "applications" || !p.status_history?.length) {
+      return mapped;
+    }
+  }
+  const history = p.status_history;
+  if (history?.length) {
+    const mostRecent = [...history].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )[0];
+    return mapUserStatusToKanbanColumn(mostRecent.status);
+  }
+  return "applications";
+}
+
+/**
+ * Garante que nenhum card desapareça do Kanban: parte das colunas da modalidade
+ * (`getKanbanColumnsForPaymentType`) e RE-INCLUI qualquer coluna do catálogo
+ * completo que tenha ao menos um participante — por exemplo, uma etapa de envio
+ * ocupada numa campanha que deixou de ser permuta. Preserva a ordem do catálogo.
+ */
+export function getVisibleKanbanColumns(
+  paymentType: string | null | undefined,
+  participants: ReadonlyArray<
+    Pick<CampaignManagementParticipant, "status" | "status_history">
+  > | null
+  | undefined,
+): readonly KanbanColumn[] {
+  const base = getKanbanColumnsForPaymentType(paymentType);
+  if (!participants?.length) return base;
+
+  const baseIds = new Set(base.map((c) => c.id));
+  const occupied = new Set(participants.map(resolveParticipantColumnId));
+  const hasHiddenOccupied = kanbanColumns.some(
+    (c) => !baseIds.has(c.id) && occupied.has(c.id),
+  );
+  if (!hasHiddenOccupied) return base;
+
+  return kanbanColumns.filter((c) => baseIds.has(c.id) || occupied.has(c.id));
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -112,6 +165,7 @@ export function participantToExtended(p: CampaignManagementParticipant): Extende
     niche: p.niche || "",
     nicheName: p.nicheName,
     status: (p.status || "applications") as Influencer["status"],
+    isExternal: p.is_external === true,
     price_negotiation: p.price_negotiation ?? null,
     social_networks: p.social_networks,
     socialNetwork: primaryNetwork,
