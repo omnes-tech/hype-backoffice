@@ -134,6 +134,20 @@ export async function endLive(id: string): Promise<Live> {
   return apiPost<Live>(`${BASE}/${id}/end`);
 }
 
+/** Credenciais RTMP p/ transmitir de um encoder externo (OBS/vMix) — #41. */
+export interface LiveIngressCredentials {
+  rtmp_url: string;
+  stream_key: string;
+  ingress_id: string;
+}
+
+/** Gera (ou reusa) o destino RTMP da live. Só com `status = live`. */
+export async function createLiveIngress(
+  id: string,
+): Promise<LiveIngressCredentials> {
+  return apiPost<LiveIngressCredentials>(`${BASE}/${id}/ingress`);
+}
+
 /** `upcoming → cancelled` (soft-delete; some do app). */
 export async function cancelLive(id: string): Promise<Live> {
   return apiPost<Live>(`${BASE}/${id}/cancel`);

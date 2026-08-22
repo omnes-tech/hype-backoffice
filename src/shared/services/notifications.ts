@@ -109,6 +109,47 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
 }
 
 /**
+ * Marca como lidas as notificações de chat (new_message) de uma conversa —
+ * chamado ao abrir o chat, para o sino refletir que as mensagens foram vistas
+ * (#11/#21). `influencerId` restringe a uma conversa específica da campanha.
+ */
+export async function markChatNotificationsAsRead(
+  campaignId: string,
+  influencerId?: string | number,
+): Promise<{ updated_count: number }> {
+  const token = getAuthToken();
+  const workspaceId = getWorkspaceId();
+
+  if (!token) throw new Error("Token de autenticação não encontrado");
+  if (!workspaceId) throw new Error("Workspace ID é obrigatório");
+
+  const params = new URLSearchParams({ campaign_id: campaignId });
+  if (influencerId != null && String(influencerId).trim() !== "") {
+    params.set("influencer_id", String(influencerId));
+  }
+
+  const request = await fetch(
+    getApiUrl(`/notifications/chat/read?${params.toString()}`),
+    {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${token}`,
+        "Workspace-Id": workspaceId,
+      },
+    }
+  );
+
+  if (!request.ok) {
+    throw new Error("Falha ao marcar notificações de chat como lidas");
+  }
+
+  const response = await request.json();
+  return response.data;
+}
+
+/**
  * Marca todas as notificações como lidas
  */
 export async function markAllNotificationsAsRead(): Promise<{ message: string; updated_count: number }> {

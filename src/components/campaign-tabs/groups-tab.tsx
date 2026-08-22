@@ -2,6 +2,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { getUploadUrl } from "@/lib/utils/api";
 import {
   bulkAddCampaignGroupMembers,
   createCampaignGroupPost,
@@ -19,6 +21,7 @@ import {
   listCampaignGroupParticipants,
   listCampaignGroups,
   updateCampaignGroupLink,
+  uploadCampaignGroupCover,
   type CampaignCommunityGroup,
 } from "@/shared/services/campaign-groups";
 
@@ -234,6 +237,29 @@ function CampaignGroupPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverMutation = useMutation({
+    mutationFn: (file: File) =>
+      uploadCampaignGroupCover(campaignId, group.id, file),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["campaign-community-groups", campaignId],
+      });
+      toast.success("Capa do grupo atualizada.");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A capa deve ter no máximo 5 MB.");
+      return;
+    }
+    coverMutation.mutate(file);
+  };
+
   const rows = participantsQuery.data?.data ?? [];
   const selectableIds = useMemo(
     () => rows.filter((row) => !row.is_member).map((row) => row.campaign_user_id),
@@ -268,7 +294,7 @@ function CampaignGroupPanel({
       <header className="flex flex-wrap items-center gap-4 border-b border-neutral-200 bg-neutral-50 p-4">
         {group.cover_url ? (
           <img
-            src={group.cover_url}
+            src={getUploadUrl(group.cover_url)}
             alt=""
             className="size-14 shrink-0 rounded-xl object-cover"
           />
@@ -283,6 +309,29 @@ function CampaignGroupPanel({
             {group.description}
           </p>
         </div>
+        {canWrite && (
+          <>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleCoverSelect}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={coverMutation.isPending}
+              onClick={() => coverInputRef.current?.click()}
+            >
+              {coverMutation.isPending
+                ? "Enviando..."
+                : group.cover_url
+                  ? "Alterar capa"
+                  : "Adicionar capa"}
+            </Button>
+          </>
+        )}
         <Button type="button" onClick={copyLink}>
           Copiar link
         </Button>

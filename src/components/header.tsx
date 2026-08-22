@@ -120,7 +120,6 @@ export function Header({ title, ...props }: HeaderProps) {
 
         <div className="flex items-center gap-4">
           <NotificationsDropdown />
-          <Icon name="MessageSquare" size={20} color="#0A0A0A" />
         </div>
       </div>
     </header>

@@ -20,7 +20,11 @@ import {
   useUpdateLive,
 } from "@/hooks/use-lives";
 import { useLiveSocket } from "@/hooks/use-live-socket";
-import { uploadLiveThumbnail } from "@/shared/services/lives";
+import {
+  createLiveIngress,
+  uploadLiveThumbnail,
+  type LiveIngressCredentials,
+} from "@/shared/services/lives";
 import { useWorkspacePermissions } from "@/contexts/workspace-context";
 import { getUploadUrl } from "@/lib/utils/api";
 import type { BroadcasterCredentials, LiveComment } from "@/shared/types";
@@ -69,7 +73,34 @@ function RouteComponent() {
   >(null);
   const tokenRequestedRef = useRef(false);
 
+  // Destino RTMP externo (OBS/vMix → live) — #41.
+  const [ingress, setIngress] = useState<LiveIngressCredentials | null>(null);
+  const [ingressLoading, setIngressLoading] = useState(false);
+
   const isLive = live?.status === "live";
+
+  const handleGenerateIngress = async () => {
+    setIngressLoading(true);
+    try {
+      const creds = await createLiveIngress(liveId);
+      setIngress(creds);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Não foi possível gerar o RTMP.",
+      );
+    } finally {
+      setIngressLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copiado.`);
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
 
   // Semeia contadores do snapshot do detalhe; o socket sobrepõe em tempo real.
   useEffect(() => {
@@ -286,6 +317,20 @@ function RouteComponent() {
               {isLive && (
                 <Button
                   type="button"
+                  variant="outline"
+                  onClick={handleGenerateIngress}
+                  disabled={ingressLoading}
+                  className="h-10 rounded-full px-4"
+                >
+                  <Icon name="Radio" size={14} color="#404040" />
+                  <span className="font-semibold">
+                    {ingressLoading ? "Gerando..." : "Transmitir via OBS (RTMP)"}
+                  </span>
+                </Button>
+              )}
+              {isLive && (
+                <Button
+                  type="button"
                   onClick={() => setConfirm("end")}
                   className="h-10 rounded-full bg-red-600 px-5 hover:bg-red-700"
                 >
@@ -369,6 +414,61 @@ function RouteComponent() {
                           ? "A gravação não pôde ser processada"
                           : "Transmissão encerrada"}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Destino RTMP externo (OBS/vMix) — #41 */}
+          {isLive && ingress && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-6">
+              <div className="flex items-center gap-2">
+                <Icon name="Radio" size={16} color="#551B8C" />
+                <h3 className="text-sm font-semibold text-neutral-950">
+                  Transmitir de um encoder externo (OBS, vMix…)
+                </h3>
+              </div>
+              <p className="text-xs text-neutral-500">
+                No seu encoder, use o servidor e a chave abaixo. A transmissão
+                entra nesta mesma live.
+              </p>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-neutral-700">
+                  Servidor (RTMP URL)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={ingress.rtmp_url}
+                    className="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => copyToClipboard(ingress.rtmp_url, "Servidor")}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+                <label className="text-xs font-semibold text-neutral-700">
+                  Chave de transmissão (Stream Key)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    type="password"
+                    value={ingress.stream_key}
+                    className="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      copyToClipboard(ingress.stream_key, "Chave de transmissão")
+                    }
+                  >
+                    Copiar
+                  </Button>
+                </div>
               </div>
             </div>
           )}

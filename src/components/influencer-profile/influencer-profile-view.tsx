@@ -417,6 +417,58 @@ export function InfluencerProfileView({
             {influencer.bio ?? "Nenhuma descrição informada."}
           </p>
         </div>
+        {(influencer.email || influencer.phone) && (
+          <div className="flex flex-col gap-3 px-5 py-4 border-t border-neutral-100">
+            <p className="text-xl font-semibold text-neutral-950">Contato</p>
+            <div className="flex flex-col gap-2">
+              {influencer.email && (
+                <div className="flex items-center gap-2">
+                  <Icon name="Mail" size={18} color="#737373" />
+                  <a
+                    href={`mailto:${influencer.email}`}
+                    className="text-base text-primary-600 hover:underline break-all"
+                  >
+                    {influencer.email}
+                  </a>
+                </div>
+              )}
+              {influencer.phone && (
+                <div className="flex items-center gap-2">
+                  <Icon name="Phone" size={18} color="#737373" />
+                  <a
+                    href={`tel:${influencer.phone}`}
+                    className="text-base text-primary-600 hover:underline"
+                  >
+                    {influencer.phone}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {influencer.shipping_address && (
+          <div className="flex flex-col gap-3 px-5 py-4 border-t border-neutral-100">
+            <div className="flex items-center gap-2">
+              <Icon name="MapPin" size={20} color="#737373" />
+              <p className="text-xl font-semibold text-neutral-950">
+                Endereço de entrega (permuta/produto)
+              </p>
+            </div>
+            <div className="text-base text-neutral-600 leading-6">
+              <p>
+                {influencer.shipping_address.street}, {influencer.shipping_address.number}
+                {influencer.shipping_address.complement
+                  ? ` — ${influencer.shipping_address.complement}`
+                  : ""}
+              </p>
+              <p>
+                {influencer.shipping_address.neighborhood} ·{" "}
+                {influencer.shipping_address.city}/{influencer.shipping_address.state}
+              </p>
+              <p>CEP {influencer.shipping_address.zip}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {(() => {

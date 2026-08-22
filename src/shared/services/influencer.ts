@@ -89,6 +89,9 @@ export interface CampaignInfluencerProfileResponse {
   influencer: {
     id: string;
     name: string;
+    /** Contato do cadastro (#1/#34). */
+    email?: string | null;
+    phone?: string | null;
     username: string;
     /** Username único do app (chave da URL pública /u/:username). */
     app_username?: string | null;
@@ -119,6 +122,17 @@ export interface CampaignInfluencerProfileResponse {
     bio?: string | null;
     rating?: number | null;
     rating_max?: number;
+    /** Endereço de envio da permuta/produto (dado cadastral do usuário). */
+    shipping_address?: {
+      street: string;
+      number: string;
+      complement?: string | null;
+      neighborhood: string;
+      city: string;
+      state: string;
+      zip: string;
+      country?: string;
+    } | null;
   };
   metrics_by_network?: Record<string, MetricsByNetwork>;
   total_posts_in_hypeapp?: number;

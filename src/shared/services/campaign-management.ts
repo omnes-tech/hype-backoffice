@@ -35,7 +35,7 @@ export interface CampaignManagementParticipant {
   }>;
   status?: string;
   phase?: string;
-  /** Criador externo (pré-cadastro via link público, sem conta no app). */
+  /** Criador externo (pré-cadastro via link público / link de premiação, sem conta no app) — etiqueta "Externo" (#17/#31). */
   is_external?: boolean;
   /** Negociação de "valor individual por criador" (quando presente). */
   price_negotiation?: {

@@ -122,6 +122,41 @@ export async function updateCampaignGroupLink(
   await parse(response, "Falha ao salvar configuração do grupo");
 }
 
+/**
+ * Envia/atualiza a capa (cover) de um grupo da campanha (#25). Multipart —
+ * não define Content-Type manualmente (o browser adiciona o boundary).
+ */
+export async function uploadCampaignGroupCover(
+  campaignId: string,
+  groupId: string,
+  file: File,
+): Promise<{ cover_url: string }> {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) throw new Error("Workspace ID é obrigatório");
+
+  const form = new FormData();
+  form.append("file", file);
+
+  const response = await fetch(
+    getApiUrl(`${base(campaignId)}/${encodeURIComponent(groupId)}/cover`),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${getAuthToken() ?? ""}`,
+        "Workspace-Id": workspaceId,
+      },
+      body: form,
+    },
+  );
+  const body = await parse<{ data: { cover_url: string } }>(
+    response,
+    "Falha ao enviar a capa do grupo",
+  );
+  return body.data;
+}
+
 export async function listCampaignGroupParticipants(
   campaignId: string,
   groupId: string,
