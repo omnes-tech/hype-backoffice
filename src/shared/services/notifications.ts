@@ -190,3 +190,46 @@ export async function markAllNotificationsAsRead(): Promise<{ message: string; u
   const response = await request.json();
   return response.data;
 }
+
+/**
+ * Marca como lidas as notificações de chat (`new_message`) de uma conversa —
+ * chamado ao abrir o chat no gerenciamento, para o sino refletir a leitura (#19).
+ * `influencerId` (usuário do app) restringe à conversa aberta; sem ele, limpa
+ * as notificações de chat da campanha inteira.
+ */
+export async function markChatNotificationsAsRead(params: {
+  campaignId: string;
+  influencerId?: string | number;
+}): Promise<void> {
+  const token = getAuthToken();
+  const workspaceId = getWorkspaceId();
+  if (!token || !workspaceId) return;
+
+  const search = new URLSearchParams({ campaign_id: params.campaignId });
+  if (params.influencerId != null && String(params.influencerId).trim() !== "") {
+    search.set("influencer_id", String(params.influencerId));
+  }
+
+  const request = await fetch(
+    getApiUrl(`/notifications/chat/read?${search.toString()}`),
+    {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Client-Type": "backoffice",
+        Authorization: `Bearer ${token}`,
+        "Workspace-Id": workspaceId,
+      },
+    },
+  );
+
+  if (!request.ok) {
+    let errorData;
+    try {
+      errorData = await request.json();
+    } catch {
+      errorData = { message: "Failed to mark chat notifications as read" };
+    }
+    throw errorData || "Failed to mark chat notifications as read";
+  }
+}

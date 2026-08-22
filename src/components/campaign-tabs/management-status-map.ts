@@ -36,6 +36,8 @@ export function mapUserStatusToKanbanColumn(status: string): string {
     awaitingpublication: "content_approved",
     awaitingpayment: "payment_pending",
     incorrection: "in_correction",
+    correctionscript: "script_correction",
+    script_correction: "script_correction",
   };
   return statusMap[s] || "applications";
 }

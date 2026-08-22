@@ -17,7 +17,7 @@ export interface ExtendedInfluencer extends Omit<Influencer, "id" | "user_id"> {
   id: string | number;
   /** ID do usuário na plataforma (rota /influencer/$influencerId) */
   user_id?: string | number;
-  /** Cadastro externo (via link de premiação) — etiqueta "Externo" (#31). */
+  /** Criador externo (pré-cadastro via link público / link de premiação) — badge "Externo" (#17/#31). */
   isExternal?: boolean;
   socialNetwork?: string;
   social_networks?: Array<{
@@ -28,6 +28,8 @@ export interface ExtendedInfluencer extends Omit<Influencer, "id" | "user_id"> {
     members?: number;
   }>;
   statusHistory?: StatusHistory[];
+  /** Fase atual do influenciador na campanha, quando a API informa (#6). */
+  phase?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +47,7 @@ export const kanbanColumns = [
   { id: "contract_pending", label: "Contrato Pendente", color: "bg-[#f1fdfa]" },
   { id: "approved", label: "Aprovado / Em Andamento", color: "bg-[#f1fdf4]" },
   { id: "script_pending", label: "Aguardando Aprovação Roteiro", color: "bg-[#eff2ff]" },
-  { id: "script_correction", label: "Roteiro em Correção", color: "bg-[#fef7ed]" },
+  { id: "script_correction", label: "Roteiro em Correção", color: "bg-[#fdeeea]" },
   { id: "awaiting_shipment", label: "Aguardando Envio", color: "bg-[#fff7ed]" },
   { id: "awaiting_receipt", label: "Aguardando Recebimento", color: "bg-[#fef3c7]" },
   { id: "content_pending", label: "Aguardando Conteúdo", color: "bg-[#fefbeb]" },
@@ -170,5 +172,6 @@ export function participantToExtended(p: CampaignManagementParticipant): Extende
     social_networks: p.social_networks,
     socialNetwork: primaryNetwork,
     statusHistory,
+    phase: p.phase,
   };
 }

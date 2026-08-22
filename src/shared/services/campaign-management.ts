@@ -35,7 +35,7 @@ export interface CampaignManagementParticipant {
   }>;
   status?: string;
   phase?: string;
-  /** Cadastro externo (via link de premiação) — etiqueta "Externo" (#31). */
+  /** Criador externo (pré-cadastro via link público / link de premiação, sem conta no app) — etiqueta "Externo" (#17/#31). */
   is_external?: boolean;
   /** Negociação de "valor individual por criador" (quando presente). */
   price_negotiation?: {
@@ -114,6 +114,12 @@ function normalizeParticipant(raw: Record<string, unknown>): CampaignManagementP
       : undefined,
     status: raw.status != null ? String(raw.status) : undefined,
     phase: raw.phase != null ? String(raw.phase) : undefined,
+    is_external:
+      typeof raw.is_external === "boolean"
+        ? raw.is_external
+        : raw.is_external === "true"
+          ? true
+          : undefined,
     price_negotiation: normalizePriceNegotiation(raw.price_negotiation),
     status_history,
   };

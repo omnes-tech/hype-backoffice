@@ -3,6 +3,7 @@ import {
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  markChatNotificationsAsRead,
   type Notification,
 } from "@/shared/services/notifications";
 import {
@@ -49,6 +50,21 @@ export function useMarkAllNotificationsAsRead() {
     mutationFn: markAllNotificationsAsRead,
     onSuccess: () => {
       // Invalidar queries de notificações para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+/**
+ * Marca as notificações de chat de uma conversa como lidas (#19: sino não
+ * limpava ao ler a mensagem). Best-effort — falha não pode travar o chat.
+ */
+export function useMarkChatNotificationsAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markChatNotificationsAsRead,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
