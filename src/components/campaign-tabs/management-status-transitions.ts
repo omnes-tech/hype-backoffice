@@ -15,6 +15,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   contract_pending: ["approved", "rejected"],
   approved: ["script_pending", "rejected"],
   script_pending: ["awaiting_shipment", "content_pending", "rejected"],
+  script_correction: ["script_pending", "rejected"],
   awaiting_shipment: ["awaiting_receipt", "rejected"],
   awaiting_receipt: ["content_pending", "rejected"],
   content_pending: ["pending_approval", "rejected"],
@@ -32,6 +33,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 /** Status que não podem ser movidos manualmente pelo backoffice. */
 const AUTOMATIC_STATUSES = new Set([
+  "script_correction",
   "pending_approval",
   "in_correction",
   "content_approved",
@@ -49,6 +51,7 @@ const USER_VALID_TRANSITIONS: Record<string, string[]> = {
   contract_pending: ["approved", "rejected"],
   approved: ["script_pending", "curation", "rejected"],
   script_pending: ["awaiting_shipment", "content_pending", "rejected"],
+  script_correction: ["rejected"],
   awaiting_shipment: ["awaiting_receipt", "rejected"],
   awaiting_receipt: ["content_pending", "rejected"],
   content_pending: ["rejected"],
@@ -89,6 +92,10 @@ const TRANSITION_NOTES: Record<string, string> = {
   "approved->script_pending": "Aguardando aprovação de roteiro",
   "approved->rejected": "Removido da campanha",
   "approved->curation": "Movido para curadoria",
+  // script_correction (#18: reprovação de roteiro tem coluna própria)
+  "script_pending->script_correction": "Roteiro reprovado, aguardando correção",
+  "script_correction->script_pending": "Novo roteiro enviado após correção",
+  "script_correction->rejected": "Removido da campanha",
   // script_pending
   "script_pending->awaiting_shipment": "Roteiro aprovado, produto sendo enviado ao influenciador",
   "script_pending->content_pending": "Roteiro aprovado, aguardando conteúdo",

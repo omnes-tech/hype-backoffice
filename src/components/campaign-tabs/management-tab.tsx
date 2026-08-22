@@ -48,6 +48,7 @@ import { useChat } from "@/hooks/use-chat";
 import { useCampaignUsers } from "@/hooks/use-campaign-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNiches } from "@/hooks/use-niches";
+import { useMarkChatNotificationsAsRead } from "@/hooks/use-notifications";
 import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { PriceNegotiationSection } from "./shared/price-negotiation-section";
@@ -154,6 +155,22 @@ function SortableInfluencerCard({
             </p>
           </div>
         </div>
+        {(influencer.isExternal || influencer.phase) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {/* #17: criador externo não pode perder a marcação ao mudar de coluna */}
+            {influencer.isExternal && (
+              <span className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                Externo
+              </span>
+            )}
+            {/* #6: fase atual do influenciador dentro da campanha */}
+            {influencer.phase && (
+              <span className="rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-700">
+                {influencer.phase}
+              </span>
+            )}
+          </div>
+        )}
         {timestampStr && (
           <div className="border-t border-b border-[#e5e5e5] py-3 flex items-center justify-center mt-3">
             <p className="text-base font-medium text-neutral-950">
@@ -1467,6 +1484,24 @@ function ChatModal({
     enabled: !!campaignId && canChat && !loadingChatIdentity,
   });
 
+  // #19: abrir a conversa marca as notificações de chat dela como lidas —
+  // sem isso o sino continuava acusando pendência mesmo com a mensagem lida.
+  const markChatRead = useMarkChatNotificationsAsRead();
+  const markedChatReadRef = useRef(false);
+  useEffect(() => {
+    if (!campaignId || !canChat || markedChatReadRef.current) return;
+    markedChatReadRef.current = true;
+    markChatRead.mutate(
+      {
+        campaignId,
+        influencerId: platformUserId ?? undefined,
+      },
+      // Best-effort: falha em marcar como lido não pode quebrar o chat.
+      { onError: () => undefined },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaignId, canChat, platformUserId]);
+
   const [newMessage, setNewMessage] = useState("");
   const [attachments, setAttachments] = useState<
     Array<{ id: string; name: string; file: File }>
@@ -1753,8 +1788,8 @@ function ChatModal({
                 : "Conectando..."
             }
             disabled={!isConnected || !canChat || isUploadingAttachments}
-            rows={1}
-            className="max-h-32 min-h-11 flex-1 resize-y rounded-3xl bg-neutral-100 px-4 py-3 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
+            rows={3}
+            className="max-h-48 min-h-24 flex-1 resize-y rounded-2xl bg-neutral-100 px-4 py-3 outline-none focus:bg-neutral-200/70 disabled:opacity-50"
           />
           <Button
             onClick={() => void handleSendMessage()}

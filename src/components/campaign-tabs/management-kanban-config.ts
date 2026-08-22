@@ -26,6 +26,10 @@ export interface ExtendedInfluencer extends Omit<Influencer, "id" | "user_id"> {
     members?: number;
   }>;
   statusHistory?: StatusHistory[];
+  /** Criador externo (pré-cadastro via link público) — badge "Externo" (#17). */
+  isExternal?: boolean;
+  /** Fase atual do influenciador na campanha, quando a API informa (#6). */
+  phase?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +47,7 @@ export const kanbanColumns = [
   { id: "contract_pending", label: "Contrato Pendente", color: "bg-[#f1fdfa]" },
   { id: "approved", label: "Aprovado / Em Andamento", color: "bg-[#f1fdf4]" },
   { id: "script_pending", label: "Aguardando Aprovação Roteiro", color: "bg-[#eff2ff]" },
+  { id: "script_correction", label: "Roteiro em Correção", color: "bg-[#fdeeea]" },
   { id: "awaiting_shipment", label: "Aguardando Envio", color: "bg-[#fff7ed]" },
   { id: "awaiting_receipt", label: "Aguardando Recebimento", color: "bg-[#fef3c7]" },
   { id: "content_pending", label: "Aguardando Conteúdo", color: "bg-[#fefbeb]" },
@@ -116,5 +121,7 @@ export function participantToExtended(p: CampaignManagementParticipant): Extende
     social_networks: p.social_networks,
     socialNetwork: primaryNetwork,
     statusHistory,
+    isExternal: p.is_external,
+    phase: p.phase,
   };
 }
