@@ -22,6 +22,7 @@ import {
 import { useLiveSocket } from "@/hooks/use-live-socket";
 import {
   createLiveIngress,
+  getLiveIngress,
   uploadLiveThumbnail,
   type LiveIngressCredentials,
 } from "@/shared/services/lives";
@@ -78,6 +79,7 @@ function RouteComponent() {
   const [ingressLoading, setIngressLoading] = useState(false);
 
   const isLive = live?.status === "live";
+  const isUpcoming = live?.status === "upcoming";
 
   const handleGenerateIngress = async () => {
     setIngressLoading(true);
@@ -109,6 +111,37 @@ function RouteComponent() {
       setLikes(live.likes_count);
     }
   }, [live?.views_count, live?.likes_count]);
+
+  // As credenciais vivem no LiveKit, não no estado do navegador. Recuperá-las
+  // permite recarregar/reabrir a tela sem perder servidor e stream key.
+  useEffect(() => {
+    let active = true;
+
+    if (!canBroadcast || (!isUpcoming && !isLive)) {
+      setIngress(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    setIngressLoading(true);
+    getLiveIngress(liveId)
+      .then((credentials) => {
+        if (active) setIngress(credentials);
+      })
+      .catch(() => {
+        // Ausência/indisponibilidade na consulta não bloqueia a página; o POST
+        // exibirá um erro acionável caso o usuário tente gerar as credenciais.
+        if (active) setIngress(null);
+      })
+      .finally(() => {
+        if (active) setIngressLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canBroadcast, isLive, isUpcoming, liveId]);
 
   // Ao reabrir uma live já no ar (sem credenciais em memória), re-minta o token
   // de publish para reconectar o estúdio.
@@ -241,7 +274,6 @@ function RouteComponent() {
     );
   }
 
-  const isUpcoming = live.status === "upcoming";
   const isEnded = live.status === "ended";
   const isCancelled = live.status === "cancelled";
   const thumb = getUploadUrl(live.thumbnail_url ?? undefined);
@@ -314,7 +346,7 @@ function RouteComponent() {
                   </Button>
                 </>
               )}
-              {isLive && (
+              {(isUpcoming || isLive) && (
                 <Button
                   type="button"
                   variant="outline"
@@ -324,7 +356,11 @@ function RouteComponent() {
                 >
                   <Icon name="Radio" size={14} color="#404040" />
                   <span className="font-semibold">
-                    {ingressLoading ? "Gerando..." : "Transmitir via OBS (RTMP)"}
+                    {ingressLoading
+                      ? "Carregando RTMP..."
+                      : ingress
+                        ? "Ver credenciais RTMP"
+                        : "Configurar OBS (RTMP)"}
                   </span>
                 </Button>
               )}
@@ -419,7 +455,7 @@ function RouteComponent() {
           )}
 
           {/* Destino RTMP externo (OBS/vMix) — #41 */}
-          {isLive && ingress && (
+          {(isUpcoming || isLive) && ingress && (
             <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-6">
               <div className="flex items-center gap-2">
                 <Icon name="Radio" size={16} color="#551B8C" />
@@ -428,8 +464,9 @@ function RouteComponent() {
                 </h3>
               </div>
               <p className="text-xs text-neutral-500">
-                No seu encoder, use o servidor e a chave abaixo. A transmissão
-                entra nesta mesma live.
+                {isUpcoming
+                  ? "Configure o encoder agora. Inicie a transmissão no OBS somente depois de clicar em ‘Ir ao vivo’."
+                  : "No seu encoder, use o servidor e a chave abaixo. A transmissão entra nesta mesma live."}
               </p>
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-neutral-700">

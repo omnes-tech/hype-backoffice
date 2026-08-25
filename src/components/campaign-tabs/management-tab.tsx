@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   listCampaignGroups,
   type CampaignCommunityGroup,
 } from "@/shared/services/campaign-groups";
-import { markChatNotificationsAsRead } from "@/shared/services/notifications";
 import {
   DndContext,
   DragOverlay,
@@ -1512,24 +1511,6 @@ function ChatModal({
   const canChat =
     campaignUserIdNum > 0 && platformUserId != null && platformUserId > 0;
 
-  // Ao abrir o chat, marca as notificações `new_message` desta conversa como
-  // lidas e atualiza o sino (#11/#21) — antes elas só saíam clicando uma a uma.
-  const chatQueryClient = useQueryClient();
-  const markedChatReadRef = useRef(false);
-  useEffect(() => {
-    if (!campaignId || !canChat || platformUserId == null) return;
-    if (markedChatReadRef.current) return;
-    markedChatReadRef.current = true;
-    void markChatNotificationsAsRead(campaignId, platformUserId)
-      .then(() => {
-        chatQueryClient.invalidateQueries({ queryKey: ["notifications"] });
-      })
-      .catch(() => {
-        // Best-effort: não bloqueia o chat se a marcação falhar.
-        markedChatReadRef.current = false;
-      });
-  }, [campaignId, canChat, platformUserId, chatQueryClient]);
-
   const {
     messages,
     isConnected,
@@ -1547,17 +1528,25 @@ function ChatModal({
   // #19: abrir a conversa marca as notificações de chat dela como lidas —
   // sem isso o sino continuava acusando pendência mesmo com a mensagem lida.
   const markChatRead = useMarkChatNotificationsAsRead();
-  const markedChatReadRef = useRef(false);
+  const markedChatReadKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!campaignId || !canChat || markedChatReadRef.current) return;
-    markedChatReadRef.current = true;
+    if (!campaignId || !canChat || platformUserId == null) return;
+    const conversationKey = `${campaignId}:${platformUserId}`;
+    if (markedChatReadKeyRef.current === conversationKey) return;
+    markedChatReadKeyRef.current = conversationKey;
     markChatRead.mutate(
       {
         campaignId,
-        influencerId: platformUserId ?? undefined,
+        influencerId: platformUserId,
       },
       // Best-effort: falha em marcar como lido não pode quebrar o chat.
-      { onError: () => undefined },
+      {
+        onError: () => {
+          if (markedChatReadKeyRef.current === conversationKey) {
+            markedChatReadKeyRef.current = null;
+          }
+        },
+      },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId, canChat, platformUserId]);

@@ -141,7 +141,14 @@ export interface LiveIngressCredentials {
   ingress_id: string;
 }
 
-/** Gera (ou reusa) o destino RTMP da live. Só com `status = live`. */
+/** Recupera o destino RTMP já criado; `null` quando ainda não foi configurado. */
+export async function getLiveIngress(
+  id: string,
+): Promise<LiveIngressCredentials | null> {
+  return apiGet<LiveIngressCredentials | null>(`${BASE}/${id}/ingress`);
+}
+
+/** Gera (ou reusa) o destino RTMP antes ou durante a live. */
 export async function createLiveIngress(
   id: string,
 ): Promise<LiveIngressCredentials> {
