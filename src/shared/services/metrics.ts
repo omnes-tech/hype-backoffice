@@ -54,12 +54,27 @@ function compareAudienceAgeLabels(a: string, b: string): number {
   return n(a) - n(b);
 }
 
+export interface AudienceBarSeries {
+  labels: string[];
+  instagram: number[];
+  youtube: number[];
+  /** Rede tem faixas etárias reais — só então a série dela pode ser plotada. */
+  hasInstagram: boolean;
+  hasYoutube: boolean;
+}
+
 /**
- * Cruza faixas etárias de Instagram e YouTube em séries alinhadas por label (para gráfico de barras).
+ * Cruza faixas etárias de Instagram e YouTube em séries alinhadas por label
+ * (para gráfico de barras).
+ *
+ * Retorna `null` quando NENHUMA rede tem dados — a UI não deve desenhar nada
+ * nesse caso. Os flags `hasInstagram`/`hasYoutube` existem para não plotar a
+ * série zerada de uma rede que o influenciador nem cadastrou: sem eles, um
+ * perfil só de Instagram ganhava um YouTube fantasma no gráfico.
  */
 export function buildAudienceBarSeries(
   networks: Record<string, AudienceNetworkAgeData> | undefined
-): { labels: string[]; instagram: number[]; youtube: number[] } | null {
+): AudienceBarSeries | null {
   if (!networks || Object.keys(networks).length === 0) return null;
   const ig = networks.instagram;
   const yt = networks.youtube;
@@ -80,6 +95,8 @@ export function buildAudienceBarSeries(
     labels,
     instagram: labels.map((l) => mapPct(igBuckets, l)),
     youtube: labels.map((l) => mapPct(ytBuckets, l)),
+    hasInstagram: igBuckets.length > 0,
+    hasYoutube: ytBuckets.length > 0,
   };
 }
 

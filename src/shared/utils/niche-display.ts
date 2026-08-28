@@ -62,6 +62,28 @@ export function resolveNicheDisplayNameFromIds(
   return null;
 }
 
+/**
+ * A API manda os nichos do criador como um rótulo único ("Moda, Beleza, Skincare"
+ * — principal primeiro, depois os sub-nichos). Divide em nomes limpos e únicos,
+ * preservando a ordem original.
+ */
+export function splitNicheNames(
+  label: string | null | undefined,
+): string[] {
+  if (!label) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of label.split(",")) {
+    const v = part.trim();
+    if (!v) continue;
+    const k = v.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return out;
+}
+
 /** Interpreta campos comuns da API (`niche`, `niche_id`, `niche_name`, objeto aninhado). */
 export function extractNicheFromApiRow(raw: Record<string, unknown>): {
   niche: string;

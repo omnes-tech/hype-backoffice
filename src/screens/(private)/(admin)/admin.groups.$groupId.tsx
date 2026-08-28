@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Tabs } from "@/components/ui/tabs";
 import { GroupForm, type GroupFormSubmit } from "@/components/groups/group-form";
+import { GroupPostComposer } from "@/components/groups/group-post-composer";
 import {
   useAddGroupModerator,
   useDeleteGroup,
@@ -272,6 +273,73 @@ function GroupContent({ groupId }: { groupId: string }) {
     }
   };
 
+  return (
+    <div className="flex flex-col gap-4">
+      <GroupPostComposer groupId={groupId} />
+      <PostList
+        posts={posts}
+        isLoading={isLoading}
+        error={error}
+        hasNextPage={hasNextPage}
+        fetchNextPage={fetchNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onDelete={setTarget}
+      />
+
+      {target && (
+        <Modal
+          title="Remover conteúdo"
+          onClose={() => setTarget(null)}
+          panelClassName="max-w-md"
+        >
+          <div className="flex flex-col gap-6">
+            <p className="text-sm text-neutral-600">
+              Remover este conteúdo de <strong>{target.author.name}</strong>?
+              Esta ação faz soft-delete do post.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTarget(null)}
+                disabled={deletePost.isPending}
+                className="rounded-full"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDelete}
+                disabled={deletePost.isPending}
+                className="rounded-full bg-red-600 hover:bg-red-700"
+              >
+                {deletePost.isPending ? "Removendo..." : "Remover"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function PostList({
+  posts,
+  isLoading,
+  error,
+  hasNextPage,
+  fetchNextPage,
+  isFetchingNextPage,
+  onDelete,
+}: {
+  posts: GroupPost[];
+  isLoading: boolean;
+  error: unknown;
+  hasNextPage: boolean;
+  fetchNextPage: () => void;
+  isFetchingNextPage: boolean;
+  onDelete: (post: GroupPost) => void;
+}) {
   if (isLoading) {
     return (
       <div className="flex min-h-[30vh] items-center justify-center">
@@ -350,7 +418,7 @@ function GroupContent({ groupId }: { groupId: string }) {
             </div>
             <button
               type="button"
-              onClick={() => setTarget(post)}
+              onClick={() => onDelete(post)}
               className="h-fit rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50"
               aria-label="Remover conteúdo"
             >
@@ -372,40 +440,6 @@ function GroupContent({ groupId }: { groupId: string }) {
             {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
           </Button>
         </div>
-      )}
-
-      {target && (
-        <Modal
-          title="Remover conteúdo"
-          onClose={() => setTarget(null)}
-          panelClassName="max-w-md"
-        >
-          <div className="flex flex-col gap-6">
-            <p className="text-sm text-neutral-600">
-              Remover este conteúdo de <strong>{target.author.name}</strong>?
-              Esta ação faz soft-delete do post.
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTarget(null)}
-                disabled={deletePost.isPending}
-                className="rounded-full"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleDelete}
-                disabled={deletePost.isPending}
-                className="rounded-full bg-red-600 hover:bg-red-700"
-              >
-                {deletePost.isPending ? "Removendo..." : "Remover"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       )}
     </div>
   );

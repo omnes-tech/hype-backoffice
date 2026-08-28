@@ -319,15 +319,26 @@ function buildNetworksFromRootLists(
  * GET /campaigns/:campaignId/influencer-selection
  */
 export async function getCampaignInfluencerSelection(
-  campaignId: string
+  campaignId: string,
+  /**
+   * Nicho selecionado na tela. Vai para o servidor porque o corte de 120
+   * recomendados/catálogo acontece lá: filtrar só no cliente prendia a busca
+   * aos 120 perfis com mais seguidores, sempre os mesmos.
+   */
+  nicheId?: string | number | null
 ): Promise<CampaignInfluencerSelectionData> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
     throw new Error("Workspace ID é obrigatório");
   }
 
+  const url = new URL(getApiUrl(`/campaigns/${campaignId}/influencer-selection`));
+  if (nicheId != null && String(nicheId).trim() !== "") {
+    url.searchParams.set("niche", String(nicheId));
+  }
+
   const request = await fetch(
-    getApiUrl(`/campaigns/${campaignId}/influencer-selection`),
+    url.toString(),
     {
       method: "GET",
       headers: {

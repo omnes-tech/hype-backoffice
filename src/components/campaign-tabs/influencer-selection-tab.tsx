@@ -17,7 +17,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/text-area";
-import type { Influencer } from "@/shared/types";
+import type { Influencer, Niche } from "@/shared/types";
 import { useMuralStatus, useActivateMural, useDeactivateMural } from "@/hooks/use-campaign-mural";
 import { useCampaignInfluencerSelection } from "@/hooks/use-campaign-influencer-selection";
 import type { InfluencerSelectionProfileItem } from "@/shared/services/campaign-influencer-selection";
@@ -218,12 +218,47 @@ const SELECTION_ORDER_OPTIONS = [
 
 interface SelectionFilters {
   searchTerm: string;
-  filterNiche: string;
+  /**
+   * Nicho selecionado JÁ expandido com os sub-nichos, como string.
+   * `null` = sem filtro. O criador marca nicho principal + sub-nichos, então
+   * filtrar por um nicho-pai precisa alcançar quem só marcou os filhos — e a
+   * comparação é textual porque a API pode devolver id não numérico.
+   */
+  nicheIds: string[] | null;
   filterGender: string;
   followersMin: number | null;
   followersMax: number | null;
   engagementMin: number | null;
   engagementMax: number | null;
+}
+
+/** Nicho + todos os descendentes, como strings (espelha o filtro do servidor). */
+function expandNicheWithDescendants(
+  nicheId: string,
+  allNiches: readonly Niche[],
+): string[] {
+  const root = nicheId.trim();
+  if (!root) return [];
+  const childrenByParent = new Map<string, string[]>();
+  for (const n of allNiches) {
+    if (n.parent_id == null || n.parent_id === "") continue;
+    const key = String(n.parent_id);
+    const list = childrenByParent.get(key) ?? [];
+    list.push(String(n.id));
+    childrenByParent.set(key, list);
+  }
+
+  const out = new Set<string>([root]);
+  const queue = [root];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const child of childrenByParent.get(current) ?? []) {
+      if (out.has(child)) continue;
+      out.add(child);
+      queue.push(child);
+    }
+  }
+  return [...out];
 }
 
 function selectionItemMatchesFilters(
@@ -236,9 +271,9 @@ function selectionItemMatchesFilters(
     const handle = item.social_network.username.toLowerCase().replace(/^@/, "");
     if (!name.includes(q) && !handle.includes(q)) return false;
   }
-  if (f.filterNiche) {
-    const n = parseInt(f.filterNiche, 10);
-    if (!Number.isNaN(n) && !(item.niche_ids ?? []).includes(n)) return false;
+  if (f.nicheIds && f.nicheIds.length > 0) {
+    const ids = (item.niche_ids ?? []).map((n) => String(n));
+    if (!ids.some((id) => f.nicheIds!.includes(id))) return false;
   }
   if (f.filterGender) {
     if ((item.user.gender ?? "").toLowerCase() !== f.filterGender) return false;
@@ -657,7 +692,7 @@ export function InfluencerSelectionTab({
     isError: isSelectionError,
     error: selectionError,
     refetch: refetchSelection,
-  } = useCampaignInfluencerSelection(campaignId);
+  } = useCampaignInfluencerSelection(campaignId, filterNiche);
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
   const { mutate: addToPreSelection, isPending: isAddingToPreSelection } = useAddToPreSelection(campaignId);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
@@ -722,7 +757,7 @@ export function InfluencerSelectionTab({
     };
     return {
       searchTerm,
-      filterNiche,
+      nicheIds: filterNiche ? expandNicheWithDescendants(filterNiche, niches) : null,
       filterGender,
       followersMin: toNum(followersMinInput),
       followersMax: toNum(followersMaxInput),
@@ -732,6 +767,7 @@ export function InfluencerSelectionTab({
   }, [
     searchTerm,
     filterNiche,
+    niches,
     filterGender,
     followersMinInput,
     followersMaxInput,
@@ -741,7 +777,7 @@ export function InfluencerSelectionTab({
 
   const hasActiveFilters =
     !!selectionFilters.searchTerm.trim() ||
-    !!selectionFilters.filterNiche ||
+    !!filterNiche ||
     !!selectionFilters.filterGender ||
     selectionFilters.followersMin != null ||
     selectionFilters.followersMax != null ||

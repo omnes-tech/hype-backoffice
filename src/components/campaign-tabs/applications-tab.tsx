@@ -16,7 +16,7 @@ import { useNiches } from "@/hooks/use-niches";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import { useWorkspaceBalance } from "@/hooks/use-balance";
 
-import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
+import { resolveNicheDisplayName, splitNicheNames } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { InfluencerProfileCard } from "./shared/influencer-profile-card";
@@ -300,6 +300,16 @@ export function ApplicationsTab({
     (activeQuery.error as Error)?.message ||
     "Não foi possível carregar as inscrições.";
 
+  // A API devolve todos os nichos do criador num rótulo único
+  // ("Moda, Beleza, Skincare"): principal primeiro, sub-nichos depois.
+  const nicheNamesForApp = useCallback(
+    (app: ApplicationWithProfile) =>
+      splitNicheNames(
+        resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName)
+      ),
+    [niches]
+  );
+
   const applyFilters = useCallback(
     (list: ApplicationWithProfile[]) => {
       return list.filter((app) => {
@@ -311,7 +321,7 @@ export function ApplicationsTab({
             app.profileUsername.toLowerCase().includes(lower);
           if (!matches) return false;
         }
-        if (filterNiche && app.influencerNiche !== filterNiche) return false;
+        if (filterNiche && !nicheNamesForApp(app).includes(filterNiche)) return false;
         const rawF =
           app.profileFollowers != null && app.profileFollowers > 0
             ? app.profileFollowers
@@ -337,7 +347,7 @@ export function ApplicationsTab({
         return true;
       });
     },
-    [searchTerm, filterNiche, filterFollowersMin, filterFollowersMax, filterEngagementMin, filterEngagementMax]
+    [searchTerm, filterNiche, filterFollowersMin, filterFollowersMax, filterEngagementMin, filterEngagementMax, nicheNamesForApp]
   );
 
   const filteredApplications = useMemo(() => applyFilters(applicationsWithProfiles), [applicationsWithProfiles, applyFilters]);
@@ -381,16 +391,12 @@ export function ApplicationsTab({
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
     listForNiches.forEach((app) => {
-      if (app.influencerNiche) {
-        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
-        if (niche) uniqueNiches.add(niche.id.toString());
-      }
+      nicheNamesForApp(app).forEach((name) => uniqueNiches.add(name));
     });
-    return Array.from(uniqueNiches).map((id) => {
-      const niche = niches.find((n) => n.id.toString() === id);
-      return { value: id, label: niche?.name || id };
-    });
-  }, [listForNiches, niches]);
+    return Array.from(uniqueNiches)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+      .map((name) => ({ value: name, label: name }));
+  }, [listForNiches, nicheNamesForApp]);
 
   // Focus handling
   const focusHandledRef = useRef<string | null>(null);
@@ -842,7 +848,7 @@ export function ApplicationsTab({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentFilteredList.map((app) => {
-                  const nicheName = resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName);
+                  const nicheNames = nicheNamesForApp(app);
                   const sentAtLabel = app.sentAt
                     ? `Enviado em: ${new Date(app.sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })}`
                     : "Enviado em: —";
@@ -868,7 +874,7 @@ export function ApplicationsTab({
                       // Custo já calculado upstream (costSlot). Não exibimos o
                       // breakdown de preços do influenciador aqui — só o badge.
                       data={{ ...app, prices: undefined }}
-                      nicheName={nicheName}
+                      nicheNames={nicheNames}
                       isSelected={selectedInfluencers.has(app.profileKey)}
                       isActionLoading={actionLoading}
                       metaLabel={sentAtLabel}

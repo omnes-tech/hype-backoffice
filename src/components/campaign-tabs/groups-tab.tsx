@@ -19,6 +19,7 @@ import {
   createCampaignGroupPost,
   createCampaignGroup,
   listCampaignGroupParticipants,
+  listCampaignGroupPosts,
   listCampaignGroups,
   updateCampaignGroupLink,
   uploadCampaignGroupCover,
@@ -191,6 +192,17 @@ function CampaignGroupPanel({
       }),
   });
 
+  const postsKey = [
+    "campaign-community-group-posts",
+    campaignId,
+    group.id,
+  ] as const;
+  const postsQuery = useQuery({
+    queryKey: postsKey,
+    queryFn: () =>
+      listCampaignGroupPosts(campaignId, group.id, { page: 1, per_page: 5 }),
+  });
+
   const configMutation = useMutation({
     mutationFn: () =>
       updateCampaignGroupLink(campaignId, group.id, {
@@ -230,8 +242,9 @@ function CampaignGroupPanel({
   const postMutation = useMutation({
     mutationFn: () =>
       createCampaignGroupPost(campaignId, group.id, postDraft.trim()),
-    onSuccess: () => {
+    onSuccess: async () => {
       setPostDraft("");
+      await queryClient.invalidateQueries({ queryKey: postsKey });
       toast.success("Post publicado no grupo.");
     },
     onError: (error: Error) => toast.error(error.message),
@@ -424,6 +437,47 @@ function CampaignGroupPanel({
           </form>
         )}
 
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-semibold text-neutral-900">
+            Últimas publicações
+          </span>
+          {postsQuery.isLoading ? (
+            <p className="text-sm text-neutral-500">Carregando publicações…</p>
+          ) : postsQuery.error ? (
+            <p className="text-sm text-danger-600">
+              {(postsQuery.error as Error).message}
+            </p>
+          ) : (postsQuery.data?.data ?? []).length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Nenhuma publicação enviada a este grupo ainda.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {(postsQuery.data?.data ?? []).map((post) => (
+                <li
+                  key={post.id}
+                  className="rounded-xl border border-neutral-200 bg-white p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                    <span className="font-medium text-neutral-700">
+                      {post.author_name}
+                    </span>
+                    <span>{formatPostDate(post.created_at)}</span>
+                    {post.origin === "backoffice" && (
+                      <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
+                        Backoffice
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-800">
+                    {post.content}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-56 flex-1">
             <Input
@@ -562,4 +616,17 @@ function CampaignGroupPanel({
       </div>
     </section>
   );
+}
+
+/** Data + hora da publicação (pt-BR). */
+function formatPostDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

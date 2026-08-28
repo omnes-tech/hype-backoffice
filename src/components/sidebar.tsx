@@ -126,6 +126,12 @@ export function Sidebar() {
                 label="Grupos"
                 compact={isNarrow}
               />
+              <SidebarItem
+                href="/admin/posts"
+                icon="FileText"
+                label="Posts"
+                compact={isNarrow}
+              />
             </ul>
           </div>
         )}

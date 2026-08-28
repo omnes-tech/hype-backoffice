@@ -7,7 +7,10 @@ import { Select } from "@/components/ui/select";
 import type { CampaignFormData } from "@/shared/types";
 import {
   BRAZILIAN_STATES,
+  buildCityKey,
   getCitiesByState,
+  parseCityKey,
+  retainCitiesForStates,
 } from "@/shared/data/brazilian-states-cities";
 import { handleNumberInput } from "@/shared/utils/masks";
 import { useInfluencersCatalog } from "@/hooks/use-catalog";
@@ -155,7 +158,7 @@ export function CreateCampaignStepTwo({
       const citiesInState = getCitiesByState(stateCode);
       citiesInState.forEach((city) => {
         cities.push({
-          value: `${city.name}-${city.state}`,
+          value: buildCityKey(city.name, city.state),
           label: `${city.name} - ${city.state}`,
         });
       });
@@ -188,7 +191,12 @@ export function CreateCampaignStepTwo({
   const handleStateChange = (values: string[]) => {
     setSelectedStates(values);
     updateFormData("state", values.join(","));
-    updateFormData("city", "");
+    // Preserva as cidades dos estados que continuam selecionados — antes,
+    // incluir um segundo estado limpava tudo o que já tinha sido escolhido.
+    const keptCities = retainCitiesForStates(selectedCities, values);
+    if (keptCities.length !== selectedCities.length) {
+      updateFormData("city", keptCities.join(","));
+    }
   };
 
   const handleCityChange = (values: string[]) => {
@@ -213,8 +221,9 @@ export function CreateCampaignStepTwo({
       filters.state = selectedStates[0];
     }
     if (segmentLocation && selectedCities.length > 0) {
-      const firstCity = selectedCities[0].split("-")[0];
-      filters.city = firstCity;
+      // Nome pode ter hífen ("Biritiba-Mirim-SP"): parse pela UF no fim.
+      const firstCity = parseCityKey(selectedCities[0])?.name;
+      if (firstCity) filters.city = firstCity;
     }
     return filters;
   }, [

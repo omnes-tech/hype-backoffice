@@ -17,7 +17,7 @@ import { useNiches } from "@/hooks/use-niches";
 import { useBulkSelection } from "@/hooks/use-bulk-selection";
 import { useWorkspaceBalance } from "@/hooks/use-balance";
 
-import { resolveNicheDisplayName } from "@/shared/utils/niche-display";
+import { resolveNicheDisplayName, splitNicheNames } from "@/shared/utils/niche-display";
 import { getNetworkLabel } from "@/shared/constants/network-labels";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { InfluencerProfileCard } from "./shared/influencer-profile-card";
@@ -331,6 +331,16 @@ export function CurationTab({
     [pendingCards, approvedCards, rejectedCards]
   );
 
+  // A API devolve todos os nichos do criador num rótulo único
+  // ("Moda, Beleza, Skincare"): principal primeiro, sub-nichos depois.
+  const nicheNamesForApp = useCallback(
+    (app: ApplicationWithProfile) =>
+      splitNicheNames(
+        resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName)
+      ),
+    [niches]
+  );
+
   const filteredApplications = useMemo(() => {
     const base =
       statusFilter === "pending" ? pendingCards : statusFilter === "approved" ? approvedCards : rejectedCards;
@@ -343,10 +353,10 @@ export function CurationTab({
           app.profileUsername.toLowerCase().includes(lower);
         if (!matches) return false;
       }
-      if (filterNiche && app.influencerNiche !== filterNiche) return false;
+      if (filterNiche && !nicheNamesForApp(app).includes(filterNiche)) return false;
       return true;
     });
-  }, [statusFilter, pendingCards, approvedCards, rejectedCards, debouncedSearch, filterNiche]);
+  }, [statusFilter, pendingCards, approvedCards, rejectedCards, debouncedSearch, filterNiche, nicheNamesForApp]);
 
   const filteredKeys = useMemo(
     () => filteredApplications.map((app) => app.profileKey),
@@ -381,16 +391,12 @@ export function CurationTab({
   const nicheOptions = useMemo(() => {
     const uniqueNiches = new Set<string>();
     allCurationCards.forEach((app) => {
-      if (app.influencerNiche) {
-        const niche = niches.find((n) => n.id.toString() === app.influencerNiche.toString());
-        if (niche) uniqueNiches.add(niche.id.toString());
-      }
+      nicheNamesForApp(app).forEach((name) => uniqueNiches.add(name));
     });
-    return Array.from(uniqueNiches).map((id) => {
-      const niche = niches.find((n) => n.id.toString() === id);
-      return { value: id, label: niche?.name || id };
-    });
-  }, [allCurationCards, niches]);
+    return Array.from(uniqueNiches)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+      .map((name) => ({ value: name, label: name }));
+  }, [allCurationCards, nicheNamesForApp]);
 
   // Focus handling (abre modal de perfil automaticamente via prop)
   const focusHandledRef = useRef<string | null>(null);
@@ -631,8 +637,7 @@ export function CurationTab({
 
   // ── Helpers de exibição ─────────────────────────────────────────────────────
 
-  const nicheLabelForCard = (app: ApplicationWithProfile) =>
-    resolveNicheDisplayName(app.influencerNiche, niches, app.influencerNicheName);
+  const nicheNamesForCard = (app: ApplicationWithProfile) => nicheNamesForApp(app);
 
   const metaLabelForCard = (app: ApplicationWithProfile) => {
     if (app.profileStatus === "curation") return "Enviado em: —";
@@ -808,7 +813,7 @@ export function CurationTab({
                     // Custo já calculado upstream (costSlot). Não exibimos o
                     // breakdown de preços do influenciador aqui — só o badge.
                     data={{ ...app, prices: undefined }}
-                    nicheName={nicheLabelForCard(app)}
+                    nicheNames={nicheNamesForCard(app)}
                     isSelected={selectedInfluencers.has(app.profileKey)}
                     selectable={isPending}
                     onSelect={() => handleSelectApplication(app.profileKey)}

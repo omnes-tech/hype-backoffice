@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { useWorkspacePermissions } from "@/contexts/workspace-context";
 import { SocialNetworkIcon } from "@/components/social-network-icon";
 import { getSocialNetworkProfileUrl, getNetworkLabel } from "@/shared/constants/network-labels";
+import { splitNicheNames } from "@/shared/utils/niche-display";
 import {
   computePriceData,
   fmtBRL,
@@ -428,7 +429,7 @@ export function InfluencerProfileCard({
 // NichesRow — chips compactos + "Ver mais (+N)" → modal
 // ---------------------------------------------------------------------------
 
-const MAX_NICHES_VISIBLE = 1;
+const MAX_NICHES_VISIBLE = 2;
 
 function NichesRow({
   names,
@@ -441,22 +442,7 @@ function NichesRow({
 
   // Normaliza: split por vírgula (backend pode mandar tudo numa string só),
   // dedupe case-insensitive, descarta vazios mantendo a ordem original.
-  const cleaned = (() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const raw of names) {
-      const parts = (raw ?? "").split(",");
-      for (const part of parts) {
-        const v = part.trim();
-        if (!v) continue;
-        const k = v.toLowerCase();
-        if (seen.has(k)) continue;
-        seen.add(k);
-        out.push(v);
-      }
-    }
-    return out;
-  })();
+  const cleaned = splitNicheNames(names.join(","));
 
   if (cleaned.length === 0) return null;
 
@@ -466,13 +452,15 @@ function NichesRow({
   return (
     <>
       <div className="flex flex-wrap items-center gap-1.5">
-        {visible.length > 0 && (
+        {visible.map((name) => (
           <span
-            className="rounded bg-[#f2e2ff] px-1 py-0.5 text-xs font-medium leading-tight text-primary-700"
+            key={name}
+            title={name}
+            className="max-w-[140px] truncate rounded bg-[#f2e2ff] px-1.5 py-0.5 text-xs font-medium leading-tight text-primary-700"
           >
-            Nichos
+            {name}
           </span>
-        )}
+        ))}
         {remaining > 0 && (
           <button
             type="button"

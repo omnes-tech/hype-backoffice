@@ -210,6 +210,36 @@ export async function bulkAddCampaignGroupMembers(
   return parse(response, "Falha ao adicionar participantes ao grupo");
 }
 
+export interface CampaignGroupPost {
+  id: string;
+  content: string;
+  origin: string;
+  created_at: string;
+  author_name: string;
+}
+
+/** Publicações já enviadas ao grupo (mais recentes primeiro). */
+export async function listCampaignGroupPosts(
+  campaignId: string,
+  groupId: string,
+  params: { page: number; per_page: number },
+): Promise<ApiPage<CampaignGroupPost>> {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    per_page: String(params.per_page),
+  });
+  const response = await fetch(
+    getApiUrl(
+      `${base(campaignId)}/${encodeURIComponent(groupId)}/posts?${query}`,
+    ),
+    { headers: headers() },
+  );
+  return parse<ApiPage<CampaignGroupPost>>(
+    response,
+    "Falha ao carregar publicações do grupo",
+  );
+}
+
 export async function createCampaignGroupPost(
   campaignId: string,
   groupId: string,

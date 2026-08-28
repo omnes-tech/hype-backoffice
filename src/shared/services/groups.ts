@@ -18,6 +18,7 @@ import type {
   CommunityGroupModerator,
   CommunityGroupPage,
   CreateGroupPayload,
+  GroupPost,
   GroupPostPage,
   GroupStatusFilter,
   UpdateGroupPayload,
@@ -158,11 +159,12 @@ export function deleteGroup(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Upload de capa (multipart, campo `image`) — fluxo: subir → usar a `url`
-// retornada em `cover_url` ao criar/editar (upload deferido até o submit).
+// Upload de imagem (multipart, campo `image`) — mesma rota (§4.8) serve capa de
+// grupo e imagem de post. Fluxo: subir → usar a `url` retornada em `cover_url`
+// (grupo) ou `image_url` (post). Upload deferido até o submit.
 // ---------------------------------------------------------------------------
 
-export async function uploadGroupCover(file: File): Promise<{ url: string }> {
+export async function uploadCommunityImage(file: File): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append("image", file);
 
@@ -177,6 +179,9 @@ export async function uploadGroupCover(file: File): Promise<{ url: string }> {
   const json = await res.json();
   return (json.data ?? json) as { url: string };
 }
+
+/** Alias semântico para o upload da capa do grupo. */
+export const uploadGroupCover = uploadCommunityImage;
 
 // ---------------------------------------------------------------------------
 // Moderadores (§4.6)
@@ -235,4 +240,39 @@ export async function listGroupPosts(
 /** Soft-delete de um post do grupo (moderação). 204. */
 export function deleteGroupPost(id: string, postId: string): Promise<void> {
   return writeJson<void>("DELETE", `${BASE}/${id}/posts/${postId}`);
+}
+
+/** Payload de publicação no grupo pelo backoffice (§4.7). */
+export interface CreateGroupPostPayload {
+  content: string;
+  image_url?: string | null;
+}
+
+/**
+ * Publica um conteúdo no grupo em nome do admin logado.
+ *
+ * `client_request_id` torna o POST idempotente no backend (índice único
+ * group_id + author_id + client_request_id): duplo clique ou retry devolve o
+ * mesmo post em vez de duplicar.
+ */
+export function createGroupPost(
+  id: string,
+  payload: CreateGroupPostPayload,
+): Promise<GroupPost> {
+  return writeJson<GroupPost>("POST", `${BASE}/${id}/posts`, {
+    content: payload.content,
+    ...(payload.image_url ? { image_url: payload.image_url } : {}),
+    client_request_id: newClientRequestId(),
+  });
+}
+
+function newClientRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (token) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = token === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }

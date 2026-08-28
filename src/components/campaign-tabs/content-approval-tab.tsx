@@ -101,20 +101,21 @@ export function ContentApprovalTab({
   const [previewModalCurrentIndex, setPreviewModalCurrentIndex] = useState(0);
   const [previewModalContentType, setPreviewModalContentType] = useState<string | undefined>();
 
-  // Buscar conteúdos com filtros dinâmicos
-  // Nota: A API pode retornar conteúdos com status 'awaiting_approval', então tratamos no frontend
+  // Buscar conteúdos com filtros dinâmicos.
+  //
+  // O status NÃO vai para a API: as abas usam o vocabulário curto
+  // ("approved"/"correction") e o banco grava o longo
+  // ("content_approved"/"correction"), então `?status=approved` devolvia lista
+  // vazia — parecia que a aprovação não tinha sido salva. O agrupamento por
+  // status já é feito abaixo, no cliente, cobrindo as duas grafias. Bônus: as
+  // três abas passam a compartilhar a mesma query.
   const filters = useMemo(() => {
     const filter: { status?: string; phase_id?: string } = {};
-    // Se o filtro for "pending", não enviamos filtro de status para a API
-    // e filtramos no frontend para incluir tanto "pending" quanto "awaiting_approval"
-    if (selectedStatusFilter !== "all" && selectedStatusFilter !== "pending") {
-      filter.status = selectedStatusFilter;
-    }
     if (selectedPhaseFilter !== "all") {
       filter.phase_id = selectedPhaseFilter;
     }
     return filter;
-  }, [selectedStatusFilter, selectedPhaseFilter]);
+  }, [selectedPhaseFilter]);
 
   const {
     data: contents = [],

@@ -29,6 +29,11 @@ export interface InscriptionApiSocialNetwork {
   photo?: string | null;
   status?: string | null;
   /**
+   * Engajamento (%) do perfil, quando o backend calcula a partir das métricas
+   * da conta (mesma definição do catálogo de criadores).
+   */
+  engagement_percent?: number | null;
+  /**
    * Preços por formato (centavos BRL) definidos pelo influenciador.
    * Presente quando o backend inclui o bloco — usado para cálculo de
    * custo de aprovação quando `payment_method === "price"`.
@@ -46,6 +51,7 @@ export interface InscriptionApiRow {
   niche_id?: string | number | null;
   niche_name?: string | null;
   engagement?: number | null;
+  engagement_percent?: number | null;
   updated_at?: string | null;
   is_external?: boolean | null;
 }
@@ -106,6 +112,26 @@ function normalizePricesDict(
 }
 
 /**
+ * Engajamento da linha. O backend expõe o valor em chaves diferentes conforme a
+ * origem (`engagement` calculado na campanha, `engagement_percent` vindo das
+ * métricas do perfil). Quem se inscreveu ainda não publicou nada na campanha, então
+ * o valor de campanha vem 0 — preferimos qualquer métrica de perfil disponível.
+ */
+function resolveRowEngagement(row: InscriptionApiRow): number {
+  const candidates = [
+    row.social_network?.engagement_percent,
+    row.engagement_percent,
+    row.engagement,
+  ];
+  for (const c of candidates) {
+    const n = Number(c);
+    if (c != null && Number.isFinite(n) && n > 0) return n;
+  }
+  const fallback = Number(row.engagement);
+  return row.engagement != null && Number.isFinite(fallback) ? fallback : 0;
+}
+
+/**
  * Linha enriquecida: user + social_network + campaign_user_id (lista de inscrições).
  */
 export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influencer {
@@ -134,10 +160,7 @@ export function mapInscriptionApiRowToInfluencer(row: InscriptionApiRow): Influe
     /** Preferir foto do perfil na rede; senão avatar do usuário */
     avatar: networkPhoto || userAvatar,
     followers: sn?.members != null && !Number.isNaN(Number(sn.members)) ? Number(sn.members) : 0,
-    engagement:
-      row.engagement != null && !Number.isNaN(Number(row.engagement))
-        ? Number(row.engagement)
-        : 0,
+    engagement: resolveRowEngagement(row),
     niche: nicheId,
     nicheName,
     status: rowStatus,

@@ -1,6 +1,11 @@
 import { getApiUrl, getAuthToken, getWorkspaceId } from "@/lib/utils/api";
 import type { CampaignContent } from "../types";
 
+/** Máximo aceito pela API (`PAGINATION_MAX_PER_PAGE`). */
+const CONTENTS_PER_PAGE = 100;
+/** Trava de segurança contra loop infinito caso a API pare de paginar. */
+const MAX_CONTENT_PAGES = 20;
+
 export interface ApproveContentData {
   content_id: string;
   feedback?: string;
@@ -30,36 +35,50 @@ export async function getCampaignContents(
     throw new Error("Workspace ID é obrigatório");
   }
 
-  const params = new URLSearchParams();
-  if (filters?.status) params.append("status", filters.status);
-  if (filters?.phase_id) params.append("phase_id", filters.phase_id);
+  // A API pagina em 20 por padrão (máx. 100). A aba de conteúdos filtra e agrupa
+  // tudo no cliente, então precisamos da lista completa — senão conteúdos
+  // aprovados/reprovados simplesmente somem em campanhas com muitos envios.
+  const all: CampaignContent[] = [];
+  for (let page = 1; page <= MAX_CONTENT_PAGES; page++) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append("status", filters.status);
+    if (filters?.phase_id) params.append("phase_id", filters.phase_id);
+    params.append("page", String(page));
+    params.append("per_page", String(CONTENTS_PER_PAGE));
 
-  const url = `/campaigns/${campaignId}/contents${
-    params.toString() ? `?${params.toString()}` : ""
-  }`;
+    const request = await fetch(
+      getApiUrl(`/campaigns/${campaignId}/contents?${params.toString()}`),
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Client-Type": "backoffice",
+          Authorization: `Bearer ${getAuthToken()}`,
+          "Workspace-Id": workspaceId,
+        },
+      }
+    );
 
-  const request = await fetch(getApiUrl(url), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Client-Type": "backoffice",
-      Authorization: `Bearer ${getAuthToken()}`,
-      "Workspace-Id": workspaceId,
-    },
-  });
-
-  if (!request.ok) {
-    let errorData;
-    try {
-      errorData = await request.json();
-    } catch {
-      errorData = { message: "Failed to get campaign contents" };
+    if (!request.ok) {
+      let errorData;
+      try {
+        errorData = await request.json();
+      } catch {
+        errorData = { message: "Failed to get campaign contents" };
+      }
+      throw errorData || "Failed to get campaign contents";
     }
-    throw errorData || "Failed to get campaign contents";
-    }
 
-  const response = await request.json();
-  return response.data;
+    const response = await request.json();
+    const batch: CampaignContent[] = Array.isArray(response.data)
+      ? response.data
+      : [];
+    all.push(...batch);
+
+    if (batch.length < CONTENTS_PER_PAGE) break;
+  }
+
+  return all;
 }
 
 /**

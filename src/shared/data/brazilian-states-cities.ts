@@ -307,3 +307,41 @@ export const getAllStates = (): State[] => {
   return BRAZILIAN_STATES;
 };
 
+// ---------------------------------------------------------------------------
+// Chave de cidade usada nos selects: "Nome-UF" (ex.: "Biritiba-Mirim-SP").
+// O nome pode conter hífen, então a UF é sempre o trecho após o ÚLTIMO hífen —
+// `split("-")[0]` quebraria nessas cidades.
+// ---------------------------------------------------------------------------
+
+export const buildCityKey = (name: string, state: string): string =>
+  `${name}-${state}`;
+
+export const parseCityKey = (
+  key: string,
+): { name: string; state: string } | null => {
+  const separator = key.lastIndexOf("-");
+  if (separator <= 0 || separator === key.length - 1) return null;
+  return {
+    name: key.slice(0, separator),
+    state: key.slice(separator + 1),
+  };
+};
+
+/**
+ * Mantém apenas as cidades que ainda pertencem aos estados selecionados.
+ *
+ * Trocar a lista de estados não pode zerar a seleção de cidades: ao adicionar um
+ * segundo estado, as cidades já escolhidas no primeiro continuam válidas. Só
+ * saem as cidades de um estado que foi removido (e chaves malformadas).
+ */
+export const retainCitiesForStates = (
+  cityKeys: string[],
+  stateCodes: string[],
+): string[] => {
+  if (stateCodes.length === 0) return [];
+  const allowed = new Set(stateCodes);
+  return cityKeys.filter((key) => {
+    const parsed = parseCityKey(key);
+    return !!parsed && allowed.has(parsed.state);
+  });
+};

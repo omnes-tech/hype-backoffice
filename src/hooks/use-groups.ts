@@ -18,6 +18,7 @@ import {
 import {
   addGroupModerator,
   createGroup,
+  createGroupPost,
   deleteGroup,
   deleteGroupPost,
   getGroup,
@@ -27,6 +28,7 @@ import {
   updateGroup,
   uploadGroupCover,
 } from "@/shared/services/groups";
+import type { CreateGroupPostPayload } from "@/shared/services/groups";
 import type {
   CreateGroupPayload,
   GroupStatusFilter,
@@ -111,7 +113,10 @@ export function useGroupPosts(
 // Mutations — CRUD
 // ---------------------------------------------------------------------------
 
-/** Upload de capa (deferido): chame antes do create/update e use a `url` em `cover_url`. */
+/**
+ * Upload de imagem (deferido). Mesma rota serve capa do grupo (`cover_url`) e
+ * imagem de post (`image_url`) — envie o arquivo e use a `url` retornada.
+ */
 export function useUploadGroupCover() {
   return useMutation({
     mutationFn: (file: File) => uploadGroupCover(file),
@@ -180,6 +185,24 @@ export function useDeleteGroupPost(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groupKeys.posts(id) });
       // posts_count muda → revalida lista/detalhe.
+      queryClient.invalidateQueries({ queryKey: groupKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: groupKeys.all });
+    },
+  });
+}
+
+/**
+ * Publica um conteúdo no grupo pelo backoffice (§4.7).
+ *
+ * Invalida a lista de posts (o novo item entra no topo) e detalhe/listagem,
+ * porque `posts_count` muda.
+ */
+export function useCreateGroupPost(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateGroupPostPayload) => createGroupPost(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groupKeys.posts(id) });
       queryClient.invalidateQueries({ queryKey: groupKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: groupKeys.all });
     },

@@ -16,7 +16,7 @@ import {
   Legend,
   type ChartOptions,
 } from "chart.js";
-import { Line, Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
@@ -25,6 +25,7 @@ import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { getUploadUrl } from "@/lib/utils/api";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { DemographicsBarChart } from "@/components/audience-by-age-panel";
 import {
   buildAudienceBarSeries,
   topAgeBracketLabel,
@@ -80,61 +81,7 @@ interface EngagementDayData {
   interactions: number;
 }
 
-/** Fallback visual quando a API não retorna faixas etárias */
-const DEMO_AGE_LABELS = ["18-29", "30-49", "50-64", "+65"];
-const DEMO_INSTAGRAM_PCT = [85, 55, 28, 12];
-const DEMO_YOUTUBE_PCT = [92, 60, 32, 15];
-
-function ageBracketForMaxPercent(values: number[]): string {
-  const i = values.indexOf(Math.max(...values));
-  const raw = DEMO_AGE_LABELS[i] ?? "—";
-  if (raw === "—") return raw;
-  return raw.replace("-", "–");
-}
-
 const EMPTY_CONTENT_METRICS_MAP: Record<string, ContentMetrics> = {};
-
-const barDemographicsOptions: ChartOptions<"bar"> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: "#f9f9f9",
-      titleColor: "#202020",
-      bodyColor: "#202020",
-      padding: 10,
-      cornerRadius: 4,
-      displayColors: true,
-      boxPadding: 4,
-      callbacks: {
-        title(items) {
-          return items[0]?.label ?? "";
-        },
-        label(ctx) {
-          const label = ctx.dataset.label ?? "";
-          const v = ctx.parsed.y;
-          return `${label}: ${v}%`;
-        },
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { display: false },
-      ticks: { color: "#202020", font: { size: 16 } },
-    },
-    y: {
-      beginAtZero: true,
-      max: 100,
-      grid: { color: "#d8d8d8" },
-      ticks: {
-        color: "#646464",
-        callback: (v) => `${v}%`,
-      },
-    },
-  },
-};
 
 function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   const chartData = {
@@ -211,40 +158,6 @@ function EngagementLineChart({ data }: { data: EngagementDayData[] }) {
   return <Line data={chartData} options={options} />;
 }
 
-function DemographicsBarChart({
-  labels,
-  instagramData,
-  youtubeData,
-}: {
-  labels: string[];
-  instagramData: number[];
-  youtubeData: number[];
-}) {
-  const chartData = {
-    labels,
-    datasets: [
-      {
-        label: "Instagram",
-        data: instagramData,
-        backgroundColor: "#278cff",
-        borderRadius: 12,
-        borderSkipped: false,
-        maxBarThickness: 36,
-      },
-      {
-        label: "Youtube",
-        data: youtubeData,
-        backgroundColor: "#ff633c",
-        borderRadius: 12,
-        borderSkipped: false,
-        maxBarThickness: 36,
-      },
-    ],
-  };
-
-  return <Bar data={chartData} options={barDemographicsOptions} />;
-}
-
 interface MetricsTabProps {
   contents: CampaignContent[];
   campaignPhases?: CampaignPhase[];
@@ -289,32 +202,18 @@ export function MetricsTab({
     [audienceByAge]
   );
 
-  const chartLabels = audienceBarSeries?.labels.length
-    ? audienceBarSeries.labels
-    : DEMO_AGE_LABELS;
-  const chartInstagram = audienceBarSeries?.labels.length
-    ? audienceBarSeries.instagram
-    : DEMO_INSTAGRAM_PCT;
-  const chartYoutube = audienceBarSeries?.labels.length
-    ? audienceBarSeries.youtube
-    : DEMO_YOUTUBE_PCT;
-
   const igBuckets = audienceByAge?.networks?.instagram?.age_buckets;
   const ytBuckets = audienceByAge?.networks?.youtube?.age_buckets;
 
-  const topInstagramAge = useMemo(() => {
-    if (audienceByAge?.networks?.instagram?.has_data && igBuckets?.length) {
-      return topAgeBracketLabel(igBuckets);
-    }
-    return ageBracketForMaxPercent(DEMO_INSTAGRAM_PCT);
-  }, [audienceByAge, igBuckets]);
+  const topInstagramAge = useMemo(
+    () => (audienceBarSeries?.hasInstagram ? topAgeBracketLabel(igBuckets) : null),
+    [audienceBarSeries, igBuckets],
+  );
 
-  const topYoutubeAge = useMemo(() => {
-    if (audienceByAge?.networks?.youtube?.has_data && ytBuckets?.length) {
-      return topAgeBracketLabel(ytBuckets);
-    }
-    return ageBracketForMaxPercent(DEMO_YOUTUBE_PCT);
-  }, [audienceByAge, ytBuckets]);
+  const topYoutubeAge = useMemo(
+    () => (audienceBarSeries?.hasYoutube ? topAgeBracketLabel(ytBuckets) : null),
+    [audienceBarSeries, ytBuckets],
+  );
 
   const identifiedPosts: IdentifiedPost[] = propsIdentifiedPosts;
 
@@ -546,7 +445,11 @@ export function MetricsTab({
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px]">
+              <div
+                className={`bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px] ${
+                  audienceBarSeries ? "" : "lg:col-span-2"
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <div className="bg-[#fac8ff] rounded-lg size-9 flex items-center justify-center shrink-0">
                     <Icon name="ChartLine" color="#0A0A0A" size={24} />
@@ -558,44 +461,47 @@ export function MetricsTab({
                 </div>
               </div>
 
-              <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px]">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                  <div className="flex flex-col gap-3">
-                    <p className="text-[17px] text-[#646464]">Maior público Instagram</p>
-                    <p className="text-2xl font-bold text-black">
-                      {topInstagramAge === "—" ? "—" : `${topInstagramAge} anos`}
-                    </p>
+              {/* Sem faixas etárias reais o card inteiro sai: nada de números
+                  ilustrativos nem de série de uma rede que a campanha não tem. */}
+              {audienceBarSeries && (
+                <div className="bg-[#f2f2f2] rounded-lg px-4 py-5 flex flex-col gap-5 min-h-[320px]">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    {topInstagramAge && (
+                      <div className="flex flex-col gap-3">
+                        <p className="text-[17px] text-[#646464]">Maior público Instagram</p>
+                        <p className="text-2xl font-bold text-black">
+                          {topInstagramAge === "—" ? "—" : `${topInstagramAge} anos`}
+                        </p>
+                      </div>
+                    )}
+                    {topYoutubeAge && (
+                      <div className="flex flex-col gap-3 sm:text-right">
+                        <p className="text-[17px] text-[#646464]">Maior público YouTube</p>
+                        <p className="text-2xl font-bold text-black">
+                          {topYoutubeAge === "—" ? "—" : `${topYoutubeAge} anos`}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col gap-3 sm:text-right">
-                    <p className="text-[17px] text-[#646464]">Maior público YouTube</p>
-                    <p className="text-2xl font-bold text-black">
-                      {topYoutubeAge === "—" ? "—" : `${topYoutubeAge} anos`}
-                    </p>
+                  <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
+                    {audienceBarSeries.hasYoutube && (
+                      <div className="flex items-center gap-2">
+                        <span className="size-4 rounded bg-[#ff633c]" aria-hidden />
+                        <span>Youtube</span>
+                      </div>
+                    )}
+                    {audienceBarSeries.hasInstagram && (
+                      <div className="flex items-center gap-2">
+                        <span className="size-4 rounded bg-[#278cff]" aria-hidden />
+                        <span>Instagram</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="h-[220px] w-full min-h-0 flex-1">
+                    <DemographicsBarChart series={audienceBarSeries} />
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-6 text-sm text-[#202020]">
-                  <div className="flex items-center gap-2">
-                    <span className="size-4 rounded bg-[#ff633c]" aria-hidden />
-                    <span>Youtube</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="size-4 rounded bg-[#278cff]" aria-hidden />
-                    <span>Instagram</span>
-                  </div>
-                </div>
-                <div className="h-[220px] w-full min-h-0 flex-1">
-                  <DemographicsBarChart
-                    labels={chartLabels}
-                    instagramData={chartInstagram}
-                    youtubeData={chartYoutube}
-                  />
-                </div>
-                {!audienceBarSeries && (
-                  <p className="text-xs text-neutral-500">
-                    Gráfico ilustrativo: a API ainda não retornou faixas etárias para esta campanha.
-                  </p>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
