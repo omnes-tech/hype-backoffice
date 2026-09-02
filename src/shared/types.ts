@@ -1122,6 +1122,10 @@ export interface GroupPost {
   id: string; // public_id
   content: string;
   image_url: string | null;
+  /** Vídeo do post (migration 089). Quando presente, substitui a imagem. */
+  video_url: string | null;
+  /** Poster do vídeo (primeiro frame). `null` = player abre no fundo preto. */
+  video_thumbnail_url: string | null;
   author: GroupPostAuthor;
   likes_count: number;
   comments_count: number;

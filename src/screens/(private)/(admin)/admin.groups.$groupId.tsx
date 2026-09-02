@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs } from "@/components/ui/tabs";
 import { GroupForm, type GroupFormSubmit } from "@/components/groups/group-form";
 import { GroupPostComposer } from "@/components/groups/group-post-composer";
+import { PostMedia } from "@/components/groups/post-media";
 import {
   useAddGroupModerator,
   useDeleteGroup,
@@ -371,7 +372,6 @@ function PostList({
     <div className="flex flex-col gap-3">
       {posts.map((post) => {
         const avatar = getUploadUrl(post.author.avatar_url);
-        const image = getUploadUrl(post.image_url);
         return (
           <div
             key={post.id}
@@ -398,13 +398,11 @@ function PostList({
               <p className="whitespace-pre-wrap text-sm text-neutral-700">
                 {post.content}
               </p>
-              {image && (
-                <img
-                  src={image}
-                  alt="Conteúdo do post"
-                  className="mt-1 max-h-48 w-fit rounded-xl object-cover"
-                />
-              )}
+              <PostMedia
+                imageUrl={post.image_url}
+                videoUrl={post.video_url}
+                videoThumbnailUrl={post.video_thumbnail_url}
+              />
               <div className="mt-1 flex items-center gap-3 text-xs text-neutral-400">
                 <span className="flex items-center gap-1">
                   <Icon name="Heart" size={12} color="#a3a3a3" />

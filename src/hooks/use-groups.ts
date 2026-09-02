@@ -26,6 +26,7 @@ import {
   listGroups,
   removeGroupModerator,
   updateGroup,
+  uploadCommunityVideo,
   uploadGroupCover,
 } from "@/shared/services/groups";
 import type { CreateGroupPostPayload } from "@/shared/services/groups";
@@ -117,6 +118,16 @@ export function useGroupPosts(
  * Upload de imagem (deferido). Mesma rota serve capa do grupo (`cover_url`) e
  * imagem de post (`image_url`) — envie o arquivo e use a `url` retornada.
  */
+/**
+ * Upload do vídeo do post. Mutation separada da capa para o composer conseguir
+ * mostrar "enviando vídeo..." (que demora bem mais) sem confundir com a imagem.
+ */
+export function useUploadGroupVideo() {
+  return useMutation({
+    mutationFn: (file: File) => uploadCommunityVideo(file),
+  });
+}
+
 export function useUploadGroupCover() {
   return useMutation({
     mutationFn: (file: File) => uploadGroupCover(file),

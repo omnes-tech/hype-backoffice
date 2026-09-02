@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -309,15 +309,23 @@ function RouteComponent() {
 
   const totalSteps = 6;
 
-  const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Identidade estável e obrigatória: vários steps declaram `updateFormData` no array
+  // de dependências de useEffect. Sem useCallback a função é recriada a cada render,
+  // o efeito redispara, o setState causa novo render — "Maximum update depth exceeded".
+  const updateFormData = useCallback((field: keyof CampaignFormData, value: unknown) => {
+    setFormData((prev) => {
+      // Bail-out: gravar o mesmo valor não deve produzir render. O spread cria sempre
+      // um objeto novo, então sem esta guarda o React nunca consegue abortar a atualização.
+      if (Object.is(prev[field], value)) return prev;
+      return { ...prev, [field]: value };
+    });
     setFieldErrors((prev) => {
       if (!prev.has(field as string)) return prev;
       const next = new Set(prev);
       next.delete(field as string);
       return next;
     });
-  };
+  }, []);
 
   // Handler para submissão do formulário
   const handleSubmitCampaign = async () => {

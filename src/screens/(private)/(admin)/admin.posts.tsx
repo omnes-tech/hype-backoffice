@@ -11,6 +11,7 @@ import {
   useDeleteCommunityPost,
 } from "@/hooks/use-community-posts";
 import { getUploadUrl } from "@/lib/utils/api";
+import { PostMedia } from "@/components/groups/post-media";
 import type { CommunityPostModeration } from "@/shared/services/community-posts";
 
 export const Route = createFileRoute(
@@ -197,7 +198,6 @@ function PostRow({
   onDelete: (post: CommunityPostModeration) => void;
 }) {
   const avatar = getUploadUrl(post.author.avatar_url);
-  const image = getUploadUrl(post.image_url);
 
   return (
     <div className="flex gap-3 rounded-2xl border border-neutral-200 bg-white p-4">
@@ -231,13 +231,11 @@ function PostRow({
         <p className="whitespace-pre-wrap text-sm text-neutral-700">
           {post.content}
         </p>
-        {image && (
-          <img
-            src={image}
-            alt="Imagem do post"
-            className="mt-1 max-h-48 w-fit rounded-xl object-cover"
-          />
-        )}
+        <PostMedia
+          imageUrl={post.image_url}
+          videoUrl={post.video_url}
+          videoThumbnailUrl={post.video_thumbnail_url}
+        />
         <div className="mt-1 flex items-center gap-3 text-xs text-neutral-400">
           <span className="flex items-center gap-1">
             <Icon name="Heart" size={12} color="#a3a3a3" />

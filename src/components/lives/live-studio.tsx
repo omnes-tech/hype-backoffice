@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AudioPresets,
   Room,
   RoomEvent,
   Track,
+  type AudioCaptureOptions,
   type LocalTrackPublication,
+  type TrackPublishOptions,
 } from "livekit-client";
 
 import { Icon } from "@/components/ui/icon";
@@ -17,9 +20,69 @@ interface LiveStudioProps {
 }
 
 /**
+ * Perfil de áudio publicado.
+ *
+ * `voice` liga o processamento do navegador (eco/ruído/ganho) e DTX — é o certo
+ * para alguém falando com fone. `music` desliga tudo isso e sobe em estéreo com
+ * bitrate alto: o processamento de voz destrói música ao vivo (corta cauda de
+ * instrumento achando que é ruído de fundo) e DTX corta trechos silenciosos.
+ */
+type AudioProfile = "voice" | "music";
+
+interface AudioSettings {
+  profile: AudioProfile;
+  echoCancellation: boolean;
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+  /** `undefined` = dispositivo padrão do sistema. */
+  deviceId?: string;
+}
+
+const DEFAULT_AUDIO: AudioSettings = {
+  profile: "voice",
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
+function captureOptionsFor(settings: AudioSettings): AudioCaptureOptions {
+  if (settings.profile === "music") {
+    return {
+      deviceId: settings.deviceId,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: 2,
+    };
+  }
+  return {
+    deviceId: settings.deviceId,
+    echoCancellation: settings.echoCancellation,
+    noiseSuppression: settings.noiseSuppression,
+    autoGainControl: settings.autoGainControl,
+  };
+}
+
+function publishOptionsFor(settings: AudioSettings): TrackPublishOptions {
+  return settings.profile === "music"
+    ? {
+        audioPreset: AudioPresets.musicHighQualityStereo,
+        dtx: false,
+        red: false,
+        forceStereo: true,
+      }
+    : { audioPreset: AudioPresets.speech };
+}
+
+/**
  * Estúdio de transmissão do criador (LiveKit/WebRTC). A mídia é publicada
  * direto do navegador para o SFU — não passa pela API. O preview local mostra a
  * câmera do próprio criador (espelhada).
+ *
+ * O painel de configurações existe porque "o áudio não sai" quase nunca é a
+ * transmissão: é o microfone errado selecionado (webcam em vez do headset) ou
+ * um processamento comendo o sinal. O medidor de nível mostra na hora que o
+ * microfone está captando, antes de alguém reclamar do outro lado.
  */
 export function LiveStudio({
   credentials,
@@ -34,19 +97,86 @@ export function LiveStudio({
   const [camOn, setCamOn] = useState(true);
   const [screenOn, setScreenOn] = useState(false);
 
+  const [showSettings, setShowSettings] = useState(false);
+  const [audio, setAudio] = useState<AudioSettings>(DEFAULT_AUDIO);
+  const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [cams, setCams] = useState<MediaDeviceInfo[]>([]);
+  const [cameraId, setCameraId] = useState<string | undefined>(undefined);
+  const [applying, setApplying] = useState(false);
+  /** Pico do sinal do microfone, 0..1. Alimenta o medidor de nível. */
+  const [level, setLevel] = useState(0);
+
+  // `audio` é lido dentro do effect de conexão, que NÃO deve reconectar quando
+  // as configurações mudam (isso derrubaria a live). A ref dá o valor atual sem
+  // entrar na lista de dependências.
+  const audioRef = useRef(audio);
+  audioRef.current = audio;
+
+  // ─── Medidor de nível do microfone ────────────────────────────────────────
+  // Web Audio direto no MediaStreamTrack local: mede o que está sendo captado,
+  // não o que volta do servidor. Amostra a 12fps — a 60 do requestAnimationFrame
+  // só geraria re-render à toa.
+  const meterRef = useRef<{ ctx: AudioContext; timer: number } | null>(null);
+
+  const stopMeter = useCallback(() => {
+    const meter = meterRef.current;
+    if (!meter) return;
+    window.clearInterval(meter.timer);
+    void meter.ctx.close().catch(() => undefined);
+    meterRef.current = null;
+    setLevel(0);
+  }, []);
+
+  const startMeter = useCallback(
+    (track: MediaStreamTrack) => {
+      stopMeter();
+      try {
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(new MediaStream([track]));
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+
+        const timer = window.setInterval(() => {
+          analyser.getByteTimeDomainData(data);
+          let peak = 0;
+          for (let i = 0; i < data.length; i += 1) {
+            peak = Math.max(peak, Math.abs(data[i] - 128) / 128);
+          }
+          setLevel(peak);
+        }, 80);
+
+        meterRef.current = { ctx, timer };
+      } catch {
+        // AudioContext bloqueado (autoplay policy): o estúdio segue sem medidor.
+        meterRef.current = null;
+      }
+    },
+    [stopMeter],
+  );
+
   // Conexão e publicação. Re-executa se as credenciais mudarem (reconexão).
   useEffect(() => {
     let cancelled = false;
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
 
-    const attachCamera = (pub: LocalTrackPublication) => {
+    const attachLocalTrack = (pub: LocalTrackPublication) => {
       if (pub.source === Track.Source.Camera && pub.videoTrack && videoRef.current) {
         pub.videoTrack.attach(videoRef.current);
       }
+      if (pub.source === Track.Source.Microphone && pub.audioTrack?.mediaStreamTrack) {
+        startMeter(pub.audioTrack.mediaStreamTrack);
+      }
     };
 
-    room.on(RoomEvent.LocalTrackPublished, attachCamera);
+    const detachLocalTrack = (pub: LocalTrackPublication) => {
+      if (pub.source === Track.Source.Microphone) stopMeter();
+    };
+
+    room.on(RoomEvent.LocalTrackPublished, attachLocalTrack);
+    room.on(RoomEvent.LocalTrackUnpublished, detachLocalTrack);
     room.on(RoomEvent.Disconnected, (reason) => {
       // 10 = TOKEN_EXPIRED no enum DisconnectReason do LiveKit.
       if (reason === 10) onTokenExpired?.();
@@ -58,16 +188,34 @@ export function LiveStudio({
         await room.connect(credentials.url, credentials.token);
         if (cancelled) return;
         await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
+        await room.localParticipant.setMicrophoneEnabled(
+          true,
+          captureOptionsFor(audioRef.current),
+          publishOptionsFor(audioRef.current),
+        );
         if (cancelled) return;
-        // Caso a câmera já estivesse publicada antes do listener registrar.
+        // Caso as tracks já estivessem publicadas antes do listener registrar.
         const camPub = room.localParticipant.getTrackPublication(
           Track.Source.Camera,
         );
-        if (camPub) attachCamera(camPub);
+        if (camPub) attachLocalTrack(camPub);
+        const micPub = room.localParticipant.getTrackPublication(
+          Track.Source.Microphone,
+        );
+        if (micPub) attachLocalTrack(micPub);
         setConnecting(false);
         setMicOn(true);
         setCamOn(true);
+
+        // Os rótulos dos dispositivos só aparecem depois da permissão concedida
+        // — por isso a enumeração vem aqui, e não na montagem do componente.
+        const [audioIn, videoIn] = await Promise.all([
+          Room.getLocalDevices("audioinput"),
+          Room.getLocalDevices("videoinput"),
+        ]);
+        if (cancelled) return;
+        setMics(audioIn);
+        setCams(videoIn);
       } catch (err) {
         if (cancelled) return;
         setConnecting(false);
@@ -81,18 +229,26 @@ export function LiveStudio({
 
     return () => {
       cancelled = true;
-      room.off(RoomEvent.LocalTrackPublished, attachCamera);
+      stopMeter();
+      room.off(RoomEvent.LocalTrackPublished, attachLocalTrack);
+      room.off(RoomEvent.LocalTrackUnpublished, detachLocalTrack);
       room.disconnect();
       roomRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credentials.url, credentials.token]);
 
+  useEffect(() => stopMeter, [stopMeter]);
+
   const toggleMic = async () => {
     const room = roomRef.current;
     if (!room) return;
     const next = !micOn;
-    await room.localParticipant.setMicrophoneEnabled(next);
+    await room.localParticipant.setMicrophoneEnabled(
+      next,
+      captureOptionsFor(audio),
+      publishOptionsFor(audio),
+    );
     setMicOn(next);
   };
 
@@ -114,6 +270,54 @@ export function LiveStudio({
     } catch (err) {
       onError?.(
         err instanceof Error ? err.message : "Falha ao compartilhar a tela.",
+      );
+    }
+  };
+
+  /**
+   * Republica o microfone com as novas opções.
+   *
+   * Trocar processamento ou perfil exige recriar a track (constraints entram na
+   * captura, não dá pra alterar no ar), então desligamos e religamos o mic. O
+   * vídeo continua no ar — quem assiste vê um engasgo no áudio, não um corte.
+   */
+  const applyAudio = async (next: AudioSettings) => {
+    setAudio(next);
+    const room = roomRef.current;
+    if (!room || !micOn) return;
+
+    setApplying(true);
+    try {
+      stopMeter();
+      await room.localParticipant.setMicrophoneEnabled(false);
+      const pub = await room.localParticipant.setMicrophoneEnabled(
+        true,
+        captureOptionsFor(next),
+        publishOptionsFor(next),
+      );
+      if (pub?.audioTrack?.mediaStreamTrack) {
+        startMeter(pub.audioTrack.mediaStreamTrack);
+      }
+    } catch (err) {
+      onError?.(
+        err instanceof Error
+          ? `Falha ao aplicar as configurações de áudio: ${err.message}`
+          : "Falha ao aplicar as configurações de áudio.",
+      );
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const changeCamera = async (deviceId: string) => {
+    const room = roomRef.current;
+    if (!room) return;
+    setCameraId(deviceId);
+    try {
+      await room.switchActiveDevice("videoinput", deviceId);
+    } catch (err) {
+      onError?.(
+        err instanceof Error ? err.message : "Falha ao trocar a câmera.",
       );
     }
   };
@@ -167,8 +371,222 @@ export function LiveStudio({
           icon="MonitorUp"
           label={screenOn ? "Parar tela" : "Compartilhar tela"}
         />
+        <StudioButton
+          active={showSettings}
+          onClick={() => setShowSettings((open) => !open)}
+          icon="Settings"
+          label="Configurações de áudio"
+        />
       </div>
+
+      {/* Nível do microfone — sempre visível: é o diagnóstico de "não sai som". */}
+      <MicLevel level={level} micOn={micOn} connecting={connecting} />
+
+      {showSettings && (
+        <div className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-4">
+          <h4 className="text-sm font-semibold text-neutral-900">
+            Configurações de áudio e vídeo
+          </h4>
+
+          <DeviceSelect
+            label="Microfone"
+            value={audio.deviceId ?? ""}
+            devices={mics}
+            disabled={applying || connecting}
+            fallbackLabel="Microfone"
+            onChange={(deviceId) => void applyAudio({ ...audio, deviceId })}
+          />
+
+          <DeviceSelect
+            label="Câmera"
+            value={cameraId ?? ""}
+            devices={cams}
+            disabled={connecting}
+            fallbackLabel="Câmera"
+            onChange={(deviceId) => void changeCamera(deviceId)}
+          />
+
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-neutral-600">
+              Perfil do áudio
+            </span>
+            <select
+              value={audio.profile}
+              disabled={applying || connecting}
+              onChange={(event) =>
+                void applyAudio({
+                  ...audio,
+                  profile: event.target.value as AudioProfile,
+                })
+              }
+              className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
+            >
+              <option value="voice">Voz — fala, com filtros (padrão)</option>
+              <option value="music">Música — estéreo, sem filtros</option>
+            </select>
+            <span className="text-xs text-neutral-400">
+              {audio.profile === "music"
+                ? "Estéreo em alta qualidade. Use quando houver instrumento ou música ao vivo."
+                : "Filtros de voz ligados. Ideal para quem fala usando fone."}
+            </span>
+          </label>
+
+          {audio.profile === "voice" && (
+            <div className="flex flex-col gap-2">
+              <AudioToggle
+                label="Cancelamento de eco"
+                hint="Desligue só se estiver usando fone e o áudio soar abafado."
+                checked={audio.echoCancellation}
+                disabled={applying || connecting}
+                onChange={(checked) =>
+                  void applyAudio({ ...audio, echoCancellation: checked })
+                }
+              />
+              <AudioToggle
+                label="Supressão de ruído"
+                hint="Remove ventilador e ar-condicionado. Pode cortar voz baixa."
+                checked={audio.noiseSuppression}
+                disabled={applying || connecting}
+                onChange={(checked) =>
+                  void applyAudio({ ...audio, noiseSuppression: checked })
+                }
+              />
+              <AudioToggle
+                label="Ganho automático"
+                hint="Nivela o volume de quem fala longe do microfone."
+                checked={audio.autoGainControl}
+                disabled={applying || connecting}
+                onChange={(checked) =>
+                  void applyAudio({ ...audio, autoGainControl: checked })
+                }
+              />
+            </div>
+          )}
+
+          {applying && (
+            <span className="text-xs text-neutral-500">
+              Aplicando… o áudio fica mudo por um instante.
+            </span>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * Barra de nível. Verde a partir de um sinal audível; cinza quando o microfone
+ * capta silêncio — que é exatamente o sintoma de "não está transmitindo som".
+ */
+function MicLevel({
+  level,
+  micOn,
+  connecting,
+}: {
+  level: number;
+  micOn: boolean;
+  connecting: boolean;
+}) {
+  if (connecting) return null;
+
+  const percent = Math.min(100, Math.round(level * 140));
+  const audible = micOn && percent > 4;
+
+  return (
+    <div className="flex items-center gap-3">
+      <Icon
+        name={micOn ? "Mic" : "MicOff"}
+        size={14}
+        color={audible ? "#16a34a" : "#a3a3a3"}
+      />
+      <div
+        role="meter"
+        aria-label="Nível do microfone"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200"
+      >
+        <div
+          className={`h-full transition-[width] duration-75 ${
+            audible ? "bg-green-500" : "bg-neutral-300"
+          }`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="w-40 text-right text-xs text-neutral-400">
+        {!micOn
+          ? "Microfone mudo"
+          : audible
+            ? "Captando áudio"
+            : "Sem sinal do microfone"}
+      </span>
+    </div>
+  );
+}
+
+function DeviceSelect({
+  label,
+  value,
+  devices,
+  disabled,
+  fallbackLabel,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  devices: MediaDeviceInfo[];
+  disabled: boolean;
+  fallbackLabel: string;
+  onChange: (deviceId: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-neutral-600">{label}</span>
+      <select
+        value={value}
+        disabled={disabled || devices.length === 0}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
+      >
+        <option value="">Padrão do sistema</option>
+        {devices.map((device, index) => (
+          <option key={device.deviceId} value={device.deviceId}>
+            {device.label || `${fallbackLabel} ${index + 1}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function AudioToggle({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 size-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500/30 disabled:opacity-50"
+      />
+      <span className="flex flex-col">
+        <span className="text-sm text-neutral-800">{label}</span>
+        <span className="text-xs text-neutral-400">{hint}</span>
+      </span>
+    </label>
   );
 }
 
@@ -180,7 +598,7 @@ function StudioButton({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: "Mic" | "MicOff" | "Video" | "VideoOff" | "MonitorUp";
+  icon: "Mic" | "MicOff" | "Video" | "VideoOff" | "MonitorUp" | "Settings";
   label: string;
 }) {
   return (

@@ -325,7 +325,13 @@ export async function getCampaignInfluencerSelection(
    * recomendados/catálogo acontece lá: filtrar só no cliente prendia a busca
    * aos 120 perfis com mais seguidores, sempre os mesmos.
    */
-  nicheId?: string | number | null
+  nicheId?: string | number | null,
+  /**
+   * Busca por nome ou @handle. Vai para o servidor pelo mesmo motivo do nicho:
+   * o corte de 120 acontece lá, então buscar só no cliente nunca encontrava
+   * quem estivesse fora dos 120 perfis com mais seguidores.
+   */
+  search?: string | null
 ): Promise<CampaignInfluencerSelectionData> {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
@@ -335,6 +341,9 @@ export async function getCampaignInfluencerSelection(
   const url = new URL(getApiUrl(`/campaigns/${campaignId}/influencer-selection`));
   if (nicheId != null && String(nicheId).trim() !== "") {
     url.searchParams.set("niche", String(nicheId));
+  }
+  if (search != null && search.trim() !== "") {
+    url.searchParams.set("search", search.trim());
   }
 
   const request = await fetch(

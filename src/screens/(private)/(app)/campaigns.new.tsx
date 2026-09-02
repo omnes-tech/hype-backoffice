@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -140,15 +140,23 @@ function CreateCampaignPage() {
   const STEP_FASES     = 5;
   const STEP_REVISAO   = 6;
 
-  const updateFormData = (field: keyof CampaignFormData, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Identidade estável e obrigatória: vários steps declaram `updateFormData` no array
+  // de dependências de useEffect. Sem useCallback a função é recriada a cada render,
+  // o efeito redispara, o setState causa novo render — "Maximum update depth exceeded".
+  const updateFormData = useCallback((field: keyof CampaignFormData, value: unknown) => {
+    setFormData((prev) => {
+      // Bail-out: gravar o mesmo valor não deve produzir render. O spread cria sempre
+      // um objeto novo, então sem esta guarda o React nunca consegue abortar a atualização.
+      if (Object.is(prev[field], value)) return prev;
+      return { ...prev, [field]: value };
+    });
     setFieldErrors((prev) => {
       if (!prev.has(field as string)) return prev;
       const next = new Set(prev);
       next.delete(field as string);
       return next;
     });
-  };
+  }, []);
 
   const transformFormDataToApiData = (formData: CampaignFormData): CreateCampaignData => {
     const subnicheIds = formData.subniches

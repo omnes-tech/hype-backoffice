@@ -184,6 +184,143 @@ export async function uploadCommunityImage(file: File): Promise<{ url: string }>
 export const uploadGroupCover = uploadCommunityImage;
 
 // ---------------------------------------------------------------------------
+// Vídeo do post (migration 089) — rota dedicada, campo `video`, 100MB.
+//
+// Endpoint separado do de imagem porque o backend usa outro storage: imagem vai
+// pro disco do container, vídeo vai pro Supabase Storage (100MB não sobrevive a
+// um redeploy). O contrato de resposta é o mesmo (`{ url }`).
+// ---------------------------------------------------------------------------
+
+export const COMMUNITY_VIDEO_LIMITS = {
+  maxBytes: 100 * 1024 * 1024,
+  /** Teto de duração combinado com produto. Validado aqui — o backend não decodifica o container. */
+  maxDurationSeconds: 180,
+  acceptedMimes: [
+    "video/mp4",
+    "video/quicktime",
+    "video/x-m4v",
+    "video/webm",
+  ] as const,
+} as const;
+
+/** Erro (PT-BR) ou `null`. Só checa o que dá pra saber sem ler o arquivo. */
+export function validateCommunityVideoFile(file: File): string | null {
+  if (file.size > COMMUNITY_VIDEO_LIMITS.maxBytes) {
+    return `O vídeo "${file.name}" excede o limite de 100 MB.`;
+  }
+  if (
+    !(COMMUNITY_VIDEO_LIMITS.acceptedMimes as readonly string[]).includes(
+      file.type,
+    )
+  ) {
+    return `Formato inválido (${file.type || "desconhecido"}). Use MP4, MOV, M4V ou WebM.`;
+  }
+  return null;
+}
+
+export interface VideoProbe {
+  durationSeconds: number;
+  /** Primeiro frame como JPEG. `null` quando o navegador bloqueia o canvas. */
+  poster: File | null;
+}
+
+/**
+ * Lê duração e captura o primeiro frame do vídeo no navegador.
+ *
+ * O poster evita o card de post abrir preto até o player bufferizar — o app faz
+ * o mesmo. `seek` para 0.1s porque o frame do instante 0 costuma vir preto.
+ *
+ * Falha graciosa: se o navegador não decodificar o container (MOV/HEVC no
+ * Chrome, por exemplo), devolve `durationSeconds: 0` e `poster: null` — o
+ * composer trata 0 como "não deu pra medir" e deixa passar, já que o limite
+ * duro de tamanho o backend garante.
+ */
+export function probeVideoFile(file: File): Promise<VideoProbe> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    let settled = false;
+
+    const finish = (probe: VideoProbe) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      video.removeAttribute("src");
+      resolve(probe);
+    };
+
+    // Rede local/arquivo grande: não deixa o composer travar esperando decode.
+    const timeout = window.setTimeout(
+      () => finish({ durationSeconds: 0, poster: null }),
+      8000,
+    );
+
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    video.onerror = () => {
+      window.clearTimeout(timeout);
+      finish({ durationSeconds: 0, poster: null });
+    };
+
+    video.onloadedmetadata = () => {
+      const durationSeconds = Number.isFinite(video.duration)
+        ? video.duration
+        : 0;
+      video.currentTime = Math.min(0.1, durationSeconds || 0);
+
+      video.onseeked = () => {
+        window.clearTimeout(timeout);
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx || !canvas.width || !canvas.height) {
+            finish({ durationSeconds, poster: null });
+            return;
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) =>
+              finish({
+                durationSeconds,
+                poster: blob
+                  ? new File([blob], "poster.jpg", { type: "image/jpeg" })
+                  : null,
+              }),
+            "image/jpeg",
+            0.8,
+          );
+        } catch {
+          finish({ durationSeconds, poster: null });
+        }
+      };
+    };
+
+    video.src = url;
+  });
+}
+
+/** Sobe o vídeo (campo `video`) e devolve a URL pública. */
+export async function uploadCommunityVideo(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("video", file);
+
+  const res = await fetch(getApiUrl(`${BASE}/uploads/video`), {
+    method: "POST",
+    // Sem Content-Type — o browser injeta o boundary do multipart.
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!res.ok) return failWith(res, "Falha ao enviar o vídeo");
+
+  const json = await res.json();
+  return (json.data ?? json) as { url: string };
+}
+
+// ---------------------------------------------------------------------------
 // Moderadores (§4.6)
 // ---------------------------------------------------------------------------
 
@@ -246,6 +383,10 @@ export function deleteGroupPost(id: string, postId: string): Promise<void> {
 export interface CreateGroupPostPayload {
   content: string;
   image_url?: string | null;
+  /** Vídeo já enviado por `uploadCommunityVideo`. */
+  video_url?: string | null;
+  /** Poster extraído do vídeo no navegador (canvas). */
+  video_thumbnail_url?: string | null;
 }
 
 /**
@@ -262,6 +403,10 @@ export function createGroupPost(
   return writeJson<GroupPost>("POST", `${BASE}/${id}/posts`, {
     content: payload.content,
     ...(payload.image_url ? { image_url: payload.image_url } : {}),
+    ...(payload.video_url ? { video_url: payload.video_url } : {}),
+    ...(payload.video_thumbnail_url
+      ? { video_thumbnail_url: payload.video_thumbnail_url }
+      : {}),
     client_request_id: newClientRequestId(),
   });
 }

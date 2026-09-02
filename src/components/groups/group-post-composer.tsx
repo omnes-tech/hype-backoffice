@@ -2,41 +2,69 @@
  * Composer de publicação no grupo — permite enviar mensagens/posts para o grupo
  * direto pelo Backoffice, sem abrir o app.
  *
- * Imagem é opcional e usa upload deferido: o arquivo só sobe no submit, e a
- * `url` retornada vai em `image_url` do post (mesmo fluxo da capa do grupo).
+ * O anexo é opcional e usa upload deferido: o arquivo só sobe no submit, e a
+ * `url` retornada vai em `image_url`/`video_url` do post (mesmo fluxo da capa
+ * do grupo).
+ *
+ * Imagem e vídeo são mutuamente exclusivos: o card do app renderiza um OU
+ * outro, então deixar os dois anexados só criaria a expectativa de um carrossel
+ * que não existe.
  */
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { useCreateGroupPost, useUploadGroupCover } from "@/hooks/use-groups";
-import { validateGroupCoverFile } from "@/shared/services/groups";
+import {
+  useCreateGroupPost,
+  useUploadGroupCover,
+  useUploadGroupVideo,
+} from "@/hooks/use-groups";
+import {
+  COMMUNITY_VIDEO_LIMITS,
+  probeVideoFile,
+  validateCommunityVideoFile,
+  validateGroupCoverFile,
+} from "@/shared/services/groups";
 
 const MAX_CONTENT = 2000;
 
+type Attachment =
+  | { kind: "image"; file: File }
+  | {
+      kind: "video";
+      file: File;
+      /** Primeiro frame extraído no navegador. `null` quando o decode falhou. */
+      poster: File | null;
+    };
+
 export function GroupPostComposer({ groupId }: { groupId: string }) {
   const [content, setContent] = useState("");
-  const [image, setImage] = useState<File | null>(null);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [probing, setProbing] = useState(false);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const createPost = useCreateGroupPost(groupId);
   const uploadImage = useUploadGroupCover();
-  const isSubmitting = createPost.isPending || uploadImage.isPending;
+  const uploadVideo = useUploadGroupVideo();
+  const isSubmitting =
+    createPost.isPending || uploadImage.isPending || uploadVideo.isPending;
+  const isBusy = isSubmitting || probing;
 
   // objectURL precisa ser revogado para não vazar memória entre trocas de anexo.
   useEffect(() => {
-    if (!image) {
+    if (!attachment) {
       setPreview(null);
       return;
     }
-    const url = URL.createObjectURL(image);
+    const url = URL.createObjectURL(attachment.file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [image]);
+  }, [attachment]);
 
-  const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -45,22 +73,73 @@ export function GroupPostComposer({ groupId }: { groupId: string }) {
       toast.error(error);
       return;
     }
-    setImage(file);
+    setAttachment({ kind: "image", file });
+  };
+
+  const handleVideo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const error = validateCommunityVideoFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    setProbing(true);
+    try {
+      const { durationSeconds, poster } = await probeVideoFile(file);
+      // `0` = o navegador não conseguiu ler a duração (container que ele não
+      // decodifica). Não é motivo pra barrar: o limite de tamanho já protege.
+      if (durationSeconds > COMMUNITY_VIDEO_LIMITS.maxDurationSeconds) {
+        const limitMinutes = COMMUNITY_VIDEO_LIMITS.maxDurationSeconds / 60;
+        toast.error(
+          `O vídeo tem ${Math.round(durationSeconds)}s e o limite é de ${limitMinutes} minutos.`,
+        );
+        return;
+      }
+      setAttachment({ kind: "video", file, poster });
+    } finally {
+      setProbing(false);
+    }
   };
 
   const submit = async () => {
     const trimmed = content.trim();
-    if (!trimmed || isSubmitting) return;
+    if (!trimmed || isBusy) return;
 
     try {
       let imageUrl: string | null = null;
-      if (image) {
-        const uploaded = await uploadImage.mutateAsync(image);
-        imageUrl = uploaded.url;
+      let videoUrl: string | null = null;
+      let videoThumbnailUrl: string | null = null;
+
+      if (attachment?.kind === "image") {
+        imageUrl = (await uploadImage.mutateAsync(attachment.file)).url;
+      } else if (attachment?.kind === "video") {
+        videoUrl = (await uploadVideo.mutateAsync(attachment.file)).url;
+        if (attachment.poster) {
+          // Poster é imagem: vai pela rota de imagem mesmo. Se falhar, o post
+          // ainda vale — o player abre sem capa em vez de perder o vídeo.
+          try {
+            videoThumbnailUrl = (await uploadImage.mutateAsync(attachment.poster))
+              .url;
+          } catch {
+            videoThumbnailUrl = null;
+          }
+        }
       }
-      await createPost.mutateAsync({ content: trimmed, image_url: imageUrl });
+
+      await createPost.mutateAsync({
+        content: trimmed,
+        image_url: imageUrl,
+        // Só manda as chaves de vídeo quando há vídeo — mantém o payload
+        // idêntico ao de antes para os posts de texto/imagem.
+        ...(videoUrl
+          ? { video_url: videoUrl, video_thumbnail_url: videoThumbnailUrl }
+          : {}),
+      });
       setContent("");
-      setImage(null);
+      setAttachment(null);
       toast.success("Conteúdo publicado no grupo.");
     } catch (err) {
       toast.error(
@@ -97,31 +176,51 @@ export function GroupPostComposer({ groupId }: { groupId: string }) {
         className="resize-y rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-950 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
       />
 
-      {preview && (
+      {preview && attachment?.kind === "image" && (
         <div className="relative w-fit">
           <img
             src={preview}
             alt="Prévia da imagem do conteúdo"
             className="max-h-48 rounded-xl object-cover"
           />
-          <button
-            type="button"
-            onClick={() => setImage(null)}
+          <RemoveAttachmentButton
             disabled={isSubmitting}
-            aria-label="Remover imagem"
-            className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 shadow-sm transition-colors hover:bg-white disabled:opacity-50"
-          >
-            <Icon name="X" size={14} color="#404040" />
-          </button>
+            label="Remover imagem"
+            onClick={() => setAttachment(null)}
+          />
+        </div>
+      )}
+
+      {preview && attachment?.kind === "video" && (
+        <div className="relative w-fit">
+          <video
+            src={preview}
+            controls
+            playsInline
+            aria-label="Prévia do vídeo do conteúdo"
+            className="max-h-48 rounded-xl bg-black"
+          />
+          <RemoveAttachmentButton
+            disabled={isSubmitting}
+            label="Remover vídeo"
+            onClick={() => setAttachment(null)}
+          />
         </div>
       )}
 
       <input
-        ref={fileRef}
+        ref={imageRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
-        onChange={handleFile}
+        onChange={handleImage}
+      />
+      <input
+        ref={videoRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/x-m4v,video/webm"
+        className="hidden"
+        onChange={(event) => void handleVideo(event)}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -129,12 +228,26 @@ export function GroupPostComposer({ groupId }: { groupId: string }) {
           <Button
             type="button"
             variant="outline"
-            disabled={isSubmitting}
-            onClick={() => fileRef.current?.click()}
+            disabled={isBusy}
+            onClick={() => imageRef.current?.click()}
             className="h-9 rounded-full px-4"
           >
             <Icon name="ImagePlus" size={16} color="#525252" />
-            {image ? "Trocar imagem" : "Adicionar imagem"}
+            {attachment?.kind === "image" ? "Trocar imagem" : "Adicionar imagem"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isBusy}
+            onClick={() => videoRef.current?.click()}
+            className="h-9 rounded-full px-4"
+          >
+            <Icon name="Video" size={16} color="#525252" />
+            {probing
+              ? "Lendo vídeo..."
+              : attachment?.kind === "video"
+                ? "Trocar vídeo"
+                : "Adicionar vídeo"}
           </Button>
           <span className="text-xs text-neutral-400">
             Ctrl/Cmd + Enter para publicar
@@ -146,17 +259,41 @@ export function GroupPostComposer({ groupId }: { groupId: string }) {
           </span>
           <Button
             type="submit"
-            disabled={isSubmitting || content.trim().length === 0}
+            disabled={isBusy || content.trim().length === 0}
             className="h-9 rounded-full px-5"
           >
-            {uploadImage.isPending
-              ? "Enviando imagem..."
-              : createPost.isPending
-                ? "Publicando..."
-                : "Publicar"}
+            {uploadVideo.isPending
+              ? "Enviando vídeo..."
+              : uploadImage.isPending
+                ? "Enviando imagem..."
+                : createPost.isPending
+                  ? "Publicando..."
+                  : "Publicar"}
           </Button>
         </div>
       </div>
     </form>
+  );
+}
+
+function RemoveAttachmentButton({
+  disabled,
+  label,
+  onClick,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 shadow-sm transition-colors hover:bg-white disabled:opacity-50"
+    >
+      <Icon name="X" size={14} color="#404040" />
+    </button>
   );
 }

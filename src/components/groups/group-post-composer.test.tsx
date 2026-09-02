@@ -2,9 +2,9 @@
  * Comportamento do composer de publicação em grupo (Backoffice → app).
  *
  * Cobre o que o usuário precisa conseguir fazer sem sair do Backoffice:
- * escrever, anexar imagem opcional, publicar por botão ou atalho — e o que NÃO
- * pode acontecer: publicar vazio, Enter enviando no meio da digitação, ou o
- * texto sumir quando a publicação falha.
+ * escrever, anexar imagem ou vídeo opcional, publicar por botão ou atalho — e o
+ * que NÃO pode acontecer: publicar vazio, Enter enviando no meio da digitação,
+ * vídeo acima do limite de duração, ou o texto sumir quando a publicação falha.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -12,6 +12,8 @@ import userEvent from "@testing-library/user-event";
 
 const createPostMutate = vi.fn();
 const uploadMutate = vi.fn();
+const uploadVideoMutate = vi.fn();
+const probeVideoFile = vi.fn();
 const toastError = vi.fn();
 const toastSuccess = vi.fn();
 
@@ -31,6 +33,18 @@ vi.mock("@/hooks/use-groups", () => ({
     mutateAsync: uploadMutate,
     isPending: false,
   }),
+  useUploadGroupVideo: () => ({
+    mutateAsync: uploadVideoMutate,
+    isPending: false,
+  }),
+}));
+
+// Só `probeVideoFile` é dublado: ele depende de decode de vídeo, que o jsdom não
+// faz (o elemento nunca dispara loadedmetadata e a prova cairia no timeout). As
+// validações puras do módulo continuam reais — é o que os testes exercitam.
+vi.mock("@/shared/services/groups", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/services/groups")>()),
+  probeVideoFile: (...args: unknown[]) => probeVideoFile(...args),
 }));
 
 import { GroupPostComposer } from "./group-post-composer";
@@ -42,6 +56,13 @@ describe("GroupPostComposer", () => {
   beforeEach(() => {
     createPostMutate.mockReset().mockResolvedValue({ id: "post-1" });
     uploadMutate.mockReset().mockResolvedValue({ url: "/uploads/community/a.png" });
+    uploadVideoMutate
+      .mockReset()
+      .mockResolvedValue({ url: "https://storage/community/videos/a.mp4" });
+    probeVideoFile.mockReset().mockResolvedValue({
+      durationSeconds: 30,
+      poster: new File(["p"], "poster.jpg", { type: "image/jpeg" }),
+    });
     toastError.mockReset();
     toastSuccess.mockReset();
     // jsdom não implementa objectURL — o composer usa para a prévia da imagem.
@@ -168,5 +189,101 @@ describe("GroupPostComposer", () => {
 
     await user.keyboard("{Control>}{Enter}{/Control}");
     expect(createPostMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("sobe vídeo e poster antes do post e publica com video_url", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<GroupPostComposer groupId="group-abc" />);
+    const videoInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+
+    fireEvent.change(videoInput, {
+      target: { files: [new File(["v"], "clipe.mp4", { type: "video/mp4" })] },
+    });
+    expect(
+      await screen.findByLabelText("Prévia do vídeo do conteúdo"),
+    ).toBeInTheDocument();
+
+    await user.type(textbox(), "Com vídeo");
+    await user.click(publishButton());
+
+    await waitFor(() =>
+      expect(createPostMutate).toHaveBeenCalledWith({
+        content: "Com vídeo",
+        image_url: null,
+        video_url: "https://storage/community/videos/a.mp4",
+        video_thumbnail_url: "/uploads/community/a.png",
+      }),
+    );
+    // O poster vai pela rota de imagem; o vídeo, pela dedicada.
+    expect(uploadVideoMutate).toHaveBeenCalledTimes(1);
+    expect(uploadMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("publica o vídeo mesmo quando o poster falha ao subir", async () => {
+    uploadMutate.mockRejectedValue(new Error("storage fora do ar"));
+    const user = userEvent.setup();
+    const { container } = render(<GroupPostComposer groupId="group-abc" />);
+    const videoInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+
+    fireEvent.change(videoInput, {
+      target: { files: [new File(["v"], "clipe.mp4", { type: "video/mp4" })] },
+    });
+    await screen.findByLabelText("Prévia do vídeo do conteúdo");
+
+    await user.type(textbox(), "Sem capa");
+    await user.click(publishButton());
+
+    await waitFor(() =>
+      expect(createPostMutate).toHaveBeenCalledWith({
+        content: "Sem capa",
+        image_url: null,
+        video_url: "https://storage/community/videos/a.mp4",
+        video_thumbnail_url: null,
+      }),
+    );
+  });
+
+  it("recusa vídeo acima do limite de duração sem anexar", async () => {
+    probeVideoFile.mockResolvedValue({ durationSeconds: 400, poster: null });
+    const { container } = render(<GroupPostComposer groupId="group-abc" />);
+    const videoInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+
+    fireEvent.change(videoInput, {
+      target: { files: [new File(["v"], "longo.mp4", { type: "video/mp4" })] },
+    });
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(
+      screen.queryByLabelText("Prévia do vídeo do conteúdo"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("troca a imagem anexada pelo vídeo — os dois não coexistem", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<GroupPostComposer groupId="group-abc" />);
+    const inputs = container.querySelectorAll('input[type="file"]');
+
+    await user.upload(
+      inputs[0] as HTMLInputElement,
+      new File(["x"], "banner.png", { type: "image/png" }),
+    );
+    await screen.findByAltText("Prévia da imagem do conteúdo");
+
+    fireEvent.change(inputs[1] as HTMLInputElement, {
+      target: { files: [new File(["v"], "clipe.mp4", { type: "video/mp4" })] },
+    });
+
+    expect(
+      await screen.findByLabelText("Prévia do vídeo do conteúdo"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Prévia da imagem do conteúdo"),
+    ).not.toBeInTheDocument();
   });
 });

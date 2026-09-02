@@ -7,6 +7,8 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useDebounce } from "@/hooks/use-debounce";
+import { normalizeForSearch, parseSearchTerm } from "@/shared/utils/search-text";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -265,10 +267,14 @@ function selectionItemMatchesFilters(
   item: InfluencerSelectionProfileItem,
   f: SelectionFilters
 ): boolean {
-  if (f.searchTerm.trim()) {
-    const q = f.searchTerm.toLowerCase();
-    const name = item.user.name.toLowerCase();
-    const handle = item.social_network.username.toLowerCase().replace(/^@/, "");
+  // `parseSearchTerm` apara, tira acento e remove o "@" — a mesma normalização
+  // do servidor. Antes: o termo não era aparado (" maria " não casava), acento
+  // não era ignorado ("jose" não achava "José") e digitar "@handle" nunca casava,
+  // porque o "@" era removido só do lado do item.
+  const q = parseSearchTerm(f.searchTerm);
+  if (q) {
+    const name = normalizeForSearch(item.user.name);
+    const handle = normalizeForSearch(item.social_network.username);
     if (!name.includes(q) && !handle.includes(q)) return false;
   }
   if (f.nicheIds && f.nicheIds.length > 0) {
@@ -485,6 +491,9 @@ export function InfluencerSelectionTab({
   const workspaceId = useWorkspaceQueryKey();
   const { data: niches = [] } = useNiches();
   const [searchTerm, setSearchTerm] = useState("");
+  // A busca é resolvida no servidor (antes do corte de 120), então o valor cru
+  // não pode ir a cada tecla — 400ms é o mesmo padrão usado nas outras telas.
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
   const [filterNiche, setFilterNiche] = useState("");
   const [filterGender, setFilterGender] = useState("");
   const [followersMinInput, setFollowersMinInput] = useState("");
@@ -692,7 +701,7 @@ export function InfluencerSelectionTab({
     isError: isSelectionError,
     error: selectionError,
     refetch: refetchSelection,
-  } = useCampaignInfluencerSelection(campaignId, filterNiche);
+  } = useCampaignInfluencerSelection(campaignId, filterNiche, debouncedSearchTerm);
   const { mutate: inviteInfluencer, isPending: isInviting } = useInviteInfluencer(campaignId);
   const { mutate: addToPreSelection, isPending: isAddingToPreSelection } = useAddToPreSelection(campaignId);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateInfluencerStatus(campaignId);
@@ -748,8 +757,10 @@ export function InfluencerSelectionTab({
   };
 
   // Filtros consolidados. Numéricos parseados aqui (string vazia → sem limite).
-  // A lista de seleção é client-side (≤240 itens) → filtrar/ordenar é barato e
-  // não exige debounce.
+  // Nicho e busca são resolvidos no SERVIDOR (antes do corte de 120); o que
+  // sobra aqui é refino instantâneo sobre o resultado já carregado, usando a
+  // mesma normalização — se o cliente fosse mais estrito, esconderia linhas
+  // que a API acabou de devolver.
   const selectionFilters = useMemo<SelectionFilters>(() => {
     const toNum = (v: string): number | null => {
       const n = Number(v);
@@ -776,7 +787,7 @@ export function InfluencerSelectionTab({
   ]);
 
   const hasActiveFilters =
-    !!selectionFilters.searchTerm.trim() ||
+    !!parseSearchTerm(selectionFilters.searchTerm) ||
     !!filterNiche ||
     !!selectionFilters.filterGender ||
     selectionFilters.followersMin != null ||
