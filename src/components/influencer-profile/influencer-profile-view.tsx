@@ -618,8 +618,11 @@ export function InfluencerProfileView({
                   <Select
                     value={String(metricsPosts)}
                     onChange={(v) => onMetricsPostsChange(Number(v))}
-                    options={[5, 10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))}
-                    className="!w-24"
+                    options={[10, 30].map((n) => ({
+                      value: String(n),
+                      label: `Últimos ${n}`,
+                    }))}
+                    className="!w-36"
                   />
                 </div>
               </div>
