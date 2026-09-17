@@ -141,9 +141,15 @@ function fmtAvg(n: number | undefined | null): string {
 export interface InfluencerProfileViewProps {
   data: CampaignInfluencerProfileResponse;
   /**
-   * `private` = backoffice logado (mostra seletor de posts analisados e o botão
-   * "Ver avaliação" via `onEvaluate`). `public` = página compartilhável
-   * `/u/:username` (sem seletor, sem avaliações interativas).
+   * `private` = backoffice logado (mostra seletor de posts analisados, o botão
+   * "Ver avaliação" via `onEvaluate` e os dados de contato). `public` = página
+   * compartilhável `/u/:username`: sem seletor, sem avaliações interativas e
+   * **sem contato nem endereço de entrega** — é um link que o próprio criador
+   * divulga, e e-mail/telefone/endereço ali viram coleta fácil.
+   *
+   * A API já corta esses campos na rota pública
+   * (`stripPrivateContactFields`); esconder aqui é a segunda camada, para o
+   * dado não aparecer nem se algum outro caminho voltar a mandá-lo.
    */
   mode: "private" | "public";
   /** Nº de posts analisados (controlado pelo wrapper que dispara o refetch). */
@@ -162,12 +168,12 @@ export interface InfluencerProfileViewProps {
  */
 export function InfluencerProfileView({
   data,
-  // `mode` fica na interface p/ autodocumentar os call sites (mode="public"),
-  // mas o comportamento é dirigido pelas props opcionais abaixo — não lido aqui.
+  mode,
   metricsPosts = 10,
   onMetricsPostsChange,
   onEvaluate,
 }: InfluencerProfileViewProps) {
+  const showContactData = mode === "private";
   const [metricsTab, setMetricsTab] = useState<(typeof METRIC_NETWORKS)[number]>("Instagram");
 
   const availableNetworks = METRIC_NETWORKS.filter(
@@ -417,7 +423,7 @@ export function InfluencerProfileView({
             {influencer.bio ?? "Nenhuma descrição informada."}
           </p>
         </div>
-        {(influencer.email || influencer.phone) && (
+        {showContactData && (influencer.email || influencer.phone) && (
           <div className="flex flex-col gap-3 px-5 py-4 border-t border-neutral-100">
             <p className="text-xl font-semibold text-neutral-950">Contato</p>
             <div className="flex flex-col gap-2">
@@ -446,7 +452,7 @@ export function InfluencerProfileView({
             </div>
           </div>
         )}
-        {influencer.shipping_address && (
+        {showContactData && influencer.shipping_address && (
           <div className="flex flex-col gap-3 px-5 py-4 border-t border-neutral-100">
             <div className="flex items-center gap-2">
               <Icon name="MapPin" size={20} color="#737373" />
@@ -618,8 +624,11 @@ export function InfluencerProfileView({
                   <Select
                     value={String(metricsPosts)}
                     onChange={(v) => onMetricsPostsChange(Number(v))}
-                    options={[5, 10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))}
-                    className="!w-24"
+                    options={[10, 30].map((n) => ({
+                      value: String(n),
+                      label: `Últimos ${n}`,
+                    }))}
+                    className="!w-36"
                   />
                 </div>
               </div>

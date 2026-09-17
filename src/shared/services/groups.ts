@@ -187,7 +187,7 @@ export const uploadGroupCover = uploadCommunityImage;
 // Vídeo do post (migration 089) — rota dedicada, campo `video`, 100MB.
 //
 // Endpoint separado do de imagem porque o backend usa outro storage: imagem vai
-// pro disco do container, vídeo vai pro Supabase Storage (100MB não sobrevive a
+// pro disco do container, vídeo vai pro Spaces (100MB não sobrevive a
 // um redeploy). O contrato de resposta é o mesmo (`{ url }`).
 // ---------------------------------------------------------------------------
 

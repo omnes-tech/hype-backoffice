@@ -63,6 +63,17 @@ function captureOptionsFor(settings: AudioSettings): AudioCaptureOptions {
   };
 }
 
+/**
+ * Remove a publicação do microfone e para a captura. Única forma de a próxima
+ * ativação respeitar opções novas — ver `applyAudio`.
+ */
+async function unpublishMicrophone(room: Room): Promise<void> {
+  const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+  if (pub?.track) {
+    await room.localParticipant.unpublishTrack(pub.track, true);
+  }
+}
+
 function publishOptionsFor(settings: AudioSettings): TrackPublishOptions {
   return settings.profile === "music"
     ? {
@@ -277,19 +288,26 @@ export function LiveStudio({
   /**
    * Republica o microfone com as novas opções.
    *
-   * Trocar processamento ou perfil exige recriar a track (constraints entram na
-   * captura, não dá pra alterar no ar), então desligamos e religamos o mic. O
-   * vídeo continua no ar — quem assiste vê um engasgo no áudio, não um corte.
+   * Trocar processamento, perfil ou dispositivo exige recriar a track
+   * (constraints entram na captura, não dá pra alterar no ar). E recriar exige
+   * DESPUBLICAR: no livekit-client, `setMicrophoneEnabled(false)` só muta a
+   * publicação, e o `setMicrophoneEnabled(true, opções)` seguinte desmuta a
+   * MESMA track ignorando as opções — o painel inteiro não aplicava nada.
+   *
+   * O vídeo continua no ar — quem assiste ouve um engasgo, não um corte.
    */
   const applyAudio = async (next: AudioSettings) => {
     setAudio(next);
     const room = roomRef.current;
-    if (!room || !micOn) return;
+    if (!room) return;
 
     setApplying(true);
     try {
       stopMeter();
-      await room.localParticipant.setMicrophoneEnabled(false);
+      await unpublishMicrophone(room);
+      // Mic desligado: a track velha já saiu, então o próximo `toggleMic` cria
+      // uma nova com estas opções em vez de desmutar a antiga.
+      if (!micOn) return;
       const pub = await room.localParticipant.setMicrophoneEnabled(
         true,
         captureOptionsFor(next),
