@@ -18,6 +18,7 @@ import { useApproveContent, useRejectContent } from "@/hooks/use-campaign-conten
 import { useBulkContentActions } from "@/hooks/use-bulk-content-actions";
 import { getContentEvaluation } from "@/shared/services/content";
 import { getUploadUrl } from "@/lib/utils/api";
+import { ContentPreview } from "@/components/campaign-tabs/shared/content-preview";
 import {
   getSocialNetworkDisplayLabel,
   SocialNetworkIcon,
@@ -450,154 +451,6 @@ export function ContentApprovalTab({
     }
   };
 
-  // Função para detectar se é vídeo ou imagem baseado na URL
-  // Prioriza extensões de arquivo (mais confiável) e analisa cada URL individualmente
-  const isVideoFile = (url: string, contentType?: string): boolean => {
-    if (!url) return false;
-    
-    const urlLower = url.toLowerCase();
-    const urlPath = urlLower.split('?')[0]; // Remover query params
-    
-    // PRIMEIRO: Verificar extensões de imagem (mais específico e confiável)
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.jfif'];
-    // Verificar se termina com extensão de imagem (mais confiável)
-    if (imageExtensions.some(ext => urlPath.endsWith(ext))) {
-      return false; // É imagem, não vídeo
-    }
-    
-    // SEGUNDO: Verificar extensões de vídeo (mais específico e confiável)
-    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.mpg', '.mpeg'];
-    // Verificar se termina com extensão de vídeo (mais confiável)
-    if (videoExtensions.some(ext => urlPath.endsWith(ext))) {
-      return true; // É vídeo
-    }
-    
-    // TERCEIRO: Verificar tipo MIME na URL (se houver)
-    // Algumas URLs podem ter tipo MIME no path ou query params
-    if (urlLower.includes('image/') || urlLower.includes('image%2f')) {
-      return false;
-    }
-    if (urlLower.includes('video/') || urlLower.includes('video%2f')) {
-      return true;
-    }
-    
-    // QUARTO: Verificar tipo de conteúdo (menos confiável, pois é geral)
-    // Só usar se não tiver extensão clara
-    if (contentType) {
-      const contentTypeLower = contentType.toLowerCase();
-      // Tipos que geralmente são vídeos
-      if (contentTypeLower.includes('video') || 
-          contentTypeLower.includes('reels') || 
-          contentTypeLower.includes('reel') ||
-          contentTypeLower.includes('shorts') ||
-          contentTypeLower.includes('short')) {
-        // Mas só confiar se não tiver extensão de imagem
-        if (!imageExtensions.some(ext => urlPath.includes(ext))) {
-          return true;
-        }
-      }
-      
-      // Tipos que geralmente são imagens
-      if (contentTypeLower.includes('image') || 
-          contentTypeLower.includes('photo') ||
-          contentTypeLower.includes('picture') ||
-          contentTypeLower === 'post' ||
-          contentTypeLower === 'story' ||
-          contentTypeLower === 'stories') {
-        return false;
-      }
-    }
-    
-    // ÚLTIMO RECURSO: Verificar palavras-chave na URL (menos confiável)
-    // Só usar se não tiver extensão clara
-    const hasImageExtension = imageExtensions.some(ext => urlPath.includes(ext));
-    const hasVideoExtension = videoExtensions.some(ext => urlPath.includes(ext));
-    
-    if (hasImageExtension && !hasVideoExtension) {
-      return false;
-    }
-    if (hasVideoExtension && !hasImageExtension) {
-      return true;
-    }
-    
-    // Se não tiver extensão clara, verificar palavras-chave muito específicas
-    // Mas ser conservador - só marcar como vídeo se for muito claro
-    const strongVideoKeywords = ['/video/', '/videos/', '.mp4', '.mov', '.webm'];
-    if (strongVideoKeywords.some(keyword => urlPath.includes(keyword))) {
-      return true;
-    }
-    
-    // Por padrão, assumir que é imagem (mais comum em redes sociais)
-    // URLs sem extensão geralmente são imagens servidas por CDNs
-    return false;
-  };
-
-  // Componente para renderizar preview individual (imagem ou vídeo)
-  const renderSinglePreview = (previewUrl: string, contentType?: string) => {
-    const cleanPath = previewUrl.toLowerCase().split("?")[0];
-    if (cleanPath.endsWith(".heic") || cleanPath.endsWith(".heif")) {
-      return (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-neutral-100 p-4 text-center">
-          <Icon name="Image" size={30} color="#737373" />
-          <p className="text-xs text-neutral-600">
-            O navegador pode não exibir HEIC/HEIF. Abra o original para revisar.
-          </p>
-          <a
-            href={previewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            download
-            className="rounded-full bg-primary-600 px-4 py-2 text-xs font-semibold text-white"
-          >
-            Abrir arquivo original
-          </a>
-        </div>
-      );
-    }
-    const isVideo = isVideoFile(previewUrl, contentType);
-    
-    if (isVideo) {
-      return (
-        <video
-          src={previewUrl}
-          className="w-full h-full object-contain"
-          controls
-          playsInline
-          preload="metadata"
-          onError={(e) => {
-            // Se o vídeo falhar, mostrar mensagem de erro
-            const target = e.target as HTMLVideoElement;
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'w-full h-full flex items-center justify-center bg-neutral-200 text-neutral-600 text-sm';
-            errorDiv.textContent = 'Erro ao carregar vídeo';
-            target.parentNode?.replaceChild(errorDiv, target);
-          }}
-        >
-          Seu navegador não suporta a tag de vídeo.
-        </video>
-      );
-    }
-
-    // Por padrão, renderizar como imagem
-    return (
-      <img
-        src={previewUrl}
-        alt="Preview"
-        className="w-full h-full object-contain"
-        onError={(e) => {
-          // Se a imagem falhar, mostrar placeholder
-          const target = e.target as HTMLImageElement;
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'w-full h-full flex items-center justify-center bg-neutral-200';
-          const icon = document.createElement('div');
-          icon.className = 'text-neutral-400';
-          icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-          errorDiv.appendChild(icon);
-          target.parentNode?.replaceChild(errorDiv, target);
-        }}
-      />
-    );
-  };
 
   // Função para abrir modal de preview
   const openPreviewModal = (previewUrl: string | null | undefined, previewUrls?: string[], contentType?: string) => {
@@ -643,7 +496,7 @@ export function ContentApprovalTab({
           className="w-full h-full cursor-pointer hover:opacity-90 transition-opacity rounded-lg overflow-hidden bg-neutral-200"
           onClick={() => openPreviewModal(previewUrl, previewUrls, contentType)}
         >
-          {renderSinglePreview(urls[0], contentType)}
+          <ContentPreview key={urls[0]} url={urls[0]} contentType={contentType} />
         </div>
       );
     }
@@ -669,7 +522,7 @@ export function ContentApprovalTab({
         <div className={`grid ${getGridClass()} gap-0.5 h-full`}>
           {visibleUrls.map((url, index) => (
             <div key={index} className="relative rounded overflow-hidden bg-neutral-200 aspect-square">
-              {renderSinglePreview(url, contentType)}
+              <ContentPreview key={url} url={url} contentType={contentType} />
               {index === maxVisible - 1 && remainingCount > 0 && (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
                   <span className="text-white text-sm font-bold">+{remainingCount}</span>
@@ -1418,10 +1271,11 @@ export function ContentApprovalTab({
         >
           <div className="flex flex-col gap-4">
             <div className="relative w-full aspect-video bg-neutral-900 rounded-xl overflow-hidden">
-              {renderSinglePreview(
-                previewModalUrls[previewModalCurrentIndex],
-                previewModalContentType
-              )}
+              <ContentPreview
+                key={previewModalUrls[previewModalCurrentIndex]}
+                url={previewModalUrls[previewModalCurrentIndex]}
+                contentType={previewModalContentType}
+              />
               
               {/* Navegação anterior/próximo */}
               {previewModalUrls.length > 1 && (
@@ -1467,7 +1321,7 @@ export function ContentApprovalTab({
                         : "border-neutral-200 opacity-60 hover:opacity-100"
                     }`}
                   >
-                    {renderSinglePreview(url, previewModalContentType)}
+                    <ContentPreview key={url} url={url} contentType={previewModalContentType} />
                   </button>
                 ))}
               </div>
